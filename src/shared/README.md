@@ -1,8 +1,15 @@
-# src/shared — network message definitions (stub)
+# src/shared — messages and transports
 
-Typed definitions of the messages exchanged between client and server:
-client intents (move, attack, cast, end turn, chat, trade) and server events
-(state snapshots, roll results, initiative changes, encounter start/end).
-Both `src/server/` and `src/client/` depend on this folder; it depends on
-nothing but `src/core/` value types.
-Keep messages small, versionable and serialisable to plain Dictionaries.
+Code shared by `src/server/` and `src/client/`; depends only on `src/core/`.
+
+- `messages.gd` (`Messages`): protocol version, intent types and result
+  kinds, `make_intent` / `make_result` builders and structural validators.
+  Messages are plain JSON-safe Dictionaries; positions are `[x, y]` arrays.
+- `transport.gd` (`Transport`): the interface server and client code talk
+  through (`send_intent`, `send_result`, `broadcast_result`, signals
+  `intent_received` / `result_received`).
+- `local_transport.gd` (`LocalTransport`): offline, in-process transport.
+  Messages are deep-copied into one FIFO queue and delivered by `pump()`,
+  which the offline server calls once per tick.
+- `floor_file.gd` (`FloorFile`): loads `floors/floor_NNN.json` into a core
+  `FloorData`.
