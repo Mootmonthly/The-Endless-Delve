@@ -42,6 +42,34 @@ extends RefCounted
 ##   "slow" (target loses 2 tiles of movement on its next turn),
 ##   "mockery" (target has disadvantage on its next attack roll), "hex".
 ## When no rider is given, ray_of_frost / vicious_mockery / guiding_bolt get theirs by id.
+##
+## Round B effect types and fields (SpellEffects.OVERRIDES supplies them for
+## data spells whose effect is still "unsupported"):
+##   buff:      "modifiers" {...} (Combatant buff modifiers: ac, attack_dice,
+##              save_dice, resist, fly_ft, ...), "effect_id", "rounds" (0 =
+##              encounter), "max_targets" (+ "targets_per_slot"), "condition"
+##              (Invisibility), "modes" {mode: {modifiers}} picked by the cast's "mode"
+##   save / area_save / spell_attack: also "apply_effect" {modifiers} (+
+##              "effect_id", "duration"), "extra_conditions" [ids], "dot" {dice,
+##              type, trigger, once?, save?}, "extra_damage" [{damage, damage_type}],
+##              "heal_caster" ("half"), "sustain" ("action" | "bonus_action")
+##   temp_hp:   dice (+ per_slot_level_above), targets like heal
+##   heal:      also "max_targets" (Mass Healing Word); area_heal: allies in the area
+##   heal_pool: "pool" hit points split among allies in range (Mass Heal)
+##   summon:    "monster" (default form), "forms" (allowed ids or "beast"), "max_cr",
+##              "count" {cr: n}, "rounds", "familiar", "custom": "spiritual_weapon"
+##   teleport:  "range_ft" (the spell's range), "need_sight"
+##   zone:      "zone" {triggers, save, damage, damage_type, on_save, condition,
+##              difficult, ground, plant, affects, rounds, obscured, silence,
+##              wall, anchor ("caster"), move, move_ft, drift_ft, per_tile_damage, pool}
+##   sleep:     "pool" dice (+ "per_slot_level_above") of hit points put to sleep
+##   revive:    "max_rounds" since death (Revivify); "hp" restored
+##   dispel:    "conditions" [ids] ended, "spells": true (ends spell effects)
+##   threshold: "levels" [[hp, outcome], ...] (Power Word Kill / Stun, Divine Word)
+##   transform: "form" (default monster), "max_cr" (polymorph)
+##   reaction:  resolved by the reaction system (Shield, Counterspell)
+## A top-level "target": "any" lets a spell target allies (no save) or
+## hostiles (save) alike.
 
 const SCHEMA_VERSION := 1
 const REQUIRED_FIELDS: Array[String] = ["id", "display_name", "level", "effect"]
@@ -53,14 +81,34 @@ const EFFECT_BUFF := "buff"
 const EFFECT_MARK := "mark"
 const EFFECT_AREA_SAVE := "area_save"
 const EFFECT_AREA_ATTACK := "area_attack"
+const EFFECT_TEMP_HP := "temp_hp"
+const EFFECT_AREA_HEAL := "area_heal"
+const EFFECT_HEAL_POOL := "heal_pool"
+const EFFECT_SUMMON := "summon"
+const EFFECT_TELEPORT := "teleport"
+const EFFECT_ZONE := "zone"
+const EFFECT_SLEEP := "sleep"
+const EFFECT_REVIVE := "revive"
+const EFFECT_DISPEL := "dispel"
+const EFFECT_THRESHOLD := "threshold"
+const EFFECT_TRANSFORM := "transform"
+const EFFECT_REACTION := "reaction"
 const EFFECT_UNSUPPORTED := "unsupported"
-const EFFECT_TYPES: Array[String] = [EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_MARK, EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK, EFFECT_UNSUPPORTED]
+const EFFECT_TYPES: Array[String] = [
+	EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_MARK, EFFECT_AREA_SAVE,
+	EFFECT_AREA_ATTACK, EFFECT_TEMP_HP, EFFECT_AREA_HEAL, EFFECT_HEAL_POOL, EFFECT_SUMMON, EFFECT_TELEPORT,
+	EFFECT_ZONE, EFFECT_SLEEP, EFFECT_REVIVE, EFFECT_DISPEL, EFFECT_THRESHOLD, EFFECT_TRANSFORM, EFFECT_REACTION,
+	EFFECT_UNSUPPORTED,
+]
+## Effects whose cast names a point (areas; teleports; summons may).
+const POINT_EFFECTS: Array[String] = [EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK, EFFECT_ZONE, EFFECT_AREA_HEAL, EFFECT_SLEEP]
 const AREA_SHAPES: Array[String] = ["sphere", "cube", "cone", "line", "cylinder"]
 const TARGET_CREATURE := "creature"
 const TARGET_SELF := "self"
 const TARGET_CREATURE_OR_SELF := "creature_or_self"
 const TARGET_ALLY := "ally"
-const TARGETS: Array[String] = [TARGET_CREATURE, TARGET_SELF, TARGET_CREATURE_OR_SELF, TARGET_ALLY]
+const TARGET_ANY := "any"
+const TARGETS: Array[String] = [TARGET_CREATURE, TARGET_SELF, TARGET_CREATURE_OR_SELF, TARGET_ALLY, TARGET_ANY]
 ## Casting times usable in combat; any other non-empty value loads as data only.
 const CASTING_TIMES: Array[String] = ["action", "bonus_action"]
 const DEFAULT_CONDITION_ROUNDS := 10  # 1 minute
@@ -121,6 +169,18 @@ var push_tiles: int = 0  # area_save: creatures failing the save are pushed away
 var condition: String = ""  # SRD condition applied ("" = none)
 var condition_duration: Dictionary = {}  # Conditions duration ({} = default)
 var raw: Dictionary = {}  # the whole JSON object (descriptive fields)
+var zone: Dictionary = {}  # "zone" effects: the lingering area's rules (see Encounter._create_tile_effect)
+var modifiers: Dictionary = {}  # buff modifiers (buff) or the effect a failed save applies (apply_effect)
+var effect_id: String = ""  # buff / applied effect id (default: the spell id)
+var rounds: int = DEFAULT_CONDITION_ROUNDS  # buff duration in rounds (0 = the encounter)
+var max_targets: int = 1  # creatures one casting affects (bless: 3)
+var targets_per_slot: int = 0  # extra creatures per slot level above the spell's
+var extra_conditions: Array[String] = []  # further conditions applied with `condition`
+var extra_damage: Array[Dictionary] = []  # [{"damage", "damage_type", "damage_by_slot"?}] a second damage type
+var dot: Dictionary = {}  # damage over time applied on a hit / failed save
+var sustain: String = ""  # "action" / "bonus_action": recast without a slot while concentrating
+var modes: Dictionary = {}  # mode -> {modifiers...} (cast "mode")
+var overridden: bool = false  # the effect came from SpellEffects.OVERRIDES
 
 
 ## Returns null (and push_error) when a field is missing or invalid.
@@ -136,6 +196,11 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 	if d.has("schema_version") and DictUtil.to_int(d["schema_version"], -1) != SCHEMA_VERSION:
 		push_error("%s: unsupported schema_version %s" % [ctx, str(d["schema_version"])])
 		return null
+	var effect_check: Variant = d.get("effect", {})
+	if typeof(effect_check) == TYPE_DICTIONARY and str((effect_check as Dictionary).get("type", "")).to_lower() == EFFECT_UNSUPPORTED \
+			and SpellEffects.OVERRIDES.has(s.id):
+		d = SpellEffects.apply_override(d)
+		s.overridden = true
 	s.display_name = str(d["display_name"])
 	s.description = str(d.get("description", ""))
 	s.school = str(d.get("school", ""))
@@ -196,6 +261,8 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 	if not SpellDefinition._parse_condition(s, e, ctx):
 		return null
 	s.push_tiles = GridMath.feet_to_tiles(DictUtil.to_int(e.get("push_ft", 0), 0))
+	if not SpellDefinition._parse_round_b(s, e, d, ctx):
+		return null
 	var st_v: Variant = d.get("saving_throw", null)
 	if typeof(st_v) == TYPE_DICTIONARY:
 		var st: Dictionary = st_v
@@ -238,7 +305,9 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 					var beams_d: Dictionary = beams_v
 					for key: Variant in beams_d.keys():
 						s.beams[DictUtil.to_int(key, 1)] = maxi(1, DictUtil.to_int(beams_d[key], 1))
-			var damage_optional := s.damage.is_empty() and not s.condition.is_empty() and s.effect_type in [EFFECT_SAVE, EFFECT_AREA_SAVE]
+			var damage_optional := s.damage.is_empty() and (not s.condition.is_empty() or not s.modifiers.is_empty() or not s.dot.is_empty() \
+					or s.push_tiles > 0 or e.has("curse_mark")) \
+					and s.effect_type in [EFFECT_SAVE, EFFECT_AREA_SAVE]
 			if not damage_optional and not DiceFormula.parse(s.damage).valid:
 				push_error("%s: invalid damage '%s'" % [ctx, s.damage])
 				return null
@@ -256,7 +325,7 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 			if s.darts < 1 or not DiceExpr.parse(s.damage).valid:
 				push_error("%s: auto_hit needs darts >= 1 and valid damage" % ctx)
 				return null
-		EFFECT_HEAL:
+		EFFECT_HEAL, EFFECT_AREA_HEAL, EFFECT_TEMP_HP:
 			s.heal_dice = str(e.get("dice", e.get("heal", "")))
 			if s.heal_dice.is_empty() and not s.heal_by_slot.is_empty():
 				s.heal_dice = s.heal_by_slot.get(s.level, s.heal_by_slot.values()[0])
@@ -265,7 +334,7 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 				return null
 			s.add_casting_mod = DictUtil.to_bool(e.get("add_casting_mod", false), false)
 		EFFECT_BUFF:
-			s.buff = str(e.get("buff", "")).to_lower()
+			s.buff = str(e.get("buff", s.effect_id if not s.modifiers.is_empty() or not s.modes.is_empty() or not s.condition.is_empty() else "")).to_lower()
 			if s.buff.is_empty():
 				push_error("%s: buff effect needs a \"buff\" id" % ctx)
 				return null
@@ -280,7 +349,7 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 	if s.effect_type == EFFECT_MARK:
 		if s.damage.is_empty():
 			s.damage = str(e.get("bonus_damage", "1d6"))
-		if s.damage_type.is_empty():
+		if s.damage_type.is_empty() and s.rider == RIDER_HEX:
 			s.damage_type = "necrotic"
 		if not DiceExpr.parse(s.damage).valid:
 			push_error("%s: invalid mark damage '%s'" % [ctx, s.damage])
@@ -322,6 +391,68 @@ static func _parse_condition(s: SpellDefinition, e: Dictionary, ctx: String) -> 
 		push_error("%s: unknown condition '%s'" % [ctx, s.condition])
 		return false
 	return true
+
+
+## Round B fields (see the class doc): modifiers, effect_id, rounds, targets,
+## extra conditions, extra damage, damage over time, sustain, modes, zone.
+static func _parse_round_b(s: SpellDefinition, e: Dictionary, d: Dictionary, ctx: String) -> bool:
+	var mods_v: Variant = e.get("modifiers", e.get("apply_effect", {}))
+	if typeof(mods_v) == TYPE_DICTIONARY:
+		var mods: Dictionary = mods_v
+		s.modifiers = mods.duplicate(true)
+	s.effect_id = str(e.get("effect_id", s.id))
+	s.rounds = maxi(0, DictUtil.to_int(e.get("rounds", DEFAULT_CONDITION_ROUNDS), DEFAULT_CONDITION_ROUNDS))
+	s.max_targets = maxi(1, DictUtil.to_int(e.get("max_targets", 1), 1))
+	s.targets_per_slot = maxi(0, DictUtil.to_int(e.get("targets_per_slot", 0), 0))
+	for c in DictUtil.to_string_array(e.get("extra_conditions", [])):
+		if not Conditions.is_condition(c):
+			push_error("%s: unknown condition '%s'" % [ctx, c])
+			return false
+		s.extra_conditions.append(c)
+	var extra_src: Variant = e.get("extra_damage", d.get("extra_damage", []))
+	for raw_extra in DictUtil.to_dict_array(extra_src):
+		var entry := {"damage_type": str(raw_extra.get("damage_type", "")).to_lower(), "damage": str(raw_extra.get("damage", ""))}
+		var by_slot: Dictionary[int, String] = {}
+		if not SpellDefinition._parse_formula_table(raw_extra.get("damage_by_slot", null), by_slot, ctx + " extra_damage"):
+			return false
+		if str(entry["damage"]).is_empty() and not by_slot.is_empty():
+			entry["damage"] = by_slot.get(s.level, by_slot.values()[0])
+		if not DiceFormula.parse(str(entry["damage"])).valid:
+			continue
+		s.extra_damage.append(entry)
+	var dot_v: Variant = e.get("dot", {})
+	if typeof(dot_v) == TYPE_DICTIONARY:
+		var dot_d: Dictionary = dot_v
+		s.dot = dot_d.duplicate(true)
+	s.sustain = str(e.get("sustain", ""))
+	var modes_v: Variant = e.get("modes", {})
+	if typeof(modes_v) == TYPE_DICTIONARY:
+		var modes_d: Dictionary = modes_v
+		s.modes = modes_d.duplicate(true)
+	var zone_v: Variant = e.get("zone", {})
+	if typeof(zone_v) == TYPE_DICTIONARY:
+		var zone_d: Dictionary = zone_v
+		s.zone = zone_d.duplicate(true)
+	if s.effect_type == EFFECT_ZONE and s.area_shape.is_empty():
+		push_error("%s: zone needs a top-level area" % ctx)
+		return false
+	return true
+
+
+## The modifiers for a cast "mode" (modes), else the base modifiers.
+func modifiers_for(mode: String) -> Dictionary:
+	if not mode.is_empty() and modes.has(mode):
+		var m: Variant = modes[mode]
+		if typeof(m) == TYPE_DICTIONARY:
+			var out := modifiers.duplicate(true)
+			out.merge(m as Dictionary, true)
+			return out
+	return modifiers.duplicate(true)
+
+
+## Creatures one casting at slot_level may target.
+func targets_at(slot_level: int) -> int:
+	return max_targets + targets_per_slot * maxi(0, slot_level - level)
 
 
 ## {"3": "8d6", ...} -> into[3] = "8d6" (each a valid DiceFormula).
@@ -380,13 +511,15 @@ func is_cantrip() -> bool:
 
 
 func is_harmful() -> bool:
-	return effect_type in [EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_MARK, EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK] \
-			or (effect_type == EFFECT_BUFF and rider == RIDER_GUIDING)
+	if target == TARGET_ANY:
+		return false
+	return effect_type in [EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_MARK, EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK, EFFECT_THRESHOLD, EFFECT_SLEEP] \
+			or (effect_type == EFFECT_BUFF and rider == RIDER_GUIDING) or (effect_type == EFFECT_TRANSFORM and target != TARGET_ALLY)
 
 
 ## Area spells pick a point (or a direction) instead of a target.
 func is_area() -> bool:
-	return effect_type in [EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK]
+	return effect_type in POINT_EFFECTS
 
 
 ## Whether the rules engine can resolve this spell (unsupported buffs are data only).
@@ -394,7 +527,7 @@ func is_supported() -> bool:
 	if effect_type == EFFECT_UNSUPPORTED:
 		return false
 	if effect_type == EFFECT_BUFF:
-		return SUPPORTED_BUFFS.has(buff) or rider == RIDER_GUIDING or not condition.is_empty()
+		return SUPPORTED_BUFFS.has(buff) or rider == RIDER_GUIDING or not condition.is_empty() or not modifiers.is_empty() or not modes.is_empty()
 	return true
 
 

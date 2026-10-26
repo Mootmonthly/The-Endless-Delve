@@ -765,10 +765,10 @@ func test_spells_targeting_slots_and_unsupported() -> void:
 		assert_eq(st.sheet.slots_left(1), 1, "a level 1 slot was spent")
 	assert_ne(st.cast_error(cantrip), "", "action used")
 	# An unsupported spell is listed but never castable.
-	st.sheet.spells_prepared.append("sleep")
+	st.sheet.spells_prepared.append("alarm")
 	var found := false
 	for e in st.spell_entries():
-		if str(e["id"]) == "sleep":
+		if str(e["id"]) == "alarm":
 			found = true
 			assert_false(bool(e["supported"]))
 			assert_eq(str(e["error"]), "not supported yet")

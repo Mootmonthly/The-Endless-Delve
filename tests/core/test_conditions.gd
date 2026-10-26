@@ -44,7 +44,7 @@ func test_condition_entries_and_events() -> void:
 	var before := e.events.size()
 	_apply(e, "gob", "poisoned", "hero", Conditions.duration("rounds", {"rounds": 2}))
 	var ev := e.events_since(before)
-	assert_eq(ev[0], {"kind": "condition_applied", "target": "gob", "condition": "poisoned", "source": "hero", "duration": {"type": "rounds", "rounds": 2}})
+	assert_eq(ev[0], {"kind": "condition_applied", "target": "gob", "condition": "poisoned", "source": "hero", "duration": {"type": "rounds", "rounds": 2}, "turns_left": 2})
 	assert_true(gob.has_condition("poisoned"))
 	assert_eq(gob.conditions[0]["turns_left"], 2)
 	assert_eq(gob.condition_sources("poisoned"), ["hero"])

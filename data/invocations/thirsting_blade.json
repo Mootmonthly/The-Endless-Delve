@@ -4,6 +4,6 @@
 	"display_name": "Thirsting Blade",
 	"description": "You can attack with your pact weapon twice, instead of once, whenever you take the Attack action on your turn.",
 	"prerequisites": { "level": 5, "pact": "pact_of_the_blade" },
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

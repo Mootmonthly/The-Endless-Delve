@@ -7,6 +7,6 @@
 	"level": 11,
 	"description": "At 11th level, you gain one of the following features of your choice.\nVolley\nWhirlwind Attack",
 	"options": ["volley", "whirlwind_attack"],
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

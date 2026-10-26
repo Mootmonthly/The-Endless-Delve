@@ -27,18 +27,47 @@ const RESOURCE_OWNERS: Dictionary[String, String] = {
 	"lay_on_hands": "lay_on_hands", "bardic_inspiration": "bardic_inspiration", "ki": "ki",
 	"channel_divinity": "channel_divinity", "sorcery_points": "font_of_magic",
 	"arcane_recovery": "arcane_recovery", "natural_recovery": "natural_recovery",
+	"indomitable": "indomitable", "wholeness_of_body": "wholeness_of_body",
+	"divine_intervention": "divine_intervention", "dark_ones_own_luck": "dark_ones_own_luck",
+	"cleansing_touch": "cleansing_touch", "stroke_of_luck": "stroke_of_luck", "wild_shape": "wild_shape",
 }
 ## Resource ids (keys of class_resources).
 const RESOURCE_FEATURES: Array[String] = [
 	"second_wind", "action_surge", "rage", "lay_on_hands", "bardic_inspiration", "ki",
 	"channel_divinity", "sorcery_points", "arcane_recovery", "natural_recovery",
+	"indomitable", "wholeness_of_body", "divine_intervention", "dark_ones_own_luck",
+	"cleansing_touch", "stroke_of_luck", "wild_shape",
 ]
 ## Resources that also come back on a short rest (the rest need a long rest).
 ## Bardic Inspiration joins them with Font of Inspiration.
-const SHORT_REST_RESOURCES: Array[String] = ["second_wind", "action_surge", "ki", "channel_divinity"]
+const SHORT_REST_RESOURCES: Array[String] = ["second_wind", "action_surge", "ki", "channel_divinity", "dark_ones_own_luck", "stroke_of_luck", "wild_shape"]
+## Once-per-long-rest spell uses kept in class_resources under these prefixes:
+## "arcanum:<spell>" (Mystic Arcanum) and "invocation:<id>" (invocations that
+## cast a spell once with a warlock slot).
+const ARCANUM_PREFIX := "arcanum:"
+const INVOCATION_PREFIX := "invocation:"
+## Invocations that let a warlock cast a spell once per long rest with a slot.
+const INVOCATION_SPELLS: Dictionary[String, String] = {
+	"bewitching_whispers": "compulsion", "dreadful_word": "confusion", "mire_the_mind": "slow",
+	"sign_of_ill_omen": "bestow_curse", "thief_of_five_fates": "bane", "sculptor_of_flesh": "polymorph",
+	"minions_of_chaos": "conjure_elemental",
+}
+## Invocations that cast a spell at will on the warlock itself without a slot.
+const AT_WILL_SELF_INVOCATIONS: Dictionary[String, String] = {
+	"armor_of_shadows": "mage_armor", "fiendish_vigor": "false_life", "ascendant_step": "levitate",
+	"otherworldly_leap": "jump",
+}
 const FIGHTING_STYLES: Array[String] = ["archery", "defense", "dueling", "great_weapon_fighting", "protection", "two_weapon_fighting"]
-## Fighting styles the rules engine models (protection needs ally-targeted reactions).
-const SUPPORTED_FIGHTING_STYLES: Array[String] = ["archery", "defense", "dueling", "great_weapon_fighting", "two_weapon_fighting"]
+## Fighting styles the rules engine models.
+const SUPPORTED_FIGHTING_STYLES: Array[String] = ["archery", "defense", "dueling", "great_weapon_fighting", "protection", "two_weapon_fighting"]
+const SIZES: Array[String] = ["tiny", "small", "medium", "large", "huge", "gargantuan"]
+const MAX_EXHAUSTION := 6
+## Damage types (Fiendish Resilience options, Protection from Energy).
+const DAMAGE_TYPES: Array[String] = [
+	"fire", "cold", "lightning", "poison", "necrotic", "acid", "thunder", "psychic", "radiant", "force",
+	"bludgeoning", "piercing", "slashing",
+]
+const PHYSICAL_TYPES: Array[String] = ["bludgeoning", "piercing", "slashing"]
 const DRACONIC_AC_BASE := 13
 ## SRD rage uses by barbarian level (index = level); 20th level is unlimited (99).
 const RAGE_USES: Array[int] = [0, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 99]
@@ -108,9 +137,35 @@ var expertise_skills: Array[int] = []
 var invocations: Array[String] = []
 var metamagic: Array[String] = []
 var always_prepared: Array[String] = []
+## Creature size ("tiny" .. "gargantuan"); shove / grapple need the target to
+## be at most one size larger.
+var size: String = "medium"
+## Exhaustion level 0..6 (SRD): 1 disadvantage on ability checks, 2 speed
+## halved, 3 disadvantage on attack rolls and saves, 4 hit point maximum
+## halved, 5 speed 0, 6 death. A long rest removes one level.
+var exhaustion: int = 0
+## Monster stat blocks: total skill / save bonuses (Skill.Type / Ability.Type
+## -> bonus) used instead of the computed modifier.
+var skill_bonuses: Dictionary[int, int] = {}
+var save_bonuses: Dictionary[int, int] = {}
+var proficiency_override: int = 0  # monsters: the stat block's proficiency bonus (0 = by level)
+var fly_speed: int = 0  # feet (monsters with a fly speed)
+## Lasting companions that join each encounter at the owner's side (Find
+## Familiar, Animate Dead): [{"monster": id, "spell": id, "hp": int}].
+var companions: Array[Dictionary] = []
+## Mystic Arcanum spells (warlock 11+), one per spell level 6..9.
+var mystic_arcanum: Array[String] = []
+## Fiendish Resilience: the damage type resisted ("" = none).
+var chosen_resistance: String = ""
+## Relentless Rage uses since the last rest (DC 10 + 5 per use).
+var relentless_rage_uses: int = 0
+## Raise Dead: penalty to attack rolls, saves and ability checks (drops by 1 per long rest).
+var resurrection_penalty: int = 0
 
 
 func proficiency_bonus() -> int:
+	if proficiency_override > 0:
+		return proficiency_override
 	return Proficiency.bonus_for_level(level)
 
 
@@ -154,7 +209,32 @@ func effective_speed() -> int:
 		feet += 10
 	if features.has("unarmored_movement") and armor_base <= 0 and shield_bonus == 0:
 		feet += table_int("unarmored_movement", Progression.unarmored_movement_ft(level))
+	if exhaustion >= 5:
+		return 0
+	if exhaustion >= 2:
+		feet = floori(feet / 2.0)
 	return feet
+
+
+## Hit point maximum after exhaustion (halved from level 4).
+func hit_point_maximum() -> int:
+	return maxi(1, floori(max_hp / 2.0)) if exhaustion >= 4 else max_hp
+
+
+## Adds (or removes, n < 0) exhaustion levels, clamped to 0..6. Level 4+ caps
+## current hp at the halved maximum; level 6 is death. Returns the new level.
+func add_exhaustion(n: int) -> int:
+	exhaustion = clampi(exhaustion + n, 0, MAX_EXHAUSTION)
+	current_hp = mini(current_hp, hit_point_maximum())
+	if exhaustion >= MAX_EXHAUSTION:
+		_die()
+	return exhaustion
+
+
+## Size index (0 tiny .. 5 gargantuan; unknown = medium).
+func size_index() -> int:
+	var i := SIZES.find(size)
+	return i if i >= 0 else 2
 
 
 func has_fighting_style(style: String) -> bool:
@@ -194,25 +274,57 @@ func ability_modifier(ability: int) -> int:
 	return abilities.get_modifier(ability)
 
 
+## Saving throw modifier: a stat block's save bonus, else the ability
+## modifier + proficiency when proficient (Diamond Soul: every save).
 func save_modifier(ability: int) -> int:
+	if save_bonuses.has(ability):
+		return save_bonuses[ability]
 	var mod := abilities.get_modifier(ability)
-	if proficient_saves.has(ability):
+	if proficient_saves.has(ability) or features.has("diamond_soul"):
 		mod += proficiency_bonus()
 	return mod
 
 
-## Ability modifier + proficiency (doubled with Expertise).
+## Ability modifier + proficiency (doubled with Expertise); see check_modifier.
 func skill_modifier(skill: int) -> int:
-	var mod := abilities.get_modifier(Skill.ability_for(skill))
-	if proficient_skills.has(skill):
+	return check_modifier(Skill.ability_for(skill), skill)
+
+
+## Ability check modifier (SRD): the ability modifier, + proficiency for a
+## proficient skill (doubled with Expertise); otherwise Jack of All Trades
+## (half proficiency, rounded down) or Remarkable Athlete (STR / DEX / CON
+## checks: half proficiency, rounded up), whichever is better. A stat block's
+## skill bonus replaces the computed value. skill -1 = a plain ability check.
+func check_modifier(ability: int, skill: int = -1) -> int:
+	if skill >= 0 and skill_bonuses.has(skill):
+		return skill_bonuses[skill]
+	var mod := abilities.get_modifier(ability)
+	if skill >= 0 and proficient_skills.has(skill):
 		mod += proficiency_bonus()
 		if expertise_skills.has(skill):
 			mod += proficiency_bonus()
-	return mod
+		return mod
+	var half := 0
+	if features.has("jack_of_all_trades"):
+		half = floori(proficiency_bonus() / 2.0)
+	if features.has("remarkable_athlete") and ability in [Ability.Type.STR, Ability.Type.DEX, Ability.Type.CON]:
+		half = maxi(half, ceili(proficiency_bonus() / 2.0))
+	return mod + half
 
 
+## Proficient in the skill (Reliable Talent applies; stat-block skills count).
+func is_skill_proficient(skill: int) -> bool:
+	return skill >= 0 and (proficient_skills.has(skill) or skill_bonuses.has(skill))
+
+
+## 10 + Wisdom (Perception) modifier.
+func passive_perception() -> int:
+	return 10 + check_modifier(Ability.Type.WIS, Skill.Type.PERCEPTION)
+
+
+## Initiative is a Dexterity check (Jack of All Trades / Remarkable Athlete apply).
 func initiative_modifier() -> int:
-	return abilities.get_modifier(Ability.Type.DEX)
+	return check_modifier(Ability.Type.DEX)
 
 
 func is_alive() -> bool:
@@ -232,19 +344,36 @@ func is_conscious() -> bool:
 
 
 ## Applies immunity (0), resistance (half, rounded down) and vulnerability
-## (double). extra_resistances (e.g. Rage) do not stack with the sheet's own.
-func adjust_damage_for_type(amount: int, damage_type: String, extra_resistances: Array[String] = []) -> int:
+## (double). extra_resistances (e.g. Rage) do not stack with the sheet's own;
+## extra_immunities likewise. Stat-block entries such as "bludgeoning,
+## piercing, and slashing from nonmagical weapons" apply to those types unless
+## the damage is magical (spells, magic weapons, Ki-Empowered Strikes). The
+## Fiendish Resilience type (chosen_resistance) is resisted unless it is
+## physical damage from a magical source.
+func adjust_damage_for_type(amount: int, damage_type: String, extra_resistances: Array[String] = [], magical: bool = false, extra_immunities: Array[String] = []) -> int:
 	var t := damage_type.to_lower()
 	if t.is_empty():
 		return amount
-	if damage_immunities.has(t):
+	if damage_immunities.has(t) or extra_immunities.has(t) or (not magical and CharacterSheet._listed_nonmagical(damage_immunities, t)):
 		return 0
 	var result := amount
-	if damage_resistances.has(t) or extra_resistances.has(t):
+	var chosen := not chosen_resistance.is_empty() and chosen_resistance == t and not (magical and PHYSICAL_TYPES.has(t))
+	if damage_resistances.has(t) or extra_resistances.has(t) or chosen or (not magical and CharacterSheet._listed_nonmagical(damage_resistances, t)):
 		result = floori(result / 2.0)
 	if damage_vulnerabilities.has(t):
 		result *= 2
 	return result
+
+
+## A stat-block entry like "bludgeoning, piercing, and slashing from
+## nonmagical weapons" that names damage_type.
+static func _listed_nonmagical(entries: Array[String], damage_type: String) -> bool:
+	if not PHYSICAL_TYPES.has(damage_type):
+		return false
+	for e in entries:
+		if e.contains("nonmagical") and e.contains(damage_type):
+			return true
+	return false
 
 
 ## Temporary hit points don't stack: keep the larger value.
@@ -304,11 +433,12 @@ func take_damage(amount: int, critical: bool = false) -> DamageOutcome:
 
 
 ## Returns hit points actually restored. Healing from 0 hp resets death saves.
+## Exhaustion 4+ caps healing at the halved maximum.
 func heal(amount: int) -> int:
 	if dead or amount <= 0:
 		return 0
 	var before := current_hp
-	current_hp = mini(max_hp, current_hp + amount)
+	current_hp = maxi(before, mini(hit_point_maximum(), current_hp + amount))
 	if before == 0 and current_hp > 0:
 		reset_death_saves()
 	return current_hp - before
@@ -458,6 +588,10 @@ func class_definition(content: Dictionary = {}) -> ClassDefinition:
 ## the character lacks the feature that grants it. Sized from the class's
 ## "tables" when present, else from the SRD formulas.
 func resource_max(resource: String) -> int:
+	if resource.begins_with(ARCANUM_PREFIX):
+		return 1 if mystic_arcanum.has(resource.trim_prefix(ARCANUM_PREFIX)) else 0
+	if resource.begins_with(INVOCATION_PREFIX):
+		return 1 if invocations.has(resource.trim_prefix(INVOCATION_PREFIX)) else 0
 	var owner: String = RESOURCE_OWNERS.get(resource, "")
 	if owner.is_empty() or not features.has(owner):
 		return 0
@@ -478,7 +612,27 @@ func resource_max(resource: String) -> int:
 			return table_int("channel_divinity_uses", Progression.channel_divinity_uses(class_id, level))
 		"sorcery_points":
 			return table_int("sorcery_points", level)
+		"indomitable":
+			return table_int("indomitable_uses", 3 if level >= 17 else (2 if level >= 13 else 1))
+		"wholeness_of_body", "divine_intervention", "dark_ones_own_luck", "stroke_of_luck":
+			return 1
+		"cleansing_touch":
+			return maxi(1, abilities.get_modifier(Ability.Type.CHA))
+		"wild_shape":
+			return 99 if level >= 20 else 2
 	return 0
+
+
+## Once-per-long-rest spell keys this sheet owns ("arcanum:<spell>",
+## "invocation:<id>" for INVOCATION_SPELLS).
+func once_per_rest_spell_keys() -> Array[String]:
+	var out: Array[String] = []
+	for s in mystic_arcanum:
+		out.append(ARCANUM_PREFIX + s)
+	for inv in invocations:
+		if INVOCATION_SPELLS.has(inv):
+			out.append(INVOCATION_PREFIX + inv)
+	return out
 
 
 func class_resource(feature: String) -> int:
@@ -494,6 +648,8 @@ func resource_short_rest(resource: String) -> bool:
 
 
 ## Refills every resource feature (long rest), or only the short-rest ones.
+## A long rest also restores the once-per-rest spells (Mystic Arcanum,
+## invocation spells).
 func restore_class_resources(short_rest_only: bool = false) -> void:
 	for resource in RESOURCE_FEATURES:
 		if not features.has(str(RESOURCE_OWNERS[resource])):
@@ -501,6 +657,9 @@ func restore_class_resources(short_rest_only: bool = false) -> void:
 		if short_rest_only and not resource_short_rest(resource):
 			continue
 		class_resources[resource] = resource_max(resource)
+	if not short_rest_only:
+		for key in once_per_rest_spell_keys():
+			class_resources[key] = 1
 
 
 ## Adds a feature (if missing); resources it grants start full and Draconic
@@ -516,6 +675,13 @@ func gain_feature(feature: String) -> void:
 		max_hp += level
 		if is_conscious():
 			current_hp += level
+	if feature == "slippery_mind" and not proficient_saves.has(Ability.Type.WIS):
+		proficient_saves.append(Ability.Type.WIS)
+	if feature in ["purity_of_body", "natures_ward"]:
+		if not damage_immunities.has("poison"):
+			damage_immunities.append("poison")
+		if not condition_immunities.has(Conditions.POISONED):
+			condition_immunities.append(Conditions.POISONED)
 
 
 ## Spends n uses; false (nothing spent) when fewer remain.
@@ -938,7 +1104,26 @@ func to_dict() -> Dictionary:
 		"slot_recovery": slot_recovery,
 		"class_resources": _resources_dict(),
 		"active_buffs": active_buffs.duplicate(),
+		"size": size,
+		"exhaustion": exhaustion,
+		"skill_bonuses": CharacterSheet._keyed(skill_bonuses, true),
+		"save_bonuses": CharacterSheet._keyed(save_bonuses, false),
+		"proficiency_override": proficiency_override,
+		"fly_speed": fly_speed,
+		"companions": companions.duplicate(true),
+		"mystic_arcanum": mystic_arcanum.duplicate(),
+		"chosen_resistance": chosen_resistance,
+		"relentless_rage_uses": relentless_rage_uses,
+		"resurrection_penalty": resurrection_penalty,
 	}
+
+
+## {Skill / Ability key: bonus} for JSON.
+static func _keyed(values: Dictionary[int, int], skills: bool) -> Dictionary:
+	var out := {}
+	for k: int in values.keys():
+		out[Skill.key_of(k) if skills else Ability.abbreviation(k)] = values[k]
+	return out
 
 
 func _resources_dict() -> Dictionary:
@@ -1024,6 +1209,29 @@ static func from_dict(d: Dictionary) -> CharacterSheet:
 		for key: Variant in res_d.keys():
 			s.class_resources[str(key)] = DictUtil.to_int(res_d[key], 0)
 	s.active_buffs = DictUtil.to_string_array(d.get("active_buffs", []))
+	s.size = str(d.get("size", "medium")).to_lower()
+	s.exhaustion = clampi(DictUtil.to_int(d.get("exhaustion", 0), 0), 0, MAX_EXHAUSTION)
+	var sk: Variant = d.get("skill_bonuses", {})
+	if typeof(sk) == TYPE_DICTIONARY:
+		var sk_d: Dictionary = sk
+		for key: Variant in sk_d.keys():
+			var skill := Skill.from_string(str(key))
+			if skill >= 0:
+				s.skill_bonuses[skill] = DictUtil.to_int(sk_d[key], 0)
+	var sv: Variant = d.get("save_bonuses", {})
+	if typeof(sv) == TYPE_DICTIONARY:
+		var sv_d: Dictionary = sv
+		for key: Variant in sv_d.keys():
+			var ability := Ability.from_string(str(key))
+			if ability >= 0:
+				s.save_bonuses[ability] = DictUtil.to_int(sv_d[key], 0)
+	s.proficiency_override = DictUtil.to_int(d.get("proficiency_override", 0), 0)
+	s.fly_speed = DictUtil.to_int(d.get("fly_speed", 0), 0)
+	s.companions = DictUtil.to_dict_array(d.get("companions", []))
+	s.mystic_arcanum = DictUtil.to_string_array(d.get("mystic_arcanum", []))
+	s.chosen_resistance = str(d.get("chosen_resistance", ""))
+	s.relentless_rage_uses = DictUtil.to_int(d.get("relentless_rage_uses", 0), 0)
+	s.resurrection_penalty = DictUtil.to_int(d.get("resurrection_penalty", 0), 0)
 	return s
 
 

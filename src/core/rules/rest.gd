@@ -16,6 +16,9 @@ static func short_rest(sheet: CharacterSheet, hit_dice_to_spend: int, rng: Rng, 
 	if sheet == null or sheet.is_dead():
 		return 0
 	sheet.restore_class_resources(true)
+	sheet.relentless_rage_uses = 0
+	if sheet.has_feature("sorcerous_restoration"):
+		sheet.class_resources["sorcery_points"] = mini(sheet.resource_max("sorcery_points"), sheet.class_resource("sorcery_points") + 4)
 	if sheet.slot_recovery == ClassDefinition.SLOT_RECOVERY_SHORT:
 		sheet.restore_spell_slots()
 	var con_mod := sheet.abilities.get_modifier(Ability.Type.CON)
@@ -58,6 +61,25 @@ static func slot_recovery_options(sheet: CharacterSheet) -> Dictionary:
 	return {}
 
 
+## The default Arcane / Natural Recovery picks: expended slots, highest level
+## first, while the budget allows ([] when nothing applies). Server and client
+## share this choice.
+static func default_slot_recovery(sheet: CharacterSheet) -> Array[int]:
+	var out: Array[int] = []
+	var opts := Rest.slot_recovery_options(sheet)
+	if opts.is_empty():
+		return out
+	var budget := DictUtil.to_int(opts.get("budget", 0), 0)
+	var top := mini(DictUtil.to_int(opts.get("max_slot_level", 5), 5), sheet.spell_slots_max.size())
+	for lvl in range(top, 0, -1):
+		var missing := sheet.spell_slots_max[lvl - 1] - sheet.slots_left(lvl)
+		while missing > 0 and budget >= lvl:
+			out.append(lvl)
+			budget -= lvl
+			missing -= 1
+	return out
+
+
 ## Regains one expended slot per entry of slot_levels (the server calls this as
 ## a short rest finishes). The levels must total <= the budget, none above 5th,
 ## each an expended slot. Spends the feature's use. "" or an error (no change).
@@ -88,12 +110,22 @@ static func recover_slots(sheet: CharacterSheet, slot_levels: Array[int]) -> Str
 
 ## Full hp, temp hp cleared, regain half of total hit dice (round down, min 1),
 ## death saves and stability reset, all conditions cleared, every spell slot
-## and class resource restored, lasting buffs (Mage Armor) end.
-## TODO: exhaustion should only drop by one level once it is implemented.
+## and class resource restored (Mystic Arcanum, invocation spells too),
+## lasting buffs (Mage Armor) end. Exhaustion and the Raise Dead penalty drop
+## by one; Relentless Rage resets; Animate Dead / Create Undead companions
+## (until_long_rest) leave; Tranquility (monk 11) starts its sanctuary.
 static func long_rest(sheet: CharacterSheet) -> void:
 	if sheet == null or sheet.is_dead():
 		return
-	sheet.current_hp = sheet.max_hp
+	sheet.exhaustion = maxi(0, sheet.exhaustion - 1)
+	sheet.resurrection_penalty = maxi(0, sheet.resurrection_penalty - 1)
+	sheet.relentless_rage_uses = 0
+	var kept: Array[Dictionary] = []
+	for entry in sheet.companions:
+		if entry.get("until_long_rest", false) != true and entry.get("dead", false) != true:
+			kept.append(entry)
+	sheet.companions = kept
+	sheet.current_hp = sheet.hit_point_maximum()
 	sheet.temp_hp = 0
 	var regain := maxi(1, floori(sheet.hit_dice_total / 2.0))
 	sheet.hit_dice_remaining = mini(sheet.hit_dice_total, sheet.hit_dice_remaining + regain)
@@ -102,3 +134,5 @@ static func long_rest(sheet: CharacterSheet) -> void:
 	sheet.restore_spell_slots()
 	sheet.restore_class_resources()
 	sheet.active_buffs.clear()
+	if sheet.has_feature("tranquility"):
+		sheet.active_buffs.append("tranquility")

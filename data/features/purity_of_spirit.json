@@ -6,6 +6,6 @@
 	"subclass": "devotion",
 	"level": 15,
 	"description": "Beginning at 15th level, you are always under the effects of a protection from evil and good spell.",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

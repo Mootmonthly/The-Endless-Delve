@@ -17,14 +17,37 @@ var _begun: bool = false
 var _join_counter: int = 0
 
 
-## Rolls d20 + initiative modifier and inserts before combat starts.
+## Rolls d20 + initiative modifier and inserts before combat starts
+## (advantage with Feral Instinct, disadvantage with exhaustion).
 func add(c: Combatant, rng: Rng) -> bool:
-	return insert_with_initiative(c, D20.roll(rng).natural + c.initiative_modifier(), false)
+	return insert_with_initiative(c, D20.roll(rng, c.initiative_mode()).natural + c.initiative_modifier(), false)
 
 
 ## Rolls initiative for a combatant joining an ongoing fight (see class doc).
 func add_mid_combat(c: Combatant, rng: Rng) -> bool:
-	return insert_with_initiative(c, D20.roll(rng).natural + c.initiative_modifier(), true)
+	return insert_with_initiative(c, D20.roll(rng, c.initiative_mode()).natural + c.initiative_modifier(), true)
+
+
+## Inserts c (a summon) directly after `owner` with the owner's initiative:
+## it acts right after its owner, starting this round if the owner is the
+## current actor or has not acted yet.
+func insert_after(c: Combatant, owner: Combatant) -> bool:
+	if c == null or owner == null or has(c.id):
+		return false
+	var owner_idx := _find(owner.id)
+	if owner_idx < 0:
+		return false
+	c.initiative = owner.initiative
+	c.join_order = _join_counter
+	_join_counter += 1
+	var idx := owner_idx + 1
+	while idx < _entries.size() and _entries[idx].owner_id == owner.id:
+		idx += 1
+	c.has_acted_this_round = _begun and idx <= _index
+	_entries.insert(idx, c)
+	if _begun and idx <= _index:
+		_index += 1
+	return true
 
 
 ## Inserts with a known initiative value (tests, restoring saved state).
@@ -138,6 +161,10 @@ func _find(combatant_id: String) -> int:
 
 
 func _comes_before(a: Combatant, b: Combatant) -> bool:
+	if b.is_summon() and a.id == b.owner_id:
+		return true
+	if a.is_summon() and b.id == a.owner_id:
+		return false
 	if a.initiative != b.initiative:
 		return a.initiative > b.initiative
 	if a.dex_score() != b.dex_score():

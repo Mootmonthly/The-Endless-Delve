@@ -28,6 +28,16 @@ extends RefCounted
 ##   grappled: speed 0.
 ##   blinded: its attacks have disadvantage, attacks against it have advantage.
 ##   charmed: cannot attack or target the source with harmful effects.
+##   invisible: its attacks have advantage, attacks against it disadvantage.
+##   unconscious (Sleep): incapacitated, prone-like: attacks against it have
+##          advantage and crit from an adjacent attacker, fails STR / DEX saves,
+##          turns skipped; it wakes when it takes damage.
+##   petrified: incapacitated, speed 0, attacks against it advantage, fails STR /
+##          DEX saves, resistance to all damage, turns skipped.
+##   deafened: no rules beyond the label (cannot hear).
+##   turn_lost (not SRD; Command "grovel", confusion): its next turn is skipped.
+## Durations also include {"type": "until_target_turn_start"} (ends when the
+## target's next turn starts; buffs such as Shield).
 
 const PRONE := "prone"
 const STUNNED := "stunned"
@@ -39,30 +49,41 @@ const RESTRAINED := "restrained"
 const GRAPPLED := "grappled"
 const BLINDED := "blinded"
 const CHARMED := "charmed"
-const ALL: Array[String] = [PRONE, STUNNED, PARALYZED, INCAPACITATED, FRIGHTENED, POISONED, RESTRAINED, GRAPPLED, BLINDED, CHARMED]
+const INVISIBLE := "invisible"
+const UNCONSCIOUS := "unconscious"
+const PETRIFIED := "petrified"
+const DEAFENED := "deafened"
+const ALL: Array[String] = [PRONE, STUNNED, PARALYZED, INCAPACITATED, FRIGHTENED, POISONED, RESTRAINED, GRAPPLED, BLINDED, CHARMED, INVISIBLE, UNCONSCIOUS, PETRIFIED, DEAFENED]
+## Not an SRD condition: the creature's next turn is skipped (Command, confusion).
+const TURN_LOST := "turn_lost"
 ## Not an SRD condition but tracked the same way: cannot take reactions
 ## (Open Hand Technique).
 const NO_REACTIONS := "no_reactions"
 ## Conditions that include "incapacitated".
-const INCAPACITATING: Array[String] = [INCAPACITATED, STUNNED, PARALYZED]
+const INCAPACITATING: Array[String] = [INCAPACITATED, STUNNED, PARALYZED, UNCONSCIOUS, PETRIFIED]
 ## Conditions whose creature cannot move (speed 0).
-const IMMOBILIZING: Array[String] = [STUNNED, PARALYZED, RESTRAINED, GRAPPLED]
+const IMMOBILIZING: Array[String] = [STUNNED, PARALYZED, RESTRAINED, GRAPPLED, UNCONSCIOUS, PETRIFIED]
 ## Conditions that give the creature's own attack rolls disadvantage (frightened is
 ## conditional on line of sight and handled separately).
 const ATTACKER_DISADVANTAGE: Array[String] = [PRONE, POISONED, RESTRAINED, BLINDED]
 ## Conditions that give attack rolls against the creature advantage (prone is by distance).
-const TARGET_ADVANTAGE: Array[String] = [STUNNED, PARALYZED, RESTRAINED, BLINDED]
+const TARGET_ADVANTAGE: Array[String] = [STUNNED, PARALYZED, RESTRAINED, BLINDED, UNCONSCIOUS, PETRIFIED]
+## Conditions under which STR and DEX saves fail automatically.
+const PHYSICAL_SAVE_FAIL: Array[String] = [STUNNED, PARALYZED, UNCONSCIOUS, PETRIFIED]
+## Conditions whose creature's turns are skipped.
+const TURN_SKIPPING: Array[String] = [STUNNED, PARALYZED, UNCONSCIOUS, PETRIFIED, TURN_LOST]
 
 const DURATION_SOURCE_NEXT_TURN := "until_source_next_turn"
 const DURATION_TARGET_TURN_END := "until_target_turn_end"
 const DURATION_SAVE_ENDS := "save_ends"
 const DURATION_ROUNDS := "rounds"
 const DURATION_ENCOUNTER := "encounter"
-const DURATION_TYPES: Array[String] = [DURATION_SOURCE_NEXT_TURN, DURATION_TARGET_TURN_END, DURATION_SAVE_ENDS, DURATION_ROUNDS, DURATION_ENCOUNTER]
+const DURATION_TARGET_TURN_START := "until_target_turn_start"
+const DURATION_TYPES: Array[String] = [DURATION_SOURCE_NEXT_TURN, DURATION_TARGET_TURN_END, DURATION_SAVE_ENDS, DURATION_ROUNDS, DURATION_ENCOUNTER, DURATION_TARGET_TURN_START]
 
 
 static func is_condition(condition: String) -> bool:
-	return ALL.has(condition)
+	return ALL.has(condition) or condition == TURN_LOST
 
 
 ## A normalised, JSON-safe duration object, or {} when `d` is invalid.
@@ -77,7 +98,7 @@ static func normalize_duration(d: Variant) -> Dictionary:
 		return {}
 	var t := str(src.get("type", ""))
 	match t:
-		DURATION_SOURCE_NEXT_TURN, DURATION_TARGET_TURN_END, DURATION_ENCOUNTER:
+		DURATION_SOURCE_NEXT_TURN, DURATION_TARGET_TURN_END, DURATION_ENCOUNTER, DURATION_TARGET_TURN_START:
 			return {"type": t}
 		DURATION_SAVE_ENDS:
 			var ability := Ability.from_string(str(src.get("ability", "")))

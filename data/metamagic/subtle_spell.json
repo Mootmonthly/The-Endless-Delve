@@ -4,6 +4,6 @@
 	"display_name": "Subtle Spell",
 	"description": "When you cast a spell, you can spend 1 sorcery point to cast it without any somatic or verbal components.",
 	"cost": 1,
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

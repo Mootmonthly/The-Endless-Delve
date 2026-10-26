@@ -4,6 +4,6 @@
 	"display_name": "Mire the Mind",
 	"description": "You can cast slow once using a warlock spell slot. You can't do so again until you finish a long rest.",
 	"prerequisites": { "level": 5 },
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

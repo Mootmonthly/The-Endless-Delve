@@ -6,6 +6,6 @@
 	"subclass": "champion",
 	"level": 15,
 	"description": "Starting at 15th level, your weapon attacks score a critical hit on a roll of 18-20.",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

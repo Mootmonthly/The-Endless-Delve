@@ -7,6 +7,6 @@
 	"level": 7,
 	"description": "You have advantage on saving throws against being frightened.",
 	"option_of": "defensive_tactics",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

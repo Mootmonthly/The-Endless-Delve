@@ -13,8 +13,9 @@ extends RefCounted
 ## Combatant.adjust_damage, so Rage resistance counts).
 ## auto_crit: any hit is a critical hit (SRD: melee hit within 5 ft of an
 ## unconscious or paralyzed creature).
-## extra_damage: [{"source", "dice", "type"}] rolled on a hit (doubled on a
-## critical), each adjusted for its own damage type, and reported in
+## extra_damage: [{"source", "dice", "type", "crit_only"?, "no_crit_double"?}]
+## rolled on a hit (doubled on a critical unless no_crit_double; crit_only
+## entries only on a critical), each adjusted for its own damage type, and reported in
 ## result.extras as [{"source", "amount", "type"}].
 ## half_on_miss: a miss still deals half the base damage (no extras).
 static func resolve_attack(attacker: Combatant, target: Combatant, attack: Dictionary, rng: Rng, mode: D20.RollMode = D20.RollMode.NORMAL, auto_crit: bool = false, extra_to_hit: int = 0, extra_damage: Array[Dictionary] = [], half_on_miss: bool = false) -> AttackResult:
@@ -35,7 +36,7 @@ static func roll(attacker: Combatant, target: Combatant, attack: Dictionary, rng
 	var to_hit := DictUtil.to_int(attack.get("to_hit", 0), 0) + extra_to_hit
 	result.d20 = D20.roll(rng, mode)
 	result.attack_total = result.d20.natural + to_hit
-	result.target_ac = target.sheet.armor_class()
+	result.target_ac = target.armor_class() + DictUtil.to_int(attack.get("target_ac_bonus", 0), 0)
 	if result.d20.is_nat1():
 		result.fumble = true
 		result.hit = false
@@ -64,15 +65,19 @@ static func roll(attacker: Combatant, target: Combatant, attack: Dictionary, rng
 	result.damage.critical = result.critical
 	if not result.hit:
 		amount = floori(amount / 2.0)
-	var total := target.adjust_damage(amount, result.damage_type)
+	var magical: bool = attack.get("magical", false) == true or str(attack.get("kind", "")) == "spell"
+	var total := target.adjust_damage(amount, result.damage_type, magical)
 	if result.hit:
 		for extra in extra_damage:
+			if extra.get("crit_only", false) == true and not result.critical:
+				continue
 			var extra_formula := DiceFormula.parse(str(extra.get("dice", "0")))
 			if not extra_formula.valid:
 				continue
 			var extra_type := str(extra.get("type", result.damage_type)).to_lower()
-			var extra_roll := maxi(0, DictUtil.to_int(extra_formula.roll(rng, 0, result.critical)["total"]))
-			var adjusted := target.adjust_damage(extra_roll, extra_type)
+			var doubled: bool = result.critical and extra.get("no_crit_double", false) != true
+			var extra_roll := maxi(0, DictUtil.to_int(extra_formula.roll(rng, 0, doubled)["total"]))
+			var adjusted := target.adjust_damage(extra_roll, extra_type, magical or extra.get("magical", false) == true)
 			result.extras.append({"source": str(extra.get("source", "")), "amount": adjusted, "type": extra_type})
 			total += adjusted
 	result.damage_total = total

@@ -43,8 +43,8 @@ func test_dice_formula() -> void:
 func test_great_weapon_fighting_and_empowered_rerolls() -> void:
 	var f := DiceFormula.parse("10d6")
 	var seed_value := seed_where(func(rng: Rng) -> bool:
-		var plain: Array = DiceFormula.parse("10d6").roll(rng)["rolls"]
-		return plain.has(1))
+		var rolled: Array = DiceFormula.parse("10d6").roll(rng)["rolls"]
+		return rolled.has(1))
 	var plain: Array = f.roll(Rng.new(seed_value))["rolls"]
 	var gwf: Array = f.roll(Rng.new(seed_value), 0, false, 2)["rolls"]
 	assert_eq(gwf.size(), 10)
@@ -117,7 +117,8 @@ func test_metamagic_quickened_twinned_empowered() -> void:
 	s.metamagic = ["quickened_spell", "twinned_spell", "empowered_spell", "subtle_spell"]
 	var foes := {"a": [CoreFixtures.sheet("A", 200), Vector2i(6, 3), [HIT]], "b": [CoreFixtures.sheet("B", 200), Vector2i(6, 5), [HIT]]}
 	var e := CoreFixtures.duel(s, [HIT], foes, content)
-	assert_true(str(e.submit(CoreFixtures.intent("cast", "hero", {"spell": "fire_bolt", "target": "a", "metamagic": ["subtle_spell"]}))["error"]).contains("not modelled"))
+	assert_true(str(e.submit(CoreFixtures.intent("cast", "hero", {"spell": "fire_bolt", "target": "a", "metamagic": ["careful_spell"]}))["error"]).contains("does not know"))
+	assert_true(str(e.submit(CoreFixtures.intent("cast", "hero", {"spell": "fire_bolt", "target": "a", "metamagic": ["quickened_spell", "subtle_spell"]}))["error"]).contains("one metamagic"))
 	var res := e.submit(CoreFixtures.intent("cast", "hero", {"spell": "fire_bolt", "target": "a", "metamagic": ["quickened_spell"]}))
 	assert_true(res["ok"] == true, str(res["error"]))
 	var hero := e.get_combatant("hero")

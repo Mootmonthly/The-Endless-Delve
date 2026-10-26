@@ -165,7 +165,8 @@ func test_opportunity_attack_fires_once() -> void:
 	var evs: Array = _evs(res)
 	assert_eq(_count(evs, "opportunity_attack"), 1)
 	assert_eq(_first(evs, "opportunity_attack"), {"kind": "opportunity_attack", "attacker": "gob", "target": "hero"})
-	assert_eq(_kinds(evs).slice(0, 2), ["opportunity_attack", "attack"], "the attack resolves before the step")
+	assert_eq(_kinds(evs).slice(0, 3), ["opportunity_attack", "reaction_used", "attack"], "the attack resolves before the step")
+	assert_eq(_first(evs, "reaction_used"), {"kind": "reaction_used", "actor": "gob", "reaction": "opportunity_attack", "trigger": "creature_left_reach", "target": "hero"})
 	assert_true(e.get_combatant("gob").reaction_used)
 	# Walk back into reach and out again: the reaction is spent.
 	res = e.submit(_move("hero", [[2, 3], [3, 3], [2, 4], [1, 4]]))

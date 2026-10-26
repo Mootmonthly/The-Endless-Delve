@@ -3,6 +3,6 @@
 	"id": "beguiling_influence",
 	"display_name": "Beguiling Influence",
 	"description": "You gain proficiency in the Deception and Persuasion skills.",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

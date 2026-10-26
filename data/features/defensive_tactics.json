@@ -7,6 +7,6 @@
 	"level": 7,
 	"description": "At 7th level, you gain one of the following features of your choice.\nEscape the Horde\nMultiattack Defense\nSteel Will",
 	"options": ["escape_the_horde", "multiattack_defense", "steel_will"],
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

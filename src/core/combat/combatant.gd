@@ -51,6 +51,8 @@ var guided_turns_left: int = 0  # turn ends of guided_by before the mark fades
 var marks: Dictionary = {}
 var sneak_attack_turn: int = -1  # encounter turn counter when Sneak Attack was last used
 var colossus_turn: int = -1  # encounter turn counter when Colossus Slayer was last used
+var divine_strike_turn: int = -1  # encounter turn counter when Divine Strike was last used
+var horde_breaker_turn: int = -1  # encounter turn counter when Horde Breaker was last used
 ## Conditions with durations (see Conditions): [{"condition", "source", "duration", "turns_left", ...}].
 var conditions: Array[Dictionary] = []
 ## The concentration spell being maintained: {"spell": id, "slot_level": int} ({} = none).
@@ -61,6 +63,41 @@ var rage_started_turn: int = -1  # encounter turn counter when it started raging
 var sacred_weapon_bonus: int = 0  # Sacred Weapon: added to its weapon attack rolls (0 = none)
 var sacred_weapon_turns: int = 0  # its turn ends before Sacred Weapon fades
 var pact_weapon: bool = false  # Pact of the Blade weapon summoned (an extra attack entry)
+## Hidden (Hide action): stealth_total is the Stealth check it beat perception
+## with. Attacks from hiding have advantage and reveal it.
+var hidden: bool = false
+var stealth_total: int = 0
+## Encounter effects with modifiers (bless, haste, shield, sanctuary, ...):
+## [{"effect", "source", "spell"?, "duration", "turns_left", <modifiers>}] (see Encounter._apply_buff).
+var buffs: Array[Dictionary] = []
+## Summoned / companion creatures: the summoner's id ("" = not summoned). Such
+## combatants act right after their owner and the encounter runs their turns
+## (MonsterBrain); they never keep a team in the fight.
+var owner_id: String = ""
+var summon_spell: String = ""
+var summon_turns_left: int = -1  # owner's turn ends before it vanishes (-1 = no limit)
+var companion_index: int = -1  # index in the owner's sheet.companions (-1 = summoned this fight)
+var auto_controlled: bool = false
+var summon_concentration: bool = false  # vanishes when the owner's concentration ends
+var familiar: bool = false  # Find Familiar: cannot attack, uses the Help action
+var untargetable: bool = false  # Spiritual Weapon and other spell objects
+## Reaction policy: trigger or reaction id -> "auto" | "never" (missing = "auto").
+## Triggers: creature_hit_me, creature_left_reach, ally_attacked, ally_hit,
+## spell_cast_in_range, damage_taken, failed_save, missed.
+var reaction_policy: Dictionary = {}
+var teleport_tiles: int = 0  # teleport movement left this turn (Misty Step without a point)
+var died_round: int = -1  # encounter round when it died (Revivify: within 10 rounds)
+var tiles_moved: int = 0  # tiles moved this turn (Supreme Sneak, Hide in Plain Sight)
+## Help action: the next attack roll against it by a member of help_team has
+## advantage (until helped_by's next turn).
+var helped_by: String = ""
+var help_team: int = -1
+## Multiattack Defense: attacker id -> turn counter of its hit (+4 AC vs it that turn).
+var defended_against: Dictionary = {}
+## Wild Shape / Polymorph: {"monster", "kind", "saved": {...}} ({} = own form).
+var form: Dictionary = {}
+var elemental_resistance: String = ""  # Elemental Affinity: resisted type this encounter
+var haste_action_turn: int = -1  # encounter turn counter when the hasted action was used
 
 
 ## Player character: the sheet's weapon attacks, then an unarmed strike fallback.
@@ -111,6 +148,10 @@ static func from_setup_dict(d: Dictionary) -> Combatant:
 	c.multiattack = DictUtil.to_string_array(d.get("multiattack", []))
 	for raw in DictUtil.to_dict_array(d.get("attacks", [])):
 		c.attacks.append(CharacterSheet.normalize_attack(raw))
+	var policy_v: Variant = d.get("reaction_policy", {})
+	if typeof(policy_v) == TYPE_DICTIONARY:
+		var policy: Dictionary = policy_v
+		c.reaction_policy = policy.duplicate()
 	return c
 
 
@@ -130,7 +171,95 @@ func to_setup_dict() -> Dictionary:
 		"challenge_rating": challenge_rating,
 		"attacks_per_action": attacks_per_action,
 		"multiattack": multiattack.duplicate(),
+		"reaction_policy": reaction_policy.duplicate(),
 	}
+
+
+## Whether its reaction policy allows `reaction` (a reaction id) for trigger.
+## A key for the reaction id wins over the trigger key; default "auto".
+func reaction_allowed(trigger: String, reaction: String) -> bool:
+	if reaction_policy.has(reaction):
+		return str(reaction_policy[reaction]) != "never"
+	return str(reaction_policy.get(trigger, "auto")) != "never"
+
+
+## Summoned or companion creature.
+func is_summon() -> bool:
+	return not owner_id.is_empty()
+
+
+## Sum of an integer buff modifier across its active buffs ("ac", ...).
+func buff_int(key: String) -> int:
+	var total := 0
+	for b in buffs:
+		total += DictUtil.to_int(b.get(key, 0), 0)
+	return total
+
+
+## True when any active buff sets the flag.
+func buff_flag(key: String) -> bool:
+	for b in buffs:
+		if b.get(key, false) == true:
+			return true
+	return false
+
+
+## Dice strings of a buff modifier ("attack_dice", "save_dice", ...).
+func buff_dice(key: String) -> Array[String]:
+	var out: Array[String] = []
+	for b in buffs:
+		var v := str(b.get(key, ""))
+		if not v.is_empty():
+			out.append(v)
+	return out
+
+
+## String-array buff modifier values merged ("resist", "immune_conditions", ...).
+func buff_list(key: String) -> Array[String]:
+	var out: Array[String] = []
+	for b in buffs:
+		for v in DictUtil.to_string_array(b.get(key, [])):
+			if not out.has(v):
+				out.append(v)
+	return out
+
+
+func has_buff(effect: String) -> bool:
+	for b in buffs:
+		if str(b.get("effect", "")) == effect:
+			return true
+	return false
+
+
+## Armor class with buffs (Shield, Shield of Faith, Haste, Slow, Barkskin).
+func armor_class() -> int:
+	var ac := sheet.armor_class() + buff_int("ac")
+	for b in buffs:
+		var floor_ac := DictUtil.to_int(b.get("ac_min", 0), 0)
+		if floor_ac > ac:
+			ac = floor_ac
+	return ac
+
+
+## Fly speed in tiles (stat block, Fly, Dragon Wings; 0 = none).
+func fly_tiles() -> int:
+	var feet := sheet.fly_speed if sheet != null else 0
+	for b in buffs:
+		var ft := DictUtil.to_int(b.get("fly_ft", 0), 0)
+		if ft < 0:
+			ft = sheet.effective_speed()
+		feet = maxi(feet, ft)
+	return GridMath.feet_to_tiles(feet)
+
+
+## Flying or levitating creatures ignore ground effects (grease, spike growth).
+func ignores_ground() -> bool:
+	return fly_tiles() > 0 or buff_flag("levitating")
+
+
+## Invisible (the condition, or Empty Body / Greater Invisibility buffs).
+func is_invisible() -> bool:
+	return has_condition(Conditions.INVISIBLE)
 
 
 func is_alive() -> bool:
@@ -166,12 +295,26 @@ func initiative_modifier() -> int:
 	return sheet.initiative_modifier() if sheet != null else 0
 
 
+## Initiative roll mode: advantage with Feral Instinct, disadvantage with
+## exhaustion (ability checks).
+func initiative_mode() -> D20.RollMode:
+	if sheet == null:
+		return D20.RollMode.NORMAL
+	return D20.combine(sheet.has_feature("feral_instinct"), sheet.exhaustion >= 1)
+
+
 ## Walking speed in tiles (speed in feet / 5, with Fast Movement / Unarmored
 ## Movement); 0 while grappled, restrained, stunned or paralyzed.
 func speed_tiles() -> int:
-	if sheet == null or is_immobilized():
+	if sheet == null or is_immobilized() or buff_flag("speed_zero"):
 		return 0
-	return GridMath.feet_to_tiles(sheet.effective_speed())
+	var feet := sheet.effective_speed() + buff_int("speed_bonus_ft")
+	var tiles := GridMath.feet_to_tiles(maxi(0, feet))
+	if buff_flag("speed_double"):
+		tiles *= 2
+	if buff_flag("speed_half"):
+		tiles = floori(tiles / 2.0)
+	return maxi(tiles, fly_tiles() if not buff_flag("speed_half") else floori(fly_tiles() / 2.0))
 
 
 ## Start-of-turn reset: full movement (minus any slow), fresh action/bonus
@@ -190,6 +333,9 @@ func reset_turn() -> void:
 	bonus_attack_source = ""
 	action_surged = false
 	reckless = false
+	teleport_tiles = 0
+	tiles_moved = 0
+	defended_against.clear()
 
 
 # --- conditions ----------------------------------------------------------------
@@ -226,7 +372,8 @@ func condition_sources(condition: String) -> Array[String]:
 	return out
 
 
-## Incapacitated (stunned, paralyzed): no actions, bonus actions or reactions.
+## Incapacitated (stunned, paralyzed, unconscious): no actions, bonus actions
+## or reactions.
 func is_incapacitated() -> bool:
 	return has_condition(Conditions.INCAPACITATED)
 
@@ -239,9 +386,21 @@ func is_immobilized() -> bool:
 	return false
 
 
-## Stunned or paralyzed: the turn passes without it acting or moving.
+## Stunned, paralyzed, unconscious (Sleep) or its turn is lost (Command,
+## confusion): the turn passes without it acting or moving.
 func loses_turn() -> bool:
-	return has_condition(Conditions.STUNNED) or has_condition(Conditions.PARALYZED)
+	for c in Conditions.TURN_SKIPPING:
+		if has_condition(c):
+			return true
+	return false
+
+
+## STR / DEX saves fail automatically (stunned, paralyzed, unconscious, petrified).
+func auto_fails_physical_saves() -> bool:
+	for c in Conditions.PHYSICAL_SAVE_FAIL:
+		if has_condition(c):
+			return true
+	return false
 
 
 ## Turned (Turn Undead): it may only move away and Dash.
@@ -255,20 +414,42 @@ func is_fleeing() -> bool:
 ## Conscious and not incapacitated: can take reactions (opportunity attacks).
 func can_react() -> bool:
 	return is_conscious() and not reaction_used and not is_incapacitated() and not is_fleeing() \
-			and not has_condition(Conditions.NO_REACTIONS)
+			and not has_condition(Conditions.NO_REACTIONS) and not untargetable and not buff_flag("no_reactions")
 
 
+## Immune to a condition: its sheet, active buffs (Heroism, Freedom of
+## Movement, ...) and Mindless Rage (charmed / frightened while raging).
 func is_immune_to_condition(condition: String) -> bool:
-	return sheet != null and sheet.condition_immunities.has(condition)
+	if sheet == null:
+		return false
+	if sheet.condition_immunities.has(condition) or buff_list("immune_conditions").has(condition):
+		return true
+	if raging and sheet.has_feature("mindless_rage") and condition in [Conditions.CHARMED, Conditions.FRIGHTENED]:
+		return true
+	return false
 
 
 ## Damage after the sheet's immunities / resistances / vulnerabilities, with
-## Rage's resistance to bludgeoning, piercing and slashing while raging.
-func adjust_damage(amount: int, damage_type: String) -> int:
-	var extra: Array[String] = []
+## Rage's resistance to bludgeoning, piercing and slashing while raging, and
+## buff resistances (Stoneskin, Protection from Energy, Warding Bond, ...).
+## magical: from a spell or a magical weapon (beats "nonmagical" resistances).
+func adjust_damage(amount: int, damage_type: String, magical: bool = false) -> int:
+	if sheet == null:
+		return amount
+	var extra: Array[String] = buff_list("resist")
 	if raging:
-		extra = ["bludgeoning", "piercing", "slashing"]
-	return sheet.adjust_damage_for_type(amount, damage_type, extra) if sheet != null else amount
+		for t: String in ["bludgeoning", "piercing", "slashing"]:
+			if not extra.has(t):
+				extra.append(t)
+	if not elemental_resistance.is_empty() and not extra.has(elemental_resistance):
+		extra.append(elemental_resistance)
+	if buff_flag("resist_nonmagical") and not magical:
+		for t: String in ["bludgeoning", "piercing", "slashing"]:
+			if not extra.has(t):
+				extra.append(t)
+	if (buff_flag("resist_all") or has_condition(Conditions.PETRIFIED)) and not extra.has(damage_type.to_lower()):
+		extra.append(damage_type.to_lower())
+	return sheet.adjust_damage_for_type(amount, damage_type, extra, magical, buff_list("immune_damage"))
 
 
 ## Index of the first melee attack (opportunity attacks), or -1.

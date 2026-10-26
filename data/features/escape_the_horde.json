@@ -7,6 +7,6 @@
 	"level": 7,
 	"description": "Opportunity attacks against you are made with disadvantage.",
 	"option_of": "defensive_tactics",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

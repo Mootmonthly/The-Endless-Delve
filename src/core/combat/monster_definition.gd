@@ -30,6 +30,12 @@ var loot_table: String = ""  # LootTable id rolled when it dies ("" = no drops)
 var creature_type: String = ""  # "undead", "humanoid", "beast", ... (lower case; "" = unknown)
 ## Multiattack: attack names used by one Attack action, in order ([] = one attack).
 var multiattack: Array[String] = []
+var size: String = "medium"
+var skills: Dictionary[int, int] = {}  # Skill.Type -> total bonus ("skills": {"STEALTH": 4})
+var saving_throws: Dictionary[int, int] = {}  # Ability.Type -> total bonus ("saving_throws": {"DEX": 5})
+var proficiency_bonus: int = 0  # 0 = derived from the challenge rating
+var fly_speed: int = 0  # feet ("speeds": {"fly": 60})
+var icon: String = ""  # optional icon id ("" = none)
 
 
 ## Returns null (and push_error) when a field is missing or invalid.
@@ -99,6 +105,27 @@ static func from_dict(d: Dictionary) -> MonsterDefinition:
 	for attack_name in m.multiattack:
 		if m.attack_index(attack_name) < 0:
 			push_warning("%s: multiattack names unknown attack '%s'" % [ctx, attack_name])
+	m.size = str(d.get("size", "medium")).to_lower()
+	var skills_v: Variant = d.get("skills", {})
+	if typeof(skills_v) == TYPE_DICTIONARY:
+		var skills_d: Dictionary = skills_v
+		for key: Variant in skills_d.keys():
+			var skill := Skill.from_string(str(key))
+			if skill >= 0:
+				m.skills[skill] = DictUtil.to_int(skills_d[key], 0)
+	var saves_v: Variant = d.get("saving_throws", {})
+	if typeof(saves_v) == TYPE_DICTIONARY:
+		var saves_d: Dictionary = saves_v
+		for key: Variant in saves_d.keys():
+			var ability := Ability.from_string(str(key))
+			if ability >= 0:
+				m.saving_throws[ability] = DictUtil.to_int(saves_d[key], 0)
+	m.proficiency_bonus = DictUtil.to_int(d.get("proficiency_bonus", 0), 0)
+	m.icon = "" if d.get("icon") == null else str(d.get("icon", ""))
+	var speeds_v: Variant = d.get("speeds", {})
+	if typeof(speeds_v) == TYPE_DICTIONARY:
+		var speeds_d: Dictionary = speeds_v
+		m.fly_speed = DictUtil.to_int(speeds_d.get("fly", 0), 0)
 	return m
 
 
@@ -136,4 +163,9 @@ func to_sheet(rng: Rng = null, roll_hp: bool = false) -> CharacterSheet:
 	sheet.damage_immunities = damage_immunities.duplicate()
 	sheet.damage_vulnerabilities = damage_vulnerabilities.duplicate()
 	sheet.condition_immunities = condition_immunities.duplicate()
+	sheet.size = size
+	sheet.skill_bonuses = skills.duplicate()
+	sheet.save_bonuses = saving_throws.duplicate()
+	sheet.proficiency_override = proficiency_bonus
+	sheet.fly_speed = fly_speed
 	return sheet

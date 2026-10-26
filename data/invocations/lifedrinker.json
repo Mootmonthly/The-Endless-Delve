@@ -4,6 +4,6 @@
 	"display_name": "Lifedrinker",
 	"description": "When you hit a creature with your pact weapon, the creature takes extra necrotic damage equal to your Charisma modifier (minimum 1).",
 	"prerequisites": { "level": 12, "pact": "pact_of_the_blade" },
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

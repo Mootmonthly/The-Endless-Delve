@@ -4,6 +4,6 @@
 	"display_name": "Ascendant Step",
 	"description": "You can cast levitate on yourself at will, without expending a spell slot or material components.",
 	"prerequisites": { "level": 9 },
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

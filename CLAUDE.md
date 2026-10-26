@@ -167,3 +167,15 @@ Append one entry per working session (newest last).
   metamagic, feature options, skills). Also: offline-only pause, a private
   Feat Workshop artifact for original feats (SRD has only Grappler). Suite:
   576 green. Next: round B (levels 6-12), round C (13-20), UI exposure.
+- **2026-10-26 — Progression round B + UI exposure.** UI: conditions,
+  concentration, attack counters, resources, attack options, area footprints,
+  metamagic/upcast pickers, every level-up choice type, creation choices.
+  Core round B: ability checks/contests, hide/stealth/invisibility,
+  shove/grapple, generalised reactions with `reaction_policy`, summons and
+  companions, teleport/fly moves, tile effects (walls, zones), exhaustion,
+  revive spells, all metamagic, lite wild shape/polymorph, `SpellEffects`
+  overrides (157 of 320 spells castable; 163 remain unsupported, grouped
+  in the round B report: utility/exploration, terrain the grid can't hold,
+  compulsion, unmodelled summons, illusions, special outcomes), every class
+  feature for levels 6-12 except pact_of_the_chain/tome and slow_fall.
+  Suite: 673 green. Paused by owner before round C (levels 13-20).

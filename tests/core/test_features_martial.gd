@@ -239,7 +239,7 @@ func test_divine_smite() -> void:
 		assert_eq(extra[0]["source"], "divine_smite")
 		assert_eq(extra[0]["type"], "radiant")
 		assert_eq(hero.sheet.slots_left(1), 2)
-		assert_has(_evs(res), {"kind": "feature_used", "actor": "hero", "feature": "divine_smite", "target": "gob", "remaining": 2})
+		assert_has(_evs(res), {"kind": "feature_used", "actor": "hero", "feature": "divine_smite", "target": "gob", "remaining": 2, "slot_level": 1})
 	else:
 		assert_eq(hero.sheet.slots_left(1), 3, "no slot spent on a miss")
 
@@ -297,7 +297,7 @@ func test_cunning_action_fast_hands_uncanny_dodge_expertise() -> void:
 	s.expertise_skills = [Skill.Type.STEALTH]
 	assert_eq(s.skill_modifier(Skill.Type.STEALTH), 3 + 4, "expertise doubles proficiency")
 	var e := _duel(s, [RAPIER], null, Vector2i(4, 3), "hero", [{"name": "Big", "kind": "melee", "to_hit": 100, "damage": "10", "damage_type": "slashing"}])
-	assert_true(str(_feature(e, "cunning_action", {"mode": "hide"})["error"]).contains("not modelled"))
+	assert_true(str(_feature(e, "cunning_action", {"mode": "hide"})["error"]).contains("cannot hide next to"), "an adjacent hostile sees the rogue")
 	var res := _feature(e, "cunning_action", {"mode": "disengage"})
 	assert_true(res["ok"] == true, str(res["error"]))
 	assert_eq(CoreFixtures.kinds(_evs(res)), ["feature_used", "disengage"])

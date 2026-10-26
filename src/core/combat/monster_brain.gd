@@ -25,6 +25,11 @@ extends RefCounted
 ## attacks_per_action attacks); follow-up attacks carry "retarget": true so
 ## the encounter switches to another conscious hostile in reach if the first
 ## target dropped.
+## Round B: hidden hostiles it cannot see and untargetable spell objects are
+## never targets; warded ones (Sanctuary) only when nothing else is left.
+## With only hidden hostiles left it Searches. A familiar (Find Familiar)
+## never attacks: it moves next to the hostile nearest its owner and Helps.
+## Summons and companions are run by the encounter with this same plan.
 
 
 static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
@@ -45,6 +50,14 @@ static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
 		out.append(MonsterBrain._intent(Encounter.END_TURN, actor_id))
 		return out
 	var hostiles := MonsterBrain._targets(enc, me)
+	if hostiles.is_empty() and not me.action_used and MonsterBrain._hidden_hostiles(enc, me):
+		out.append(MonsterBrain._intent(Encounter.SEARCH, actor_id))
+		out.append(MonsterBrain._intent(Encounter.END_TURN, actor_id))
+		return out
+	if me.familiar:
+		MonsterBrain._familiar_plan(enc, me, hostiles, movement, out)
+		out.append(MonsterBrain._intent(Encounter.END_TURN, actor_id))
+		return out
 	if not hostiles.is_empty() and not me.attacks.is_empty() and not me.action_used:
 		var melee := me.first_melee_attack()
 		var ranged := me.first_ranged_attack()
@@ -141,19 +154,61 @@ static func _not_closer(from: Vector2i, to: Vector2i, fears: Array[Combatant]) -
 	return true
 
 
-## Conscious hostiles of me; when there are none, the dying ones.
+## Conscious hostiles of me (not hidden from it, not untargetable; warded
+## ones only when nothing else is left); when there are none, the dying ones.
 static func _targets(enc: Encounter, me: Combatant) -> Array[Combatant]:
 	var conscious: Array[Combatant] = []
+	var warded: Array[Combatant] = []
 	var dying: Array[Combatant] = []
 	var charmed_by := me.condition_sources(Conditions.CHARMED)
 	for h in enc.hostiles_of(me):
-		if charmed_by.has(h.id):
+		if charmed_by.has(h.id) or h.untargetable or (h.hidden and not enc.can_see(me, h)):
 			continue
 		if h.is_conscious():
-			conscious.append(h)
+			if h.has_buff("sanctuary") or h.sheet.active_buffs.has("tranquility"):
+				warded.append(h)
+			else:
+				conscious.append(h)
 		elif h.is_dying():
 			dying.append(h)
-	return conscious if not conscious.is_empty() else dying
+	if not conscious.is_empty():
+		return conscious
+	return warded if not warded.is_empty() else dying
+
+
+## Whether any living hostile is hidden from me.
+static func _hidden_hostiles(enc: Encounter, me: Combatant) -> bool:
+	for h in enc.hostiles_of(me):
+		if h.is_conscious() and h.hidden and not enc.can_see(me, h):
+			return true
+	return false
+
+
+## Familiar: walk next to the hostile nearest its owner, then Help against it.
+static func _familiar_plan(enc: Encounter, me: Combatant, hostiles: Array[Combatant], movement: int, out: Array[Dictionary]) -> void:
+	if hostiles.is_empty() or me.action_used:
+		return
+	var owner := enc.get_combatant(me.owner_id)
+	var anchor := owner.position if owner != null else me.position
+	var best: Combatant = null
+	for h in hostiles:
+		if not h.is_conscious():
+			continue
+		if best == null or GridMath.distance_tiles(anchor, h.position) < GridMath.distance_tiles(anchor, best.position) \
+				or (GridMath.distance_tiles(anchor, h.position) == GridMath.distance_tiles(anchor, best.position) and h.id < best.id):
+			best = h
+	if best == null:
+		return
+	var pos := me.position
+	if not GridMath.is_adjacent(pos, best.position) and movement > 0:
+		var path := enc.walk_map.path_to(me.position, best.position, enc.occupied_cells(me.id))
+		if path.size() > movement:
+			path.resize(movement)
+		if not path.is_empty():
+			out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.MOVE, "actor": me.id, "path": GridMath.vec_list_to_arr(path)})
+			pos = path[path.size() - 1]
+	if GridMath.is_adjacent(pos, best.position):
+		out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.HELP, "actor": me.id, "target": best.id})
 
 
 ## Lowest current hp among hostiles adjacent to pos; ties broken by id.

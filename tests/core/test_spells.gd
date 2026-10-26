@@ -78,7 +78,7 @@ func test_spell_definitions_parse_effects_and_riders() -> void:
 
 func test_invalid_spells_are_rejected() -> void:
 	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 10, "effect": {"type": "heal", "dice": "1d4"}}), "level 10")
-	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "effect": {"type": "teleport"}}), "unknown type")
+	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "effect": {"type": "nonsense"}}), "unknown type")
 	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "effect": {"type": "save", "save": "LUCK", "damage": "1d6"}}), "bad save")
 	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "effect": {"type": "spell_attack", "damage": "lots"}}), "bad damage")
 	var reaction := CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "casting_time": "reaction", "effect": {"type": "heal", "dice": "1d4"}})

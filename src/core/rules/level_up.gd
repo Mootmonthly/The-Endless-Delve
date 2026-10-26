@@ -31,7 +31,15 @@ extends RefCounted
 ## must be valid. Option values: subclass,
 ## style, invocation, metamagic and option-feature ids; skills as upper-case
 ## keys ("STEALTH"). feature_option covers hunters_prey, dragon_ancestor,
-## circle_spells (circle_of_the_land_<terrain>) and pact_boon.
+## circle_spells (circle_of_the_land_<terrain>), pact_boon, defensive_tactics,
+## multiattack (ranger) and superior_hunters_defense.
+## Round B choice types: "magical_secrets" (count 2, any class's spells of a
+## castable level or cantrips; bard 10 / 14 / 18 replace two of the level's
+## spells_to_learn, Lore 6 adds two), "mystic_arcanum" (count 1: a warlock
+## spell of level 6 / 7 / 8 / 9 at 11 / 13 / 15 / 17) and "damage_type"
+## (Fiendish Resilience: one of CharacterSheet.DAMAGE_TYPES; answer
+## "damage_type": "fire"). Answers: "magical_secrets": [ids],
+## "mystic_arcanum": [id], "damage_type": id.
 ##
 ## apply(sheet, made, content, rng) with made =
 ## {"hp": "average"|"roll", "asi": {"STR": 2} or {"STR": 1, "DEX": 1},
@@ -57,6 +65,12 @@ const CHOICE_INVOCATIONS := "invocations"
 const CHOICE_METAMAGIC := "metamagic"
 const CHOICE_FEATURE_OPTION := "feature_option"
 const CHOICE_SKILLS := "skills"
+const CHOICE_MAGICAL_SECRETS := "magical_secrets"
+const CHOICE_MYSTIC_ARCANUM := "mystic_arcanum"
+const CHOICE_DAMAGE_TYPE := "damage_type"
+const MAGICAL_SECRETS_COUNT := 2
+## Warlock level -> Mystic Arcanum spell level.
+const ARCANUM_LEVELS: Dictionary[int, int] = {11: 6, 13: 7, 15: 8, 17: 9}
 const BONUS_PROFICIENCY_SKILLS := 3  # College of Lore
 
 
@@ -108,6 +122,8 @@ static func choices(sheet: CharacterSheet, content: Dictionary = {}) -> Dictiona
 			spells_to_learn = maxi(0, ClassDefinition.table_value(cls.spells_known_table, new_level) - ClassDefinition.table_value(cls.spells_known_table, sheet.level))
 		elif cls.spellbook_learn_per_level > 0:
 			spells_to_learn = cls.spellbook_learn_per_level
+		if cls.features_at(new_level).has("magical_secrets"):
+			spells_to_learn = maxi(0, spells_to_learn - MAGICAL_SECRETS_COUNT)
 		cantrips_to_learn = mini(cantrips_to_learn, cantrip_options.size())
 		spells_to_learn = mini(spells_to_learn, spell_options.size())
 		if cls.prepares_spells and cls.spellcasting_ability >= 0:
@@ -207,6 +223,26 @@ static func _choice_entries(sheet: CharacterSheet, cls: ClassDefinition, level: 
 		var opts := LevelUp.feature_options(f, cls)
 		if not opts.is_empty():
 			out.append({"type": CHOICE_FEATURE_OPTION, "feature": f, "count": 1, "options": opts})
+	var secrets := 0
+	if cls.features_at(level).has("magical_secrets"):
+		secrets += MAGICAL_SECRETS_COUNT
+	if gained.has("additional_magical_secrets"):
+		secrets += MAGICAL_SECRETS_COUNT
+	if secrets > 0:
+		var opts := LevelUp._any_class_spells(sheet, cls, level, content)
+		if not opts.is_empty():
+			out.append({"type": CHOICE_MAGICAL_SECRETS, "count": mini(secrets, opts.size()), "options": opts})
+	if cls.features_at(level).has("mystic_arcanum") and ARCANUM_LEVELS.has(level):
+		var opts: Array[String] = []
+		for spell_id in cls.spell_list:
+			var spell := LevelUp._spell(spell_id, content)
+			if spell != null and spell.level == ARCANUM_LEVELS[level] and not sheet.mystic_arcanum.has(spell_id):
+				opts.append(spell_id)
+		opts.sort()
+		if not opts.is_empty():
+			out.append({"type": CHOICE_MYSTIC_ARCANUM, "count": 1, "options": opts, "spell_level": ARCANUM_LEVELS[level]})
+	if gained.has("fiendish_resilience"):
+		out.append({"type": CHOICE_DAMAGE_TYPE, "count": 1, "options": CharacterSheet.DAMAGE_TYPES.duplicate(), "feature": "fiendish_resilience"})
 	if gained.has("bonus_proficiencies"):
 		var skills: Array[String] = []
 		for skill in range(Skill.COUNT):
@@ -257,6 +293,25 @@ static func _invocation_options(sheet: CharacterSheet, level: int, gained: Array
 			if not spell.is_empty() and not sheet.spells_known.has(spell):
 				continue
 		out.append(id)
+	out.sort()
+	return out
+
+
+## Magical Secrets options: spells of any class (cantrips, or a level the new
+## level's slots can cast) the sheet does not know, sorted.
+static func _any_class_spells(sheet: CharacterSheet, cls: ClassDefinition, level: int, content: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	var slots := cls.slots_for_level(level)
+	var max_slot := 0
+	for i in range(slots.size()):
+		if slots[i] > 0:
+			max_slot = i + 1
+	var spells: Dictionary = content.get("spells", {})
+	for key: Variant in spells.keys():
+		var spell: SpellDefinition = spells[key]
+		if sheet.spells_known.has(spell.id) or spell.level > max_slot:
+			continue
+		out.append(spell.id)
 	out.sort()
 	return out
 
@@ -397,9 +452,11 @@ static func check_choices(choice_list: Array, made: Dictionary, picks: Dictionar
 		var given: Array[String] = []
 		var key := kind
 		match kind:
-			CHOICE_SUBCLASS, CHOICE_FIGHTING_STYLE:
+			CHOICE_SUBCLASS, CHOICE_FIGHTING_STYLE, CHOICE_DAMAGE_TYPE:
 				var v: Variant = made.get(kind, null)
-				if v != null and str(v) != "":
+				if typeof(v) == TYPE_ARRAY:
+					given = DictUtil.to_string_array(v)
+				elif v != null and str(v) != "":
 					given.append(str(v))
 			CHOICE_FEATURE_OPTION:
 				key = "%s:%s" % [kind, str(entry["feature"])]
@@ -454,6 +511,25 @@ static func apply_picks(sheet: CharacterSheet, picks: Dictionary) -> void:
 				CHOICE_INVOCATIONS:
 					if not sheet.invocations.has(id):
 						sheet.invocations.append(id)
+					if CharacterSheet.INVOCATION_SPELLS.has(id):
+						sheet.class_resources[CharacterSheet.INVOCATION_PREFIX + id] = 1
+					if id == "beguiling_influence":
+						for skill: int in [Skill.Type.DECEPTION, Skill.Type.PERSUASION]:
+							if not sheet.proficient_skills.has(skill):
+								sheet.proficient_skills.append(skill)
+				CHOICE_MAGICAL_SECRETS:
+					if not sheet.spells_known.has(id):
+						sheet.spells_known.append(id)
+					if not sheet.spells_prepared.has(id):
+						sheet.spells_prepared.append(id)
+					if not sheet.always_prepared.has(id):
+						sheet.always_prepared.append(id)
+				CHOICE_MYSTIC_ARCANUM:
+					if not sheet.mystic_arcanum.has(id):
+						sheet.mystic_arcanum.append(id)
+					sheet.class_resources[CharacterSheet.ARCANUM_PREFIX + id] = 1
+				CHOICE_DAMAGE_TYPE:
+					sheet.chosen_resistance = id
 				CHOICE_METAMAGIC:
 					if not sheet.metamagic.has(id):
 						sheet.metamagic.append(id)
