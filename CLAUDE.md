@@ -28,11 +28,11 @@ Decisions are recorded as ADRs in `docs/decisions/`.
    scenes / TileMapLayers.
 6. **Licensing:** rules from SRD 5.1 / 5.2 (CC-BY-4.0) only. See below.
 7. **Tests:** in-house runner, no third-party framework. CI on GitHub Actions.
-8. **Godot may be unavailable in an agent sandbox:** cloud sessions in Auto
-   mode cannot execute a Godot binary downloaded mid-session. Preinstall it via
-   the environment setup script (download the 4.5-stable Linux zip, unzip,
-   chmod +x) or allow it in `.claude/settings.json`; otherwise write carefully,
-   re-read for GDScript 4.5 syntax, and let CI be the first real run.
+8. **Godot in the agent sandbox:** cloud sessions in Auto mode cannot execute
+   a Godot binary downloaded mid-session. The environment setup script runs
+   `bash tools/install_godot.sh` (installs 4.5-stable to `/opt/godot/godot`).
+   If `/opt/godot/godot` is missing, say so rather than working around it, and
+   let CI be the first real run.
 
 ## Repository layout
 
