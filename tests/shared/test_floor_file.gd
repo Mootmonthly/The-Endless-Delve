@@ -36,9 +36,9 @@ func test_floor_001_layout() -> void:
 	var z2: EncounterZoneData = f.encounter_zones[1]
 	assert_eq(z1.id, "z1")
 	assert_eq(z1.rect, Rect2i(17, 2, 12, 9))
-	assert_eq(z1.monster_ids, ["giant_rat"] as Array[String])
+	assert_eq(z1.monster_ids, ["giant_rat", "giant_rat"] as Array[String])
 	assert_eq(z1.spawn_points.size(), 3)
-	assert_eq(z2.monster_ids, ["skeleton", "skeleton", "zombie", "giant_rat"] as Array[String])
+	assert_eq(z2.monster_ids, ["skeleton", "skeleton", "zombie"] as Array[String])
 
 
 func test_floor_001_monsters_exist_in_data() -> void:

@@ -151,7 +151,7 @@ brackets are adjusted XP and side areas are in italics.
 
 | Floor | Name | Size (tiles) | Zones (of which optional) | Assumed solo level | Band (solo) | Roster by zone | Notable feature |
 |---|---|---|---|---|---|---|---|
-| 1 | The Threshold | 48x32 | 2 (1) | 1 | easy-hard | rat hall: 1 giant rat, easy (25); *crypt*: 2 skeletons + zombie + giant rat, deadly (350) | One required fight; the crypt is a side room off the rat hall. |
+| 1 | The Threshold | 48x32 | 2 (1) | 1 | easy-hard | rat hall: 2 giant rats, hard (75); *crypt*: 2 skeletons + zombie, deadly (300) | One required fight; the crypt is a side room off the rat hall. |
 | 2 | The Spoil Tunnels | 56x36 | 3 (1) | 1, reaching 2 | medium-hard | kobold den: 2 kobolds, hard (75); centipede gallery (ambush): giant centipede, medium (50); *goblin cache*: 2 goblins, deadly (150) | Two ways off the landing (through the den or down the west tunnel); both meet in the gallery. |
 | 3 | The Ossuary | 64x40 | 4 (1) | 2 | medium-hard | bone-pickers' hall: 3 kobolds, hard (150); narrow ossuary (ambush): 2 giant centipedes, hard (150); guard post: hobgoblin + kobold, hard (187.5); *charnel chamber*: ghoul, deadly (200) | After the hall the route forks: low road through the ossuary, or high road through the guard post. |
 | 4 | The Webbed Crypts | 72x44 | 4 (1) | 2-3 (budget 3) | hard | war-band camp: hobgoblin + goblin, hard (225); webbed gallery (ambush): giant spider + giant centipede, hard (375); sealed crypt: ghoul + zombie, hard (375); *chieftain's tomb*: bugbear + hobgoblin, deadly (450) | Landing in the middle of the floor; a north road (camp, then gallery) and a south road (crypt) to the stairs. |
@@ -231,9 +231,9 @@ level-2 characters, medium for four.
 #### Measurement (moved from Open question 19)
 
 Measured on 2026-10-26 with a naive bot (attacks when adjacent, otherwise closes distance, never Dodges)
-playing a level 1 human Fighter on floor_001: one giant rat 19/20 wins, a single giant rat 11/20, goblin + giant
-rat 9/20, two goblins + giant rat 2/20. Floor 1 ships its rat hall as a single giant rat and the crypt (two
-skeletons + zombie) as a side room off the main route. A single giant rat sit exactly on the level-1 hard
+playing a level 1 human Fighter on floor_001: one giant rat 19/20 wins, two giant rats 11/20, goblin + giant
+rat 9/20, two goblins + giant rat 2/20. Floor 1 ships its rat hall as a two-rat pack (the owner's call: players are smarter than the bot) and the crypt (two
+skeletons + zombie) as a side room off the main route. Two giant rats sit exactly on the level-1 hard
 threshold (75 adjusted XP), so floor 1 is "relatively easy" only next to the rest of the set. The
 measurement predates death saves before the wipe and XP awards: re-run the bot on all five floors (solo
 at the assumed level, and a party of three) before tuning further. Death saves give a downed solo a chance

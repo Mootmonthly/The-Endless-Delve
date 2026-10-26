@@ -128,5 +128,5 @@ Append one entry per working session (newest last).
   `SET_CLEARED` on the last floor. Content: set_01 "The Barrow Warrens"
   (floors 1-5, seven new SRD monsters, per-floor XP budgets checked by
   `tests/content`). Naive-bot curve over 20 seeds: dies on floors 1/2/3
-  (9/4/7), never past floor 3 at level 1; floor 1 zone 1 reduced to one giant
-  rat. Suite: 304 tests green.
+  (9/4/7), never past floor 3 at level 1. Owner kept floor 1 at a two-rat pack:
+  players are smarter than the bot. Suite: 304 tests green.

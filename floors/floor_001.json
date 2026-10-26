@@ -62,6 +62,7 @@
 				9
 			],
 			"monster_ids": [
+				"giant_rat",
 				"giant_rat"
 			],
 			"spawn_points": [
@@ -92,8 +93,7 @@
 			"monster_ids": [
 				"skeleton",
 				"skeleton",
-				"zombie",
-				"giant_rat"
+				"zombie"
 			],
 			"spawn_points": [
 				[
@@ -107,10 +107,6 @@
 				[
 					22,
 					28
-				],
-				[
-					26,
-					21
 				]
 			]
 		}
