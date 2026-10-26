@@ -1,0 +1,15 @@
+{
+	"schema_version": 1,
+	"id": "cleric",
+	"display_name": "Cleric",
+	"description": "A priestly champion who wields divine magic in service of a higher power.",
+	"hit_die": 8,
+	"primary_abilities": ["WIS"],
+	"saving_throws": ["WIS", "CHA"],
+	"armor_proficiencies": ["light", "medium", "shield"],
+	"weapon_proficiencies": ["simple"],
+	"tool_proficiencies": [],
+	"skill_choices": ["HISTORY", "INSIGHT", "MEDICINE", "PERSUASION", "RELIGION"],
+	"skill_choice_count": 2,
+	"spellcasting_ability": "WIS"
+}

@@ -1,0 +1,24 @@
+{
+	"schema_version": 1,
+	"id": "goblin",
+	"display_name": "Goblin",
+	"size": "small",
+	"creature_type": "humanoid",
+	"armor_class": 15,
+	"armor_note": "leather armor, shield",
+	"hit_points": 7,
+	"hit_dice": "2d6",
+	"speed": 30,
+	"abilities": { "STR": 8, "DEX": 14, "CON": 10, "INT": 10, "WIS": 8, "CHA": 8 },
+	"skills": { "STEALTH": 6 },
+	"senses": "darkvision 60 ft., passive Perception 9",
+	"challenge_rating": 0.25,
+	"xp": 50,
+	"traits": [
+		{ "name": "Nimble Escape", "description": "Can take the Disengage or Hide action as a bonus action on each of its turns." }
+	],
+	"attacks": [
+		{ "name": "Scimitar", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "1d6+2", "damage_type": "slashing" },
+		{ "name": "Shortbow", "kind": "ranged", "range_ft": [80, 320], "to_hit": 4, "damage": "1d6+2", "damage_type": "piercing" }
+	]
+}

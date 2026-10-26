@@ -1,0 +1,15 @@
+{
+	"schema_version": 1,
+	"id": "wizard",
+	"display_name": "Wizard",
+	"description": "A scholarly magic-user capable of manipulating the structures of reality.",
+	"hit_die": 6,
+	"primary_abilities": ["INT"],
+	"saving_throws": ["INT", "WIS"],
+	"armor_proficiencies": [],
+	"weapon_proficiencies": ["dagger", "dart", "sling", "quarterstaff", "light_crossbow"],
+	"tool_proficiencies": [],
+	"skill_choices": ["ARCANA", "HISTORY", "INSIGHT", "INVESTIGATION", "MEDICINE", "RELIGION"],
+	"skill_choice_count": 2,
+	"spellcasting_ability": "INT"
+}

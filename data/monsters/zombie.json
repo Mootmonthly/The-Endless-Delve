@@ -1,0 +1,24 @@
+{
+	"schema_version": 1,
+	"id": "zombie",
+	"display_name": "Zombie",
+	"size": "medium",
+	"creature_type": "undead",
+	"armor_class": 8,
+	"hit_points": 22,
+	"hit_dice": "3d8+9",
+	"speed": 20,
+	"abilities": { "STR": 13, "DEX": 6, "CON": 16, "INT": 3, "WIS": 6, "CHA": 5 },
+	"saving_throws": { "WIS": 0 },
+	"damage_immunities": ["poison"],
+	"condition_immunities": ["poisoned"],
+	"senses": "darkvision 60 ft., passive Perception 8",
+	"challenge_rating": 0.25,
+	"xp": 50,
+	"traits": [
+		{ "name": "Undead Fortitude", "description": "If damage reduces it to 0 hit points, it makes a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, it drops to 1 hit point instead." }
+	],
+	"attacks": [
+		{ "name": "Slam", "kind": "melee", "reach_ft": 5, "to_hit": 3, "damage": "1d6+1", "damage_type": "bludgeoning" }
+	]
+}

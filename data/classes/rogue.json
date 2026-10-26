@@ -1,0 +1,15 @@
+{
+	"schema_version": 1,
+	"id": "rogue",
+	"display_name": "Rogue",
+	"description": "A scoundrel who uses stealth and trickery to overcome obstacles and enemies.",
+	"hit_die": 8,
+	"primary_abilities": ["DEX"],
+	"saving_throws": ["DEX", "INT"],
+	"armor_proficiencies": ["light"],
+	"weapon_proficiencies": ["simple", "hand_crossbow", "longsword", "rapier", "shortsword"],
+	"tool_proficiencies": ["thieves_tools"],
+	"skill_choices": ["ACROBATICS", "ATHLETICS", "DECEPTION", "INSIGHT", "INTIMIDATION", "INVESTIGATION", "PERCEPTION", "PERFORMANCE", "PERSUASION", "SLEIGHT_OF_HAND", "STEALTH"],
+	"skill_choice_count": 4,
+	"spellcasting_ability": null
+}
