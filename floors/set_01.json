@@ -1,0 +1,13 @@
+{
+	"schema_version": 1,
+	"id": "set_01",
+	"display_name": "The Barrow Warrens",
+	"theme": "The Barrow Warrens",
+	"floors": [
+		"floor_001",
+		"floor_002",
+		"floor_003",
+		"floor_004",
+		"floor_005"
+	]
+}

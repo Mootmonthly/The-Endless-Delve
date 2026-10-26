@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"id": "giant_centipede",
+	"display_name": "Giant Centipede",
+	"size": "small",
+	"creature_type": "beast",
+	"armor_class": 13,
+	"armor_note": "natural armor",
+	"hit_points": 4,
+	"hit_dice": "1d6+1",
+	"speed": 30,
+	"abilities": { "STR": 5, "DEX": 14, "CON": 12, "INT": 1, "WIS": 7, "CHA": 3 },
+	"senses": "blindsight 30 ft., passive Perception 8",
+	"challenge_rating": 0.25,
+	"xp": 50,
+	"traits": [
+		{ "name": "Bite: poison", "description": "A target hit by the bite must succeed on a DC 11 Constitution saving throw or take 10 (3d6) poison damage. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way. (Not yet modelled: only the bite's piercing damage applies.)" }
+	],
+	"attacks": [
+		{ "name": "Bite", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "1d4+2", "damage_type": "piercing" }
+	]
+}

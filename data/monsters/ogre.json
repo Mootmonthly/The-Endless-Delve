@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "ogre",
+	"display_name": "Ogre",
+	"size": "large",
+	"creature_type": "giant",
+	"armor_class": 11,
+	"armor_note": "hide armor",
+	"hit_points": 59,
+	"hit_dice": "7d10+21",
+	"speed": 40,
+	"abilities": { "STR": 19, "DEX": 8, "CON": 16, "INT": 5, "WIS": 7, "CHA": 7 },
+	"senses": "darkvision 60 ft., passive Perception 8",
+	"challenge_rating": 2,
+	"xp": 450,
+	"traits": [],
+	"attacks": [
+		{ "name": "Greatclub", "kind": "melee", "reach_ft": 5, "to_hit": 6, "damage": "2d8+4", "damage_type": "bludgeoning" },
+		{ "name": "Javelin", "kind": "ranged", "range_ft": [30, 120], "to_hit": 6, "damage": "2d6+4", "damage_type": "piercing" }
+	]
+}

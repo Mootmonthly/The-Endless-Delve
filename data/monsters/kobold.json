@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"id": "kobold",
+	"display_name": "Kobold",
+	"size": "small",
+	"creature_type": "humanoid",
+	"armor_class": 12,
+	"hit_points": 5,
+	"hit_dice": "2d6-2",
+	"speed": 30,
+	"abilities": { "STR": 7, "DEX": 15, "CON": 9, "INT": 8, "WIS": 7, "CHA": 8 },
+	"senses": "darkvision 60 ft., passive Perception 8",
+	"challenge_rating": 0.125,
+	"xp": 25,
+	"traits": [
+		{ "name": "Sunlight Sensitivity", "description": "While in sunlight, has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight." },
+		{ "name": "Pack Tactics", "description": "Has advantage on attack rolls against a creature if at least one of its allies is within 5 feet of the creature and the ally isn't incapacitated." }
+	],
+	"attacks": [
+		{ "name": "Dagger", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "1d4+2", "damage_type": "piercing" },
+		{ "name": "Sling", "kind": "ranged", "range_ft": [30, 120], "to_hit": 4, "damage": "1d4+2", "damage_type": "bludgeoning" }
+	]
+}

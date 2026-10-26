@@ -239,6 +239,12 @@ Out of scope for M0-M2 beyond local offline saves.
 tile grid (`#` wall, `.` floor, `A` arrival, `S` stairs) plus marker data (encounter zones with monster ids and
 spawn points). `FloorFile` in `src/shared` turns a file into `FloorData`, and `FloorView` builds the
 `TileMapLayer`s from it at load. This keeps floors diffable and lets the headless validator run without the editor.
+
+**Set 1 (2026-10-26):** floors also carry optional `floor_number`, `theme` and a content-only `budget`
+(`{"level", "min", "max"}`, read by content tests, ignored by the rules); zones carry optional `kind`
+(`pack` / `ambush` / `boss`), `boss` (bool) and `optional` (bool, content-only: a side area off the route).
+A set manifest `floors/set_NN.json` lists a set's five floors in descent order (`FloorFile.load_set`). Each
+set has a content test under `tests/content/` checking loading, budgets and stairs gating (GDD 5.4).
 Hand-placed `TileMapLayer` scenes, as described below, remain the plan once the content pipeline (M6) justifies an
 editor workflow; the proposal below is kept for that stage.
 
@@ -311,7 +317,7 @@ A headless benchmark with 100 simulated clients is an exit criterion of M3.
 | 1 | MMO scope is too large for a small team | Ship Offline first (M1-M2); one server type at a time; strict milestone exit criteria; Early Access with fewer than 100 floors. |
 | 2 | Handcrafting 100 floors | Reusable room kit, floor validator, data-driven encounters; produce floors in batches of 5 (one instance) and playtest each batch (M6). |
 | 3 | GDScript server performance at 100 players | Static typing, integer rules math, event-driven encounters, benchmark in M3; move hot paths to a GDExtension only if profiling demands it. |
-| 4 | PVP fairness (level gaps, ganking) | Milestone leveling keeps levels close; arrival protection; no-PVP stairs ring; PVE servers as an alternative. |
+| 4 | PVP fairness (level gaps, ganking) | Per-set budgets assume the level a full-clear solo reaches, keeping levels on a floor within about one of each other; arrival protection; no-PVP stairs ring; PVE servers as an alternative. |
 | 5 | Licensing (non-SRD content or trademarks leak in) | SRD-only content rule, `source` field on every record, CI grep for banned terms, review before store launch. |
 | 6 | Netcode complexity | Server authority, no prediction in M1, turn-based combat, one transport interface shared with offline mode. |
 | 7 | Persistence and data loss | Versioned JSON character documents, checkpoint writes, migrations tested in CI, backups before EA. |

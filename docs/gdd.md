@@ -94,6 +94,8 @@ host at most 5 players.
   final staircase, new parties are admitted to the first floor, keeping the population near capacity.
 - Between instance N and N+1 is safe zone N (after floors 5, 10, ..., 95). Clearing floor 100 leads to the
   postgame (section 13).
+- **Owner decision (2026-10-26):** the five floors of an instance form a **set** that shares one theme
+  (see 5.4).
 
 ### 5.2 Floor anatomy
 
@@ -116,9 +118,138 @@ globally every 10 minutes after being killed.
 ### 5.3 Difficulty curve
 
 Deeper floors bring stronger monsters (higher challenge rating), larger and more complex layouts, and on
-PVP servers more skilled and better equipped players. **Proposal (needs owner sign-off):** encounter
-budgets follow the SRD encounter-building guidance, targeting "Medium" difficulty packs and "Hard" to
-"Deadly" bosses for a 5-character party of the expected level for that floor (see 8.3).
+PVP servers more skilled and better equipped players. **Owner decision (2026-10-26):** within a set the
+first floor is relatively easy and the last is very difficult for a solo player fighting head-on, while
+players level as they go. Encounter budgets follow the SRD encounter-building guidance, written for one
+character of the level a solo is expected to have on that floor; parties face the same zones with more
+combined thresholds. The first set's budgets are in 5.4.
+
+### 5.4 The first set (floors 1-5)
+
+**Owner decisions (2026-10-26):** floor 1 is relatively easy and difficulty climbs to floor 5, which is very
+difficult for a solo player fighting head-on. Players level as they advance through the set (8.3), so the
+curve assumes a rising level. Every five-floor set shares one theme. Solo players get their death saves
+before a party wipe is declared (9.3).
+
+#### Theme: The Barrow Warrens
+
+Below the dungeon's first stair lies a buried necropolis whose builders no one remembers. Kobold and goblin
+diggers tunnelled in after grave goods and broke the old seals; the dead woke in their niches, rats and
+centipedes bred in the spoil heaps, and a hobgoblin war-band moved in to rule the diggings. At the bottom,
+in the funeral hall that holds the stair down, squats an ogre the diggers call the Gravebreaker. It takes a
+toll in bones from anything that wants to go deeper. Monster families: vermin (giant rat, giant centipede,
+giant spider), goblinoids and their kobold labour (kobold, goblin, hobgoblin, bugbear), the restless dead
+(skeleton, zombie, ghoul) and the ogre. All are SRD 5.1 stat blocks in `data/monsters/`.
+
+#### Floors
+
+Files: `floors/set_01.json` (the manifest) and `floors/floor_001.json` to `floor_005.json`. Each floor
+declares `floor_number`, `theme` and a `budget` (below); zones declare `kind` (`pack`, `ambush`, `boss`),
+floor 5's boss zone `"boss": true`, and each floor's side area `"optional": true`. Difficulty is per zone,
+for **one** character of the assumed level, using adjusted XP (see the budget rules below); the numbers in
+brackets are adjusted XP and side areas are in italics.
+
+| Floor | Name | Size (tiles) | Zones (of which optional) | Assumed solo level | Band (solo) | Roster by zone | Notable feature |
+|---|---|---|---|---|---|---|---|
+| 1 | The Threshold | 48x32 | 2 (1) | 1 | easy-hard | rat hall: 1 giant rat, easy (25); *crypt*: 2 skeletons + zombie + giant rat, deadly (350) | One required fight; the crypt is a side room off the rat hall. |
+| 2 | The Spoil Tunnels | 56x36 | 3 (1) | 1, reaching 2 | medium-hard | kobold den: 2 kobolds, hard (75); centipede gallery (ambush): giant centipede, medium (50); *goblin cache*: 2 goblins, deadly (150) | Two ways off the landing (through the den or down the west tunnel); both meet in the gallery. |
+| 3 | The Ossuary | 64x40 | 4 (1) | 2 | medium-hard | bone-pickers' hall: 3 kobolds, hard (150); narrow ossuary (ambush): 2 giant centipedes, hard (150); guard post: hobgoblin + kobold, hard (187.5); *charnel chamber*: ghoul, deadly (200) | After the hall the route forks: low road through the ossuary, or high road through the guard post. |
+| 4 | The Webbed Crypts | 72x44 | 4 (1) | 2-3 (budget 3) | hard | war-band camp: hobgoblin + goblin, hard (225); webbed gallery (ambush): giant spider + giant centipede, hard (375); sealed crypt: ghoul + zombie, hard (375); *chieftain's tomb*: bugbear + hobgoblin, deadly (450) | Landing in the middle of the floor; a north road (camp, then gallery) and a south road (crypt) to the stairs. |
+| 5 | The Gravebreaker's Hall | 80x48 | 5 (1) | 3 | hard, boss deadly | muster room: bugbear + goblin, hard (375); sniper gallery (ambush): 3 goblins, hard (300); bone pit: ghoul + skeleton, hard (375); *charnel pit*: 2 ghouls, deadly (600); **boss** great hall: ogre, deadly (450) | The stairs stand inside the great hall: the boss zone is on every route. West road (sniper gallery) or east road (bone pit). |
+
+Layout rules every floor of the set meets (checked by `tests/content/test_set_01.gd`): each floor is wider
+and taller than the one before; zone counts never drop; every route from arrival to the stairs crosses at
+least one non-optional zone (the shortest route crosses a zone too); the optional zone is a dead end that
+never blocks the stairs; and on floor 5 the stairs lie inside the boss zone.
+
+**Proposal (needs owner sign-off):** in this set only floor 5 has a boss. Floors 1-4 gate their stairs with
+required pack zones instead of the one-to-three bosses of 5.2, so the set's single boss is a clear finale;
+later sets may add mid-set bosses once boss mechanics (lair behaviour, respawn, shared fights) exist.
+
+#### Encounter budgets
+
+- **Method (SRD encounter building):** adjusted XP = the sum of the monsters' XP x a multiplier for their
+  number (1: x1, 2: x1.5, 3-6: x2, 7-10: x2.5, 11-14: x3, 15+: x4). Compare it with one character's
+  thresholds (easy / medium / hard / deadly): level 1 25/50/75/100, level 2 50/100/150/200, level 3
+  75/150/225/400, level 4 125/250/375/500. A zone's band is the highest threshold it reaches.
+- **Solo basis:** the set is tuned for a solo at the floor's assumed level, so a party (whose thresholds
+  add up across members) always finds the same zone easier, even though it levels more slowly (below).
+- **The `budget` field:** each floor stores `{"level": L, "min": band, "max": band}`. Every required zone
+  must fall inside the band for level L.
+- **Proposal (needs owner sign-off):** optional side areas may exceed `max` (they are opt-in risk for extra
+  XP and, later, loot) but must reach `min`; the boss zone must be at least deadly.
+
+#### The boss: the Gravebreaker (floor 5)
+
+An ogre (SRD 5.1, CR 2, 450 XP: AC 11, 59 hit points, greatclub +6 for 2d8+4) alone in a 32x13 hall with
+pillars, standing by the stairs. Adjusted XP 450: **deadly** for one level-3 character, **hard** for three
+level-2 characters, medium for four.
+
+- **Why a solo loses head-on.** A level-3 solo has about 28 hit points (a Fighter with Constitution 14).
+  The ogre hits AC 16-18 about half the time for 13 on average (20 at most, 22 on average with a
+  critical), so two or three hits drop the solo in about five rounds even after Second Wind. The solo needs
+  about seven or eight rounds of hits (with Action Surge) to chew through 59 hit points, so it loses most
+  head-on fights. Retreating does not help: monsters are leashed to their zone and an encounter
+  with no players left resets them to full (7.5). Once the solo is down, the ogre keeps attacking the dying
+  character (9.3), each hit within 5 feet a critical worth two failed death saves.
+- **Why a party wins.** Three level-2 characters bring 55-60 hit points and three attacks a round: they
+  drop the ogre in three or four rounds while it can only hit one of them per turn. A downed member can be
+  stabilised or healed while the others keep swinging. The action economy, not the numbers on the sheet,
+  is the gate.
+
+#### Leveling within the set
+
+- **XP from kills:** when players win an encounter, the XP of every monster that died in it is split evenly
+  (integer division) among the players who were in that encounter and are alive at its end. Levels apply
+  at once (average hit points). Taking the stairs on floors 1-4 is a short rest (5.2); floor 5's stairs
+  lead to the safe zone (for now: a long rest and the end of the set).
+- **XP per floor (sum of monster XP):**
+
+| Floor | Required zones (both roads) | Optional zone | Full clear | Solo total after full clears | Solo total, side rooms skipped |
+|---|---|---|---|---|---|
+| 1 | 50 | 150 | 200 | 200 | 50 |
+| 2 | 100 | 100 | 200 | 400 | 150 |
+| 3 | 300 | 200 | 500 | 900 | 450 |
+| 4 | 650 | 300 | 950 | 1,850 | 1,100 |
+| 5 | 1,100 | 400 | 1,500 | 3,350 | 2,200 |
+
+- **Expected level on arrival** (SRD thresholds: level 2 at 300 XP, 3 at 900, 4 at 2,700):
+
+| Arriving on | Solo, full clears | Solo, side rooms skipped | Party of 3, full clears (XP each) | Party of 5, full clears (XP each) |
+|---|---|---|---|---|
+| Floor 1 | 1 | 1 | 1 (0) | 1 (0) |
+| Floor 2 | 1 | 1 | 1 (66) | 1 (40) |
+| Floor 3 | 2 | 1 | 1 (133) | 1 (80) |
+| Floor 4 | 3 | 2 | 2 (300) | 1 (180) |
+| Floor 5 | 3 | 3 | 2 (616) | 2 (370) |
+| Safe zone 1 | 4 | 3 | 3 (1,116) | 2 (670) |
+
+  A solo who skips side rooms runs about a level behind the budget on floors 3 and 4, and catches up by
+  the end of floor 4 only by clearing both of its roads. Side rooms are therefore the solo's way to stay on the curve, at a risk.
+  `test_full_clear_level_matches_each_floor_budget` pins the full-clear column to each floor's budget level.
+
+#### Measurement (moved from Open question 19)
+
+Measured on 2026-10-26 with a naive bot (attacks when adjacent, otherwise closes distance, never Dodges)
+playing a level 1 human Fighter on floor_001: one giant rat 19/20 wins, a single giant rat 11/20, goblin + giant
+rat 9/20, two goblins + giant rat 2/20. Floor 1 ships its rat hall as a single giant rat and the crypt (two
+skeletons + zombie) as a side room off the main route. A single giant rat sit exactly on the level-1 hard
+threshold (75 adjusted XP), so floor 1 is "relatively easy" only next to the rest of the set. The
+measurement predates death saves before the wipe and XP awards: re-run the bot on all five floors (solo
+at the assumed level, and a party of three) before tuning further. Death saves give a downed solo a chance
+at a natural 20, but monsters attack the dying when nobody else is standing, so most downed solos still die.
+
+#### Later sets share a theme
+
+Every five-floor set (instance) has exactly one theme: one name, one fiction, and a monster roster drawn
+from a few related SRD families. The set manifest `floors/set_NN.json` names the theme and lists its five
+floors in descent order, and every floor in it carries the same `theme`. **Proposal (needs owner
+sign-off):** each later set follows the same template: floor numbers continue (set N holds floors
+5N-4 to 5N); floors grow in size and never lose zones within a set; each floor has one optional side area;
+the set's last floor has a boss zone that contains or encloses the stairs; budgets are written for a solo
+at the level a full-clear solo reaches, with the last floor's ordinary zones hard and its boss deadly, and
+the boss at most hard for a party of three at the party's (lower) expected level; and each set ships with a
+content test like `tests/content/test_set_01.gd`. Themes never repeat between consecutive sets.
 
 ## 6. Exploration
 
@@ -186,8 +317,9 @@ On PVP servers any player may target any other player outside a safe zone.
 
 ### 7.5 Ending an encounter and fleeing
 
-**Proposal (needs owner sign-off):** an encounter ends when, at the end of any turn, no two conscious
-creatures inside the region are hostile to each other. Then all survivors return to real-time.
+An encounter ends when at most one side is still in the fight; a side is in the fight while a member is
+conscious or (players only) dying, so downed players keep rolling death saves (owner decision, see 9.3).
+Then all survivors return to real-time.
 
 - **Fleeing:** a creature that moves out of the region on its turn (provoking opportunity attacks as
   normal) leaves the initiative order and returns to real time. It may re-enter later and will roll
@@ -220,18 +352,15 @@ Multiclassing: **Proposal (needs owner sign-off):** not at launch; reconsider af
 
 ### 8.3 Leveling pace
 
-**Proposal (needs owner sign-off):** milestone leveling, one level per instance:
+**Owner decision (2026-10-26):** characters level as they advance through a set, by SRD experience points
+from kills. When players win an encounter, the XP of every monster that died in it is split evenly (integer
+division, remainder to nobody) among the players who were in that encounter and are alive at its end. A
+level gained applies at once, with average hit points. The level cap is 20. The earlier proposal of
+milestone leveling (one level per instance, applied in the safe zone) is withdrawn.
 
-| Milestone | Character level |
-|---|---|
-| Enter floor 1 | 1 |
-| Reach safe zone N (after floor 5N) | N + 1 |
-| Reach safe zone 19 (after floor 95) | 20 (cap) |
-| Floors 96-100 | 20 |
-
-Level-ups are applied during the long rest on safe zone entry. This keeps every character on a given
-floor at a predictable level, which makes encounter tuning and PVP balance tractable. Gear, spells
-learned and player skill provide differentiation within a floor.
+Because XP is split, a solo levels faster than a party, and a player who clears side areas levels faster
+than one who does not. Encounter budgets are therefore written per floor for a solo at the level a
+full-clear solo reaches there; see 5.4 for the first set's expected levels for solos and parties.
 
 ### 8.4 Deepest-floor badge
 
@@ -259,10 +388,19 @@ revival magic. After the window, the death is final and the character is reset.
 
 ### 9.3 Party wipe
 
-**Proposal (needs owner sign-off):** a party wipe occurs when, at the end of any turn, no member of the
-party is conscious and at least one hostile creature remains conscious in the encounter. Every member
-of the party, including those unconscious but stable, is reset. A party whose last enemy dies while all
-members are down but stable survives; the members wake with 1 hit point when the encounter ends.
+**Owner decision (2026-10-26):** solo players get their death saves before a party wipe is declared ("only
+fair"), and the same rule applies to parties.
+
+- A side is still **in the fight** while at least one member is conscious or dying (at 0 hit points, not
+  dead, not stable, still rolling death saves). An encounter ends when at most one side is still in the
+  fight; that side wins.
+- While every player is down but someone is still dying, the fight continues: downed players roll their
+  death saves at the start of their turns and the monsters keep acting. Monsters prefer conscious enemies;
+  when none are left they attack the dying (with advantage, and hits within 5 feet are critical hits, each
+  worth two failed death saves). They never attack stable or dead characters.
+- When no player is conscious or dying (all stable or dead) while hostiles remain, it is a **party wipe**:
+  the monsters win and every member of the party, including those unconscious but stable, is reset.
+- Monsters never make death saves: at 0 hit points they die.
 
 ### 9.4 What reset means
 
@@ -285,7 +423,7 @@ A safe zone sits between every pair of instances (after floors 5, 10, ..., 95). 
 with no combat of any kind.
 
 - Entering counts as a long rest (full hit points, spent Hit Dice regained up to half the total, all spell slots and
-  long-rest features restored), and applies the milestone level-up.
+  long-rest features restored). Levels are earned from XP during the instance (8.3), not on entry.
 - Trade between players, an SRD-priced merchant for basic gear, chat, and logging off with progress kept.
 - **Global text chat:** every safe zone carries a global text channel shared across all safe zones of that
   server type (PVP or PVE), so the whole population can talk, recruit and trade-talk regardless of depth.
@@ -339,8 +477,9 @@ Clearing floor 100 ends the main journey "for now". The player may then:
 
 ## 14. Open questions
 
-1. **PVP scaling between levels.** With milestone leveling most players on a floor share a level, but
-   instance 1 mixes fresh characters with returning veterans' new characters. Do we scale, protect low
+1. **PVP scaling between levels.** With XP leveling, players on a floor can differ by a level or two
+   (solo or party, side areas cleared or not), and instance 1 mixes fresh characters with returning
+   veterans' new characters. Do we scale, protect low
    levels, or accept it?
 2. **Griefing at stairs and arrival points.** Is arrival protection plus a no-PVP ring around stairs
    enough, or do we need more (for example, staggered arrival positions)?
@@ -375,14 +514,11 @@ Clearing floor 100 ends the main journey "for now". The player may then:
     100 players per instance?
 18. **Voice moderation:** how long is the server-side voice buffer kept for reports, who reviews it, and what
     are the privacy and regional-law implications of recording player voice at all?
-19. **Solo difficulty on floor 1 and the party-wipe rule:** measured on 2026-10-26 with a naive bot
-    (attacks when adjacent, otherwise closes distance, never Dodges) playing a level 1 human Fighter on
-    floor_001: one giant rat 19/20 wins, two giant rats 11/20, goblin + giant rat 9/20, two goblins + giant
-    rat 2/20. M1 ships zone 1 as two giant rats and keeps the crypt (two skeletons + zombie) as an optional
-    side room off the main route. Because a lone player at 0 hp is a party wipe, solo play never sees death
-    saves: the first hit to 0 is a full reset. Decide the intended solo experience (tutorial-grade first
-    fight, or packs tuned for parties with solo accepted as hard mode) and whether solo players should get
-    death saves before the wipe is declared.
+19. **Solo difficulty and the party-wipe rule: resolved (owner, 2026-10-26).** Floor 1 of a set is
+    relatively easy and difficulty climbs to floor 5, which is very difficult for a solo fighting head-on;
+    players level through the set as they go (8.3). Solo players get their death saves before a party wipe
+    is declared (9.3). Every five-floor set shares one theme. The first set's design and the floor-1
+    measurement that raised the question are in 5.4.
 
 ## 15. Glossary
 
@@ -391,6 +527,7 @@ Clearing floor 100 ends the main journey "for now". The player may then:
 | 5e SRD | The System Reference Document for the fifth edition rules, used under CC-BY-4.0. See [licensing.md](licensing.md). |
 | Floor | One handcrafted dungeon level. There are 100. |
 | Instance | A group of 5 consecutive floors hosted by one server process for ~100 players. |
+| Set | The five floors of an instance, sharing one theme and listed in a set manifest (`floors/set_NN.json`). |
 | Revolving door | Admitting new parties to an instance's first floor as others leave its last floor. |
 | Safe zone | Combat-free social space between instances; entering is a long rest. |
 | Encounter | A bounded tile region with its own initiative order where combat is turn-based. |
@@ -399,7 +536,7 @@ Clearing floor 100 ends the main journey "for now". The player may then:
 | Short rest | SRD short rest; granted on taking the stairs down. |
 | Long rest | SRD long rest; granted on entering a safe zone. |
 | Full death | Dead under SRD rules and not revived in time; triggers reset. |
-| Party wipe | No conscious party member while hostiles remain; resets the whole party. |
+| Party wipe | No party member conscious or still dying (all stable or dead) while hostiles remain; resets the whole party. |
 | Reset | Return to floor 1 at level 1 with levels and loot wiped. |
 | Deepest-floor badge | Deepest floor reached per class, shown beside name and level. |
 | PVP / PVE server | Server types with and without player-versus-player combat. |

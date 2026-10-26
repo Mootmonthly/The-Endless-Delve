@@ -2,6 +2,13 @@
 	"schema_version": 1,
 	"id": "floor_001",
 	"display_name": "The Threshold",
+	"floor_number": 1,
+	"theme": "The Barrow Warrens",
+	"budget": {
+		"level": 1,
+		"min": "easy",
+		"max": "hard"
+	},
 	"rows": [
 		"################################################",
 		"################################################",
@@ -47,6 +54,7 @@
 	"encounter_zones": [
 		{
 			"id": "z1",
+			"kind": "pack",
 			"rect": [
 				17,
 				2,
@@ -54,7 +62,6 @@
 				9
 			],
 			"monster_ids": [
-				"giant_rat",
 				"giant_rat"
 			],
 			"spawn_points": [
@@ -74,6 +81,8 @@
 		},
 		{
 			"id": "z2",
+			"kind": "pack",
+			"optional": true,
 			"rect": [
 				16,
 				20,
@@ -83,7 +92,8 @@
 			"monster_ids": [
 				"skeleton",
 				"skeleton",
-				"zombie"
+				"zombie",
+				"giant_rat"
 			],
 			"spawn_points": [
 				[
@@ -97,6 +107,10 @@
 				[
 					22,
 					28
+				],
+				[
+					26,
+					21
 				]
 			]
 		}

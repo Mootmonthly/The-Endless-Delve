@@ -120,3 +120,13 @@ Append one entry per working session (newest last).
   (`ClientState`, `CharacterDraft`, creator UI, `GameScene`, HUD). Balance pass
   found the stairs route crossed the crypt zone; walled it off and set zone 1 to
   two giant rats (see GDD open question 19). Suite: 258 tests green.
+- **2026-10-26 — First five-floor set.** Owner decisions: floor 1 easy to
+  floor 5 solo-lethal head-on, solos get death saves before a wipe, one theme
+  per set. Core: a team stays "in the fight" while any member is conscious or
+  dying; `MonsterBrain` finishes dying hostiles last. Server: XP awards on
+  wins, `configure_set`, next-floor loading on the stairs, long rest +
+  `SET_CLEARED` on the last floor. Content: set_01 "The Barrow Warrens"
+  (floors 1-5, seven new SRD monsters, per-floor XP budgets checked by
+  `tests/content`). Naive-bot curve over 20 seeds: dies on floors 1/2/3
+  (9/4/7), never past floor 3 at level 1; floor 1 zone 1 reduced to one giant
+  rat. Suite: 304 tests green.

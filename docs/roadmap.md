@@ -38,8 +38,8 @@ each item.
 **Status: playable vertical slice landed 2026-10-26** (character creator, floor_001, real-time walking,
 intent-driven encounters with move/Attack/Dash/Dodge/Disengage/opportunity attacks/death saves, monster AI,
 stairs, short rest, in-process server over LocalTransport, replay test). Remaining before M1 exits: human
-playtest of feel and balance, monster health bars, cleared-zone display, and the owner decisions in GDD
-open question 19.
+playtest of feel and balance, monster health bars and cleared-zone display. GDD open question 19 was
+resolved by the owner on 2026-10-26 (GDD 5.4, 8.3, 9.3).
 
 - **Goal:** prove the core feel: walk a floor in real time, drop into a 5e fight, win, take the stairs.
 - **In scope:** minimal character creator (wave-1 class, SRD ancestry, standard array, name); one
@@ -58,13 +58,23 @@ open question 19.
 ## M2 - Five Floors + Rests + Death
 
 - **Goal:** a complete offline instance with the full death loop.
-- **In scope:** floors 1-5; one boss encounter per floor with boss gating of the stairs; safe zone 1 with
-  long rest and milestone level-up to 2; permadeath and party-wipe rules; reset to floor 1; offline save
-  and load (versioned, HMAC-signed JSON); Rogue, Cleric and Wizard playable with cantrips and a minimal
-  set of level-1 spells needed for Cleric and Wizard to function.
+- **In scope:** the first five-floor set, "The Barrow Warrens" (GDD 5.4: `floors/set_01.json`,
+  `floor_001`-`floor_005`, SRD budgets checked by `tests/content/test_set_01.gd`), with required zones
+  gating each floor's stairs and the set boss (an ogre) guarding the stairs on floor 5; XP from kills split
+  across the party, leveling within the set (GDD 8.3); safe zone 1 with long rest; permadeath and
+  party-wipe rules with death saves before the wipe (GDD 9.3); reset to floor 1; offline save and load
+  (versioned, HMAC-signed JSON); Rogue, Cleric and Wizard playable with cantrips and a minimal set of
+  level-1 spells needed for Cleric and Wizard to function.
+- **Landing early (2026-10-26, during M1 close-out):** floor progression (stairs load the next floor of
+  the set; the last floor's stairs give a long rest and end the set), XP awards and level-ups, death saves
+  before the wipe, and the five floors' content. What remains for M2 is the rest of the list above: the
+  safe zone itself, saves, the extra classes and spells, and tuning from playtests.
 - **Out of scope:** full spell lists, multiplayer, trading.
 - **Exit criteria:**
-  - A party can play floors 1-5, reach safe zone 1 and level up to 2.
+  - A party can play floors 1-5 and reach safe zone 1, leveling from XP on the way (GDD 5.4 expects a
+    full-clear solo to reach level 4 and a party of three level 3).
+  - **Proposal (needs owner sign-off):** a playtest bot run on every floor of the set (solo at the assumed level, and a party of three) is
+    recorded in GDD 5.4, replacing the floor-1-only measurement.
   - Full death and party wipe both reset the character (integration tests with fixed seeds).
   - Save, quit, load restores the exact character state; a tampered save is rejected.
 - **Key risks:** difficulty tuning; save schema churn.

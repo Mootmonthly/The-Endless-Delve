@@ -1,0 +1,25 @@
+{
+	"schema_version": 1,
+	"id": "bugbear",
+	"display_name": "Bugbear",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"armor_class": 16,
+	"armor_note": "hide armor, shield",
+	"hit_points": 27,
+	"hit_dice": "5d8+5",
+	"speed": 30,
+	"abilities": { "STR": 15, "DEX": 14, "CON": 13, "INT": 8, "WIS": 11, "CHA": 9 },
+	"skills": { "STEALTH": 6, "SURVIVAL": 2 },
+	"senses": "darkvision 60 ft., passive Perception 10",
+	"challenge_rating": 1,
+	"xp": 200,
+	"traits": [
+		{ "name": "Brute", "description": "A melee weapon deals one extra die of its damage when the bugbear hits with it (included in the attack)." },
+		{ "name": "Surprise Attack", "description": "If the bugbear surprises a creature and hits it with an attack during the first round of combat, the target takes an extra 7 (2d6) damage from the attack." }
+	],
+	"attacks": [
+		{ "name": "Morningstar", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "2d8+2", "damage_type": "piercing" },
+		{ "name": "Javelin", "kind": "ranged", "range_ft": [30, 120], "to_hit": 4, "damage": "1d6+2", "damage_type": "piercing" }
+	]
+}

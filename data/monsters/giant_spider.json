@@ -1,0 +1,27 @@
+{
+	"schema_version": 1,
+	"id": "giant_spider",
+	"display_name": "Giant Spider",
+	"size": "large",
+	"creature_type": "beast",
+	"armor_class": 14,
+	"armor_note": "natural armor",
+	"hit_points": 26,
+	"hit_dice": "4d10+4",
+	"speed": 30,
+	"abilities": { "STR": 14, "DEX": 16, "CON": 12, "INT": 2, "WIS": 11, "CHA": 4 },
+	"skills": { "STEALTH": 7 },
+	"senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 10",
+	"challenge_rating": 1,
+	"xp": 200,
+	"traits": [
+		{ "name": "Spider Climb", "description": "Can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check." },
+		{ "name": "Web Sense", "description": "While in contact with a web, knows the exact location of any other creature in contact with the same web." },
+		{ "name": "Web Walker", "description": "Ignores movement restrictions caused by webbing." },
+		{ "name": "Bite: poison", "description": "A target hit by the bite must make a DC 11 Constitution saving throw, taking 9 (2d8) poison damage on a failed save, or half as much damage on a successful one. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way. (Not yet modelled.)" },
+		{ "name": "Web (Recharge 5-6)", "description": "Ranged Weapon Attack: +5 to hit, range 30/60 ft., one creature. Hit: the target is restrained by webbing (escape DC 12; the webbing has AC 10, 5 hit points, vulnerability to fire damage and immunity to bludgeoning, poison and psychic damage). (Not yet modelled.)" }
+	],
+	"attacks": [
+		{ "name": "Bite", "kind": "melee", "reach_ft": 5, "to_hit": 5, "damage": "1d8+3", "damage_type": "piercing" }
+	]
+}

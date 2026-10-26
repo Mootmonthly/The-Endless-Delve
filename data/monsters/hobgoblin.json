@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"id": "hobgoblin",
+	"display_name": "Hobgoblin",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"armor_class": 18,
+	"armor_note": "chain mail, shield",
+	"hit_points": 11,
+	"hit_dice": "2d8+2",
+	"speed": 30,
+	"abilities": { "STR": 13, "DEX": 12, "CON": 12, "INT": 10, "WIS": 10, "CHA": 9 },
+	"senses": "darkvision 60 ft., passive Perception 10",
+	"challenge_rating": 0.5,
+	"xp": 100,
+	"traits": [
+		{ "name": "Martial Advantage", "description": "Once per turn, can deal an extra 7 (2d6) damage to a creature it hits with a weapon attack if that creature is within 5 feet of an ally of the hobgoblin that isn't incapacitated." }
+	],
+	"attacks": [
+		{ "name": "Longsword", "kind": "melee", "reach_ft": 5, "to_hit": 3, "damage": "1d8+1", "damage_type": "slashing" },
+		{ "name": "Longbow", "kind": "ranged", "range_ft": [150, 600], "to_hit": 3, "damage": "1d8+1", "damage_type": "piercing" }
+	]
+}
