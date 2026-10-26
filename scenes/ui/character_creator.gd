@@ -4,6 +4,10 @@ extends Control
 ## ancestry, standard-array scores (each value used once), class skill picks
 ## and a live preview (scores, HP, AC with the starting armor, every attack
 ## with ranges, prepared spells and slots, features and the starting kit).
+## Level-1 progression: the subclass a cleric / sorcerer / warlock starts with
+## (name and description) and the creation choices (fighting style,
+## expertise from the chosen skills, Dragon Ancestor, ...) as pickers with
+## the rules text of each option; they are sent explicitly to the builder.
 ## Start stays disabled until the CharacterDraft is valid; pressing it emits
 ## character_created with the finished level 1 sheet.
 ##
@@ -31,6 +35,9 @@ var _skill_box: VBoxContainer
 var _skill_checks: Dictionary = {}  # Skill.Type -> CheckBox
 var _skill_header: Label
 var _class_info: Label
+var _subclass_info: Label
+var _choices_box: VBoxContainer
+var _choices_key: String = ""
 var _preview: Label
 var _problems: Label
 var _start_button: Button
@@ -116,6 +123,11 @@ func _build_ui() -> void:
 	_class_info.custom_minimum_size = Vector2(360, 0)
 	_class_info.modulate = Color(0.8, 0.8, 0.85)
 	left.add_child(_class_info)
+	_subclass_info = Label.new()
+	_subclass_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subclass_info.custom_minimum_size = Vector2(360, 0)
+	_subclass_info.modulate = Color(0.85, 0.8, 1.0)
+	left.add_child(_subclass_info)
 
 	# Standard array.
 	left.add_child(_heading("Ability scores (standard array: 15, 14, 13, 12, 10, 8)"))
@@ -141,6 +153,8 @@ func _build_ui() -> void:
 	right.add_child(_skill_header)
 	_skill_box = VBoxContainer.new()
 	right.add_child(_skill_box)
+	_choices_box = VBoxContainer.new()
+	right.add_child(_choices_box)
 	right.add_child(_heading("Preview"))
 	var preview_scroll := ScrollContainer.new()
 	preview_scroll.custom_minimum_size = Vector2(420, 300)
@@ -206,6 +220,73 @@ func _rebuild_skills() -> void:
 		_skill_checks[skill] = box
 
 
+## Creation choices: one picker per entry (an OptionButton for a single pick,
+## check boxes otherwise), rebuilt when the entries change.
+func _rebuild_choices() -> void:
+	var d := draft.creation_draft()
+	var entries := d.choice_entries()
+	var key := "%s|%s" % [str(entries), str(draft.creation_picks)]
+	if key == _choices_key:
+		return
+	_choices_key = key
+	for child in _choices_box.get_children():
+		_choices_box.remove_child(child)
+		child.queue_free()
+	for entry in entries:
+		var count := d.choice_count(entry)
+		_choices_box.add_child(_heading("%s (choose %d)" % [d.choice_title(entry), count]))
+		var picked := d.picks_for(entry)
+		var opts := DictUtil.to_string_array(entry.get("options", []))
+		if count == 1:
+			var opt := OptionButton.new()
+			opt.add_item("-- choose --")
+			opt.set_item_metadata(0, "")
+			for o in opts:
+				var label := d.option_label(entry, o)
+				if not d.option_implemented(entry, o):
+					label += " (not yet modelled)"
+				opt.add_item(label)
+				opt.set_item_metadata(opt.item_count - 1, o)
+				opt.set_item_tooltip(opt.item_count - 1, d.option_description(entry, o))
+				if picked.has(o):
+					opt.select(opt.item_count - 1)
+			var e := entry
+			opt.item_selected.connect(func(i: int) -> void: _on_creation_choice(e, str(opt.get_item_metadata(i))))
+			_choices_box.add_child(opt)
+			if not picked.is_empty():
+				var desc := Label.new()
+				desc.text = d.option_description(entry, picked[0])
+				desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				desc.custom_minimum_size = Vector2(360, 0)
+				desc.modulate = Color(0.8, 0.8, 0.85)
+				_choices_box.add_child(desc)
+		else:
+			for o in opts:
+				var c := CheckBox.new()
+				c.text = d.option_label(entry, o)
+				c.tooltip_text = d.option_description(entry, o)
+				c.button_pressed = picked.has(o)
+				c.disabled = not picked.has(o) and picked.size() >= count
+				var e := entry
+				var option := o
+				c.toggled.connect(func(on: bool) -> void:
+					if not _syncing:
+						draft.toggle_creation_choice(e, option, on)
+						_refresh())
+				_choices_box.add_child(c)
+
+
+func _on_creation_choice(entry: Dictionary, option: String) -> void:
+	if _syncing:
+		return
+	if option.is_empty():
+		for o in DictUtil.to_string_array(draft.creation_picks.get(LevelUpDraft.choice_key(entry), [])):
+			draft.toggle_creation_choice(entry, o, false)
+	else:
+		draft.toggle_creation_choice(entry, option, true)
+	_refresh()
+
+
 func _refresh() -> void:
 	_syncing = true
 	var cls := draft.class_def
@@ -217,6 +298,10 @@ func _refresh() -> void:
 	for ability in range(Ability.COUNT):
 		var opt := _score_options[ability]
 		opt.select(CharacterCreator.index_for_score(draft.assigned[ability]))
+	var sub := draft.subclass_info()
+	_subclass_info.text = "%s: %s" % [str(sub["name"]), str(sub["description"])] if not sub.is_empty() else ""
+	_subclass_info.visible = not sub.is_empty()
+	_rebuild_choices()
 	var needed := draft.skills_needed()
 	_skill_header.text = "Skills (choose %d, %d chosen)" % [needed, draft.skills.size()]
 	for skill: int in _skill_checks.keys():

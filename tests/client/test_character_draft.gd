@@ -37,6 +37,7 @@ func test_every_class_builds_a_valid_preview() -> void:
 		d.auto_assign()
 		for skill in def.skill_choices:
 			d.toggle_skill(skill, true)
+		d.auto_choose()  # level-1 choices (fighting style, expertise, dragon ancestor)
 		assert_true(d.is_valid(), "%s: %s" % [def.id, str(d.problems())])
 		var p := d.preview()
 		assert_true(int(p["hp"]) > 0, def.id)
@@ -111,12 +112,15 @@ func test_validity_and_build() -> void:
 	var d := _fighter_draft()
 	d.character_name = "  "
 	assert_false(d.is_valid())
-	assert_eq(d.problems().size(), 3, "name, scores, skills")
+	assert_eq(d.problems().size(), 4, "name, scores, skills, fighting style")
 	d.character_name = "Brann"
 	d.auto_assign()
 	d.toggle_skill(Skill.Type.ATHLETICS, true)
 	assert_false(d.is_valid())
 	d.toggle_skill(Skill.Type.INTIMIDATION, true)
+	assert_false(d.is_valid(), "the fighting style is still open")
+	var style: Dictionary = d.creation_choices()[0]
+	assert_true(d.toggle_creation_choice(style, "defense", true))
 	assert_true(d.is_valid(), str(d.problems()))
 	var sheet := d.build_sheet()
 	assert_not_null(sheet)
@@ -125,6 +129,7 @@ func test_validity_and_build() -> void:
 	assert_eq(sheet.ancestry_id, "human")
 	assert_eq(sheet.abilities.get_score(Ability.Type.STR), 16, "15 + human bonus")
 	assert_eq(sheet.proficient_skills.size(), 2)
+	assert_eq(sheet.fighting_styles, ["defense"] as Array[String], "the picked style is sent explicitly")
 
 
 func test_preview_matches_the_srd_fighter() -> void:
@@ -147,3 +152,49 @@ func test_creator_score_menu_mapping() -> void:
 	assert_eq(CharacterCreator.index_for_score(15), 1)
 	assert_eq(CharacterCreator.index_for_score(8), 6)
 	assert_eq(CharacterCreator.index_for_score(CharacterDraft.UNASSIGNED), 0)
+
+
+func test_creation_choices_for_level_one_subclasses_and_expertise() -> void:
+	var sorc := CharacterDraft.new()
+	sorc.character_name = "Vex"
+	sorc.set_class(_classes["sorcerer"])
+	sorc.set_ancestry(_ancestries["human"])
+	sorc.auto_assign()
+	for skill in _classes["sorcerer"].skill_choices:
+		sorc.toggle_skill(skill, true)
+	var info := sorc.subclass_info()
+	assert_eq(str(info.get("id", "")), "draconic", "sorcerers start with their origin")
+	assert_ne(str(info.get("description", "")), "")
+	var entries := sorc.creation_choices()
+	assert_eq(entries.size(), 1)
+	assert_eq(str(entries[0]["feature"]), "dragon_ancestor")
+	var labels := sorc.creation_draft()
+	assert_eq(labels.option_label(entries[0], "dragon_ancestor_red"), "Red")
+	assert_true(sorc.toggle_creation_choice(entries[0], "dragon_ancestor_red", true))
+	assert_true(sorc.toggle_creation_choice(entries[0], "dragon_ancestor_blue", true), "a single pick swaps")
+	assert_true(sorc.is_valid(), str(sorc.problems()))
+	var sheet := sorc.build_sheet()
+	assert_eq(sheet.subclass_id, "draconic")
+	assert_true(sheet.has_feature("dragon_ancestor_blue"))
+	assert_false(sheet.has_feature("dragon_ancestor_black"), "not the default")
+	# Rogue expertise comes from the chosen skills; changing skills drops stale picks.
+	var rogue := CharacterDraft.new()
+	rogue.character_name = "Nim"
+	rogue.set_class(_classes["rogue"])
+	rogue.set_ancestry(_ancestries["human"])
+	rogue.auto_assign()
+	var rskills: Array[int] = []
+	rskills.assign(_classes["rogue"].skill_choices)
+	for i in range(_classes["rogue"].skill_choice_count):
+		rogue.toggle_skill(rskills[i], true)
+	var exp: Dictionary = rogue.creation_choices()[0]
+	assert_eq(str(exp["type"]), "expertise")
+	var opts := DictUtil.to_string_array(exp["options"])
+	assert_true(rogue.toggle_creation_choice(exp, opts[0], true))
+	assert_true(rogue.toggle_creation_choice(exp, opts[1], true))
+	assert_false(rogue.toggle_creation_choice(exp, opts[2], true), "count reached")
+	assert_true(rogue.is_valid(), str(rogue.problems()))
+	rogue.toggle_skill(Skill.from_string(opts[0]), false)
+	rogue.creation_choices()
+	assert_eq(DictUtil.to_string_array(rogue.creation_picks["expertise"]), [opts[1]] as Array[String], "the dropped skill's expertise is gone")
+	assert_eq(rogue.build_sheet().expertise_skills.size(), 2, "defaults fill an incomplete answer")

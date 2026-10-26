@@ -22,6 +22,10 @@ extends Node2D
 ## open_spells; open_features; toggle_inventory; descend; rest; mouse wheel
 ## = zoom. The LevelUpScreen opens by itself on a new LEVEL_UP_AVAILABLE when
 ## out of combat; the HUD's "Level up available" button reopens it.
+## While an area spell is aimed, the ReachOverlay shows its footprint under
+## the cursor and rings the creatures it would catch (ClientState.area_preview).
+## The short rest spends one hit die when hurt and asks for Arcane / Natural
+## Recovery when it applies.
 
 ## Emitted when the player asks for a new character after the run ended.
 signal exit_requested
@@ -64,6 +68,7 @@ var _built_floor_serial: int = 0
 var _highlighted: Rect2i = Rect2i()
 var _zoom: int = DEFAULT_ZOOM
 var _seen_level_up_serial: int = 0
+var _hover_tile: Vector2i = Vector2i(-1, -1)
 
 
 ## Call before adding the scene to the tree. seed 0 = pick one from the clock.
@@ -194,6 +199,7 @@ func _refresh_view() -> void:
 		tiles.append(t)
 	reach.set_tiles(tiles)
 	reach.set_range(state.range_tiles(), state.is_targeting())
+	_refresh_area_preview()
 	_refresh_level_up()
 	if state.has_player_entity():
 		camera.position = FloorView.tile_to_world(state.player_position())
@@ -203,6 +209,21 @@ func _refresh_view() -> void:
 		camera.position = FloorView.tile_to_world(state.floor_data.arrival)
 		camera.reset_smoothing()
 	hud.refresh(state)
+
+
+## The area footprint under the cursor while an area spell is aimed.
+func _refresh_area_preview() -> void:
+	var preview := state.area_preview(_hover_tile) if state.is_targeting() else {}
+	var tiles: Array[Vector2i] = []
+	var caught: Array[Vector2i] = []
+	var spared: Array[Vector2i] = []
+	if not preview.is_empty():
+		tiles.assign(preview["tiles"])
+		for id: String in preview["affected"]:
+			caught.append(state.get_entity(id)["position"])
+		for id: String in preview["sculpted"]:
+			spared.append(state.get_entity(id)["position"])
+	reach.set_area(tiles, caught, spared, preview.is_empty() or str(preview.get("error", "")).is_empty())
 
 
 ## Opens the level-up screen once per new offer (when it can be answered),
@@ -255,7 +276,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_set_zoom(_zoom - 1)
 		return
 	if event is InputEventMouseMotion:
-		reach.set_hover(_mouse_tile())
+		_hover_tile = _mouse_tile()
+		reach.set_hover(_hover_tile)
+		if state.is_targeting():
+			_refresh_area_preview()
 		return
 	if not event.is_pressed() or event.is_echo():
 		return
@@ -309,7 +333,7 @@ func _on_hud_action(action: String) -> void:
 			# Melee: the first adjacent hostile. Ranged / thrown: the first hostile
 			# in range; with none, pick a target by clicking.
 			var intent := state.attack_intent()
-			if intent.is_empty() and state.can_take_action():
+			if intent.is_empty() and state.can_make_attack():
 				state.begin_attack_targeting()
 			_send(intent)
 		"dash", "dodge", "disengage":
@@ -325,7 +349,11 @@ func _on_hud_action(action: String) -> void:
 				_send(state.simple_intent(action))
 		"short_rest":
 			if state.can_short_rest():
-				_send(state.short_rest_intent(1))
+				var hurt := state.sheet.current_hp < state.sheet.max_hp and state.sheet.hit_dice_remaining > 0
+				_send(state.short_rest_intent(1 if hurt else 0, not state.slot_recovery().is_empty()))
+		"stand":
+			if state.is_my_turn():
+				_send(state.stand_intent())
 		"level_up":
 			open_level_up()
 	_dirty = true

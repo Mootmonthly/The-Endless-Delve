@@ -2,18 +2,30 @@ class_name Hud
 extends CanvasLayer
 ## Heads-up display for the GameScene, built in code:
 ## - character panel: name, class, level / XP, HP bar (+ temp HP), AC, spell
-##   slots, class resources, gold, floor, mode, movement / action / bonus
-##   action, the targeting hint and a "Level up available" button;
-## - initiative order with status tags (dodging, raging, marked, ...);
+##   slots (pact slots marked), class resources (ki, sorcery points, channel
+##   divinity, lay on hands pool, bardic inspiration with its die, rage,
+##   action surge, ...), gold, floor, mode, movement / action (with the
+##   "Attack 2/2" counter of Extra Attack) / bonus action / reaction, the
+##   targeting hint and a "Level up available" button;
+## - initiative order with status tags (dodging, raging, marked, ...),
+##   conditions with their remaining duration and the concentration spell;
+## - attack options row (only the character's): Reckless, Divine Smite slot,
+##   Stunning Strike, Open Hand Technique;
 ## - action bar: Attack [1] with the attack picker (melee / thrown / ranged),
 ##   Spells [Q], Features [E], Dash [2], Dodge [3], Disengage [4],
 ##   End Turn [Space], Inventory [Tab], Short rest [R] and the stairs [F];
-## - Spells popup (prepared spells, slot choice per leveled spell, greyed out
-##   when not castable now or not supported by the rules engine yet) and
-##   Features popup (Second Wind, Rage, Lay on Hands with an amount, Bardic
-##   Inspiration, the Martial Arts strike);
-## - InventoryPanel (Tab): equipment slots, items with icon / qty / weight and
-##   Use / Equip / Unequip / Drop, gold, carried weight and the AC breakdown;
+## - Spells popup (prepared spells, upcast slot choice per leveled spell, a
+##   metamagic picker for sorcerers, a concentration warning, greyed out when
+##   not castable now or not supported by the rules engine yet) and Features
+##   popup (every usable feature with its cost and resource: Second Wind,
+##   Action Surge, Rage / Frenzy, Lay on Hands with an amount, Bardic
+##   Inspiration, ki features with their modes, Channel Divinity, Font of
+##   Magic, Pact Weapon, and the bonus-action attacks);
+## - Reactions popup (when the rules engine has reaction policies): one check
+##   box per trigger, sent as the reaction_policy intent;
+## - InventoryPanel (Tab): equipment slots, items with icon / qty / weight,
+##   weapon properties (two-handed, light, versatile...) and Use / Equip /
+##   Unequip / Drop, gold, carried weight and the AC breakdown;
 ## - combat log and the end-of-run panel.
 ##
 ## Reads a ClientState in refresh(). Spells / features / items call the
@@ -21,7 +33,7 @@ extends CanvasLayer
 ## intent_requested; other choices leave as action_requested. Buttons never
 ## take keyboard focus, so the movement keys stay free for the map.
 
-## "attack", "dash", "dodge", "disengage", "end_turn", "use_stairs", "short_rest",
+## "attack", "dash", "dodge", "disengage", "end_turn", "use_stairs", "short_rest", "stand",
 ## "level_up" (open the level-up screen) or "inventory" (toggle the panel).
 signal action_requested(action: String)
 ## A finished intent built from a HUD choice (cast, feature, item, equipment).
@@ -37,6 +49,13 @@ const POPUP_WIDTH := 380
 const ICON_SIZE := 24
 const GREY := Color(0.6, 0.6, 0.6)
 const WARN := Color(1.0, 0.7, 0.45)
+## Reaction policy triggers shown in the Reactions popup.
+const REACTION_LABELS: Dictionary[String, String] = {
+	"creature_left_reach": "A creature leaves my reach (opportunity attack)",
+	"creature_hit_me": "A creature hits me", "damage_taken": "I take damage", "missed": "An attack misses me",
+	"failed_save": "I fail a saving throw", "ally_attacked": "An ally is attacked", "ally_hit": "An ally is hit",
+	"spell_cast_in_range": "A spell is cast within range",
+}
 
 var _state: ClientState = null
 var _icons: EntityIcons = null
@@ -59,6 +78,12 @@ var _log: RichTextLabel
 var _buttons: Dictionary = {}  # action -> Button
 var _attack_picker: OptionButton
 var _attack_picker_key: String = ""
+var _options_row: HBoxContainer
+var _reckless_check: CheckBox
+var _smite_picker: OptionButton
+var _smite_key: String = ""
+var _stun_check: CheckBox
+var _technique_picker: OptionButton
 var _end_panel: PanelContainer
 var _end_title: Label
 var _end_text: Label
@@ -66,6 +91,9 @@ var _end_text: Label
 var _spells_panel: PanelContainer
 var _spells_box: VBoxContainer
 var _spells_key: String = ""
+var _reactions_panel: PanelContainer
+var _reactions_box: VBoxContainer
+var _reactions_key: String = ""
 var _features_panel: PanelContainer
 var _features_box: VBoxContainer
 var _features_key: String = ""
@@ -94,6 +122,7 @@ func _ready() -> void:
 	_build_bottom(root)
 	_build_spells_popup(root)
 	_build_features_popup(root)
+	_build_reactions_popup(root)
 	_build_inventory(root)
 	_build_end_panel(root)
 
@@ -178,6 +207,7 @@ func _build_bottom(root: Control) -> void:
 	bottom.offset_bottom = -8
 	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bottom)
+	_build_attack_options(bottom)
 	var bar := HBoxContainer.new()
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bottom.add_child(bar)
@@ -195,11 +225,13 @@ func _build_bottom(root: Control) -> void:
 	_add_button(bar, "dash", "Dash [2]")
 	_add_button(bar, "dodge", "Dodge [3]")
 	_add_button(bar, "disengage", "Disengage [4]")
+	_add_button(bar, "stand", "Stand up")
 	_add_button(bar, "end_turn", "End Turn [Space]")
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(spacer)
+	_add_button(bar, "reactions", "Reactions")
 	_add_button(bar, "inventory", "Inventory [Tab]")
 	_add_button(bar, "short_rest", "Short rest [R]")
 	_add_button(bar, "use_stairs", "Descend")
@@ -212,6 +244,46 @@ func _build_bottom(root: Control) -> void:
 	_log.bbcode_enabled = false
 	_log.focus_mode = Control.FOCUS_NONE
 	log_panel.add_child(_log)
+
+
+## Reckless / Smite / Stun / Technique: shown for the characters that have them.
+func _build_attack_options(parent: Control) -> void:
+	_options_row = HBoxContainer.new()
+	_options_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_options_row.visible = false
+	parent.add_child(_options_row)
+	_reckless_check = CheckBox.new()
+	_reckless_check.text = "Reckless"
+	_reckless_check.focus_mode = Control.FOCUS_NONE
+	_reckless_check.tooltip_text = "Reckless Attack: advantage on your first melee STR attack; attacks against you have advantage until your next turn"
+	_reckless_check.toggled.connect(func(on: bool) -> void: _set_option("reckless", on))
+	_options_row.add_child(_reckless_check)
+	_smite_picker = OptionButton.new()
+	_smite_picker.focus_mode = Control.FOCUS_NONE
+	_smite_picker.tooltip_text = "Divine Smite on the next melee hit (the slot is spent only on a hit)"
+	_smite_picker.item_selected.connect(func(i: int) -> void: _set_option("smite", _smite_picker.get_item_id(i)))
+	_options_row.add_child(_smite_picker)
+	_stun_check = CheckBox.new()
+	_stun_check.text = "Stunning Strike"
+	_stun_check.focus_mode = Control.FOCUS_NONE
+	_stun_check.tooltip_text = "Spend 1 ki on the next melee hit: CON save or stunned"
+	_stun_check.toggled.connect(func(on: bool) -> void: _set_option("stun", on))
+	_options_row.add_child(_stun_check)
+	_technique_picker = OptionButton.new()
+	_technique_picker.focus_mode = Control.FOCUS_NONE
+	_technique_picker.tooltip_text = "Open Hand Technique on Flurry of Blows hits"
+	for t: String in ["", "prone", "push", "no_reactions"]:
+		_technique_picker.add_item("Technique: none" if t.is_empty() else "Technique: %s" % t.replace("_", " "))
+		_technique_picker.set_item_metadata(_technique_picker.item_count - 1, t)
+	_technique_picker.item_selected.connect(func(i: int) -> void: _set_option("technique", str(_technique_picker.get_item_metadata(i))))
+	_options_row.add_child(_technique_picker)
+
+
+func _set_option(key: String, value: Variant) -> void:
+	if _state == null:
+		return
+	_state.set_attack_option(key, value)
+	state_changed.emit()
 
 
 func _add_button(parent: Control, action: String, text: String) -> void:
@@ -266,6 +338,12 @@ func _build_features_popup(root: Control) -> void:
 	var parts := _popup_panel(root, "Class features")
 	_features_panel = parts[0]
 	_features_box = parts[1]
+
+
+func _build_reactions_popup(root: Control) -> void:
+	var parts := _popup_panel(root, "Reactions (automatic when checked)")
+	_reactions_panel = parts[0]
+	_reactions_box = parts[1]
 
 
 func _build_inventory(root: Control) -> void:
@@ -385,6 +463,15 @@ func toggle_spells() -> void:
 		refresh(_state)
 
 
+func toggle_reactions() -> void:
+	var show := not _reactions_panel.visible
+	close_popups()
+	_reactions_panel.visible = show
+	_reactions_key = ""
+	if _state != null:
+		refresh(_state)
+
+
 func toggle_features() -> void:
 	var show := not _features_panel.visible
 	close_popups()
@@ -395,13 +482,14 @@ func toggle_features() -> void:
 
 
 func is_popup_open() -> bool:
-	return _spells_panel.visible or _features_panel.visible
+	return _spells_panel.visible or _features_panel.visible or _reactions_panel.visible
 
 
 ## Closes the Spells / Features popups (not the inventory).
 func close_popups() -> void:
 	_spells_panel.visible = false
 	_features_panel.visible = false
+	_reactions_panel.visible = false
 
 
 ## Escape: closes the topmost HUD panel; false when nothing was open.
@@ -445,9 +533,16 @@ func refresh(state: ClientState) -> void:
 	_floor_label.text = state.floor_label()
 	_mode_label.text = state.mode_text()
 	if state.is_my_turn():
-		_turn_label.text = "Movement: %d tiles (%d ft)   Action: %s   Bonus: %s" % [
+		var counter := state.attack_counter_text()
+		var action_text := "ready" if not state.action_used else ("%s left" % counter if not counter.is_empty() else "used")
+		if not state.action_used and not counter.is_empty():
+			action_text = "ready (%s)" % counter
+		var bonus_text := "used" if state.bonus_action_used else "ready"
+		if state.bonus_attacks_remaining > 0:
+			bonus_text = "%d strike%s left" % [state.bonus_attacks_remaining, "" if state.bonus_attacks_remaining == 1 else "s"]
+		_turn_label.text = "Movement: %d tiles (%d ft)   Action: %s   Bonus: %s   Reaction: %s" % [
 			state.movement_remaining, state.movement_remaining * GridMath.FEET_PER_TILE,
-			"used" if state.action_used else "ready", "used" if state.bonus_action_used else "ready"]
+			action_text, bonus_text, "used" if state.reaction_used else "ready"]
 	elif state.can_use_stairs():
 		_turn_label.text = "You stand on the stairs."
 	else:
@@ -471,7 +566,15 @@ func refresh(state: ClientState) -> void:
 	_set_enabled("dodge", my_action)
 	_set_enabled("disengage", my_action)
 	_set_enabled("end_turn", state.is_my_turn())
+	var prone := state.is_my_turn() and state.has_condition(state.player_id, "prone")
+	var stand_button: Button = _buttons["stand"]
+	stand_button.visible = prone
+	_set_enabled("stand", prone)
+	_refresh_attack_options(state)
 	_set_enabled("inventory", sheet != null)
+	var reactions_button: Button = _buttons["reactions"]
+	reactions_button.visible = ClientState.reaction_policy_supported()
+	_set_enabled("reactions", sheet != null)
 	_set_enabled("use_stairs", state.can_use_stairs())
 	_set_enabled("short_rest", state.can_short_rest())
 	var stairs_button: Button = _buttons["use_stairs"]
@@ -484,6 +587,8 @@ func refresh(state: ClientState) -> void:
 		_refresh_spells(state)
 	if _features_panel.visible:
 		_refresh_features(state)
+	if _reactions_panel.visible:
+		_refresh_reactions(state)
 	if _inventory_panel.visible:
 		_refresh_inventory(state)
 	match state.mode:
@@ -523,6 +628,38 @@ func _refresh_order(state: ClientState) -> void:
 	_order_label.text = "\n".join(lines)
 
 
+func _refresh_attack_options(state: ClientState) -> void:
+	var kinds := state.attack_option_kinds()
+	_options_row.visible = not kinds.is_empty() and state.in_encounter
+	var attack_button: Button = _buttons["attack"]
+	var counter := state.attack_counter_text()
+	attack_button.text = "Attack [1]" if counter.is_empty() else "%s [1]" % counter
+	if not _options_row.visible:
+		return
+	_reckless_check.visible = kinds.has("reckless")
+	_reckless_check.set_pressed_no_signal(bool(state.attack_options.get("reckless", false)))
+	_stun_check.visible = kinds.has("stun")
+	_stun_check.set_pressed_no_signal(bool(state.attack_options.get("stun", false)))
+	_stun_check.disabled = state.sheet == null or state.sheet.class_resource("ki") < 1
+	_technique_picker.visible = kinds.has("technique")
+	var technique := str(state.attack_options.get("technique", ""))
+	for i in range(_technique_picker.item_count):
+		if str(_technique_picker.get_item_metadata(i)) == technique:
+			_technique_picker.select(i)
+	_smite_picker.visible = kinds.has("smite")
+	if kinds.has("smite"):
+		var levels := state.smite_levels()
+		var key := "%s|%d" % [str(levels), int(state.attack_options.get("smite", 0))]
+		if key != _smite_key:
+			_smite_key = key
+			_smite_picker.clear()
+			_smite_picker.add_item("No smite", 0)
+			for lvl in levels:
+				_smite_picker.add_item("Smite: %s slot (%d left)" % [ClientState.ordinal(lvl), state.sheet.slots_left(lvl)], lvl)
+			var idx := _smite_picker.get_item_index(int(state.attack_options.get("smite", 0)))
+			_smite_picker.select(maxi(0, idx))
+
+
 func _refresh_attack_picker(state: ClientState) -> void:
 	var attacks := state.available_attacks()
 	var labels: PackedStringArray = []
@@ -543,7 +680,7 @@ func _refresh_attack_picker(state: ClientState) -> void:
 
 func _refresh_spells(state: ClientState) -> void:
 	var entries := state.spell_entries()
-	var key := "%s|%s" % [str(entries), state.slots_text()]
+	var key := "%s|%s|%s|%s" % [str(entries), state.slots_text(), str(state.concentration), state.resources_text()]
 	if key == _spells_key:
 		return
 	_spells_key = key
@@ -558,6 +695,19 @@ func _refresh_spells(state: ClientState) -> void:
 		_spells_box.add_child(row)
 		var id := str(entry["id"])
 		var level := int(entry["level"])
+		var meta_picker: OptionButton = null
+		var meta_opts := state.metamagic_options(id)
+		if not meta_opts.is_empty():
+			meta_picker = OptionButton.new()
+			meta_picker.focus_mode = Control.FOCUS_NONE
+			meta_picker.add_item("No metamagic")
+			meta_picker.set_item_metadata(0, "")
+			for m in meta_opts:
+				meta_picker.add_item("%s (%d SP)" % [str(m["name"]), int(m["cost"])])
+				var mi := meta_picker.item_count - 1
+				meta_picker.set_item_metadata(mi, str(m["id"]))
+				meta_picker.set_item_disabled(mi, not str(m["error"]).is_empty())
+				meta_picker.set_item_tooltip(mi, str(m["error"]))
 		var label := "%s (%s%s, %s)" % [str(entry["name"]), "cantrip" if level == 0 else ClientState.ordinal(level) + " level",
 			", bonus" if bool(entry["bonus"]) else "", _range_text(int(entry["range_tiles"]), str(entry["target"]))]
 		var slot_picker: OptionButton = null
@@ -568,9 +718,20 @@ func _refresh_spells(state: ClientState) -> void:
 			slot_picker.focus_mode = Control.FOCUS_NONE
 			for s in slots:
 				slot_picker.add_item("%s slot (%d)" % [ClientState.ordinal(s), state.sheet.slots_left(s)], s)
+		var spell := state.spell_def(id)
+		if spell != null and spell.is_area():
+			label += ", %d ft %s" % [spell.area_size_ft, spell.area_shape]
+		if spell != null and spell.concentration:
+			label += ", concentration"
+		var warning := state.concentration_warning(id)
+		if not warning.is_empty():
+			label += " (!)"
 		var b := _make_button(label, func() -> void:
 			var slot := slot_picker.get_selected_id() if slot_picker != null else 0
-			_begin_cast(id, slot))
+			var meta: Array[String] = []
+			if meta_picker != null and not str(meta_picker.get_selected_metadata()).is_empty():
+				meta.append(str(meta_picker.get_selected_metadata()))
+			_begin_cast(id, slot, meta))
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var error := str(entry["error"])
@@ -579,10 +740,16 @@ func _refresh_spells(state: ClientState) -> void:
 			b.text += " - not castable yet"
 			b.modulate = GREY
 		b.tooltip_text = error if not error.is_empty() else "Cast %s" % str(entry["name"])
+		if not warning.is_empty():
+			b.tooltip_text += "\n" + warning
 		row.add_child(b)
 		if slot_picker != null:
 			slot_picker.disabled = b.disabled
+			slot_picker.tooltip_text = "Upcast with a higher slot"
 			row.add_child(slot_picker)
+		if meta_picker != null:
+			meta_picker.disabled = b.disabled
+			row.add_child(meta_picker)
 
 
 static func _range_text(tiles: int, target: String) -> String:
@@ -595,7 +762,7 @@ static func _range_text(tiles: int, target: String) -> String:
 
 func _refresh_features(state: ClientState) -> void:
 	var entries := state.feature_entries()
-	var key := str(entries)
+	var key := "%s|%s" % [str(entries), state.slots_text()]
 	if key == _features_key:
 		return
 	_features_key = key
@@ -604,20 +771,43 @@ func _refresh_features(state: ClientState) -> void:
 	if entries.is_empty():
 		_features_box.add_child(_note("No class features to use."))
 		return
+	var resources := state.resources_text()
+	if not resources.is_empty():
+		_features_box.add_child(_note(resources))
 	for entry in entries:
 		var id := str(entry["id"])
 		var row := HBoxContainer.new()
 		_features_box.add_child(row)
 		var label := str(entry["name"])
 		if int(entry["max"]) >= 0:
-			label += " (%d/%d)" % [int(entry["remaining"]), int(entry["max"])]
-		var b := _make_button(label, func() -> void: _begin_feature(id))
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			label += " (%s %d/%d)" % [ClientState.feature_name(str(entry["resource"])) if str(entry["resource"]) != id else "uses",
+				int(entry["remaining"]), int(entry["max"])]
+		label += " - %s" % {"action": "action", "bonus": "bonus action", "free": "free"}.get(str(entry["cost"]), "")
 		var error := str(entry["error"])
-		b.disabled = not error.is_empty()
-		b.tooltip_text = error
-		row.add_child(b)
+		var modes: Array[String] = []
+		modes.assign(entry["modes"])
+		if id == "font_of_magic":
+			_font_of_magic_row(state, row, label, error)
+			continue
+		if modes.is_empty():
+			var b := _make_button(label, func() -> void: _begin_feature(id))
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			b.disabled = not error.is_empty()
+			b.tooltip_text = error
+			row.add_child(b)
+		else:
+			var title := Label.new()
+			title.text = label
+			title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(title)
+			for m in modes:
+				var mode := m
+				var mb := _make_button(mode.capitalize(), func() -> void: _begin_feature(id, mode))
+				var merr := state.feature_error(id, mode)
+				mb.disabled = not merr.is_empty()
+				mb.tooltip_text = merr
+				row.add_child(mb)
 		if id == ClassDefinition.FEATURE_LAY_ON_HANDS:
 			_lay_amount = SpinBox.new()
 			_lay_amount.min_value = 1
@@ -626,9 +816,51 @@ func _refresh_features(state: ClientState) -> void:
 			_lay_amount.suffix = "HP"
 			_lay_amount.focus_mode = Control.FOCUS_NONE
 			_lay_amount.get_line_edit().focus_mode = Control.FOCUS_CLICK
-			_lay_amount.editable = not b.disabled
+			_lay_amount.editable = error.is_empty()
 			_lay_amount.tooltip_text = "Hit points to restore from the pool"
 			row.add_child(_lay_amount)
+
+
+## One check box per trigger: checked = react automatically ("auto").
+func _refresh_reactions(state: ClientState) -> void:
+	var key := str(state.reaction_policy)
+	if key == _reactions_key:
+		return
+	_reactions_key = key
+	_clear(_reactions_box)
+	for trigger: String in Messages.REACTION_TRIGGERS:
+		var c := CheckBox.new()
+		c.text = REACTION_LABELS.get(trigger, trigger.replace("_", " "))
+		c.focus_mode = Control.FOCUS_NONE
+		c.button_pressed = state.reacts_to(trigger)
+		var t := trigger
+		c.toggled.connect(func(on: bool) -> void: intent_requested.emit(state.reaction_policy_intent(t, on)))
+		_reactions_box.add_child(c)
+
+
+## Font of Magic: a picker of create / convert choices and a Use button.
+func _font_of_magic_row(state: ClientState, row: HBoxContainer, label: String, error: String) -> void:
+	var title := Label.new()
+	title.text = label
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(title)
+	var picker := OptionButton.new()
+	picker.focus_mode = Control.FOCUS_NONE
+	for o in state.font_of_magic_options():
+		picker.add_item(str(o["label"]))
+		var i := picker.item_count - 1
+		picker.set_item_metadata(i, o)
+		picker.set_item_disabled(i, not str(o["error"]).is_empty())
+		picker.set_item_tooltip(i, str(o["error"]))
+	row.add_child(picker)
+	var use := _make_button("Use", func() -> void:
+		var o: Dictionary = picker.get_selected_metadata() if picker.selected >= 0 else {}
+		if not o.is_empty():
+			_begin_feature("font_of_magic", str(o["mode"]), int(o["slot_level"])))
+	use.disabled = not error.is_empty() or picker.item_count == 0
+	use.tooltip_text = error
+	picker.disabled = use.disabled
+	row.add_child(use)
 
 
 func _refresh_inventory(state: ClientState) -> void:
@@ -687,7 +919,13 @@ func _item_row(state: ClientState, r: Dictionary, manage: bool) -> HBoxContainer
 		for s in held:
 			names.append(str(ClientState.SLOT_NAMES.get(s, s)).to_lower())
 		text += " (%s)" % ", ".join(names)
+	var props: Array[String] = []
+	props.assign(r.get("properties", []))
+	if not props.is_empty():
+		text += " [%s]" % ", ".join(props)
 	name_label.text = text
+	name_label.tooltip_text = text
+	name_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
 	row.add_child(name_label)
@@ -749,6 +987,8 @@ func _on_button(action: String) -> void:
 			toggle_spells()
 		"features":
 			toggle_features()
+		"reactions":
+			toggle_reactions()
 		"inventory":
 			toggle_inventory()
 		_:
@@ -763,22 +1003,22 @@ func _on_attack_picked(index: int) -> void:
 	state_changed.emit()
 
 
-func _begin_cast(spell_id: String, slot_level: int) -> void:
+func _begin_cast(spell_id: String, slot_level: int, metamagic: Array[String] = []) -> void:
 	if _state == null:
 		return
 	close_popups()
-	var intent := _state.begin_cast(spell_id, slot_level)
+	var intent := _state.begin_cast(spell_id, slot_level, metamagic)
 	if not intent.is_empty():
 		intent_requested.emit(intent)
 	state_changed.emit()
 
 
-func _begin_feature(feature: String) -> void:
+func _begin_feature(feature: String, mode: String = "", slot_level: int = 0) -> void:
 	if _state == null:
 		return
 	var amount := int(_lay_amount.value) if _lay_amount != null and feature == ClassDefinition.FEATURE_LAY_ON_HANDS else 0
 	close_popups()
-	var intent := _state.begin_feature(feature, amount)
+	var intent := _state.begin_feature(feature, amount, mode, slot_level)
 	if not intent.is_empty():
 		intent_requested.emit(intent)
 	state_changed.emit()

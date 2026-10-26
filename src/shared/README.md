@@ -6,8 +6,16 @@ Code shared by `src/server/` and `src/client/`; depends only on `src/core/`.
   kinds, `make_intent` / `make_result` builders and structural validators.
   Messages are plain JSON-safe Dictionaries; positions are `[x, y]` arrays.
   The full field list is the comment at the top of `messages.gd`. Combat
-  intents (`ENCOUNTER_INTENTS`): move, attack (`bonus`?), cast, use_feature,
-  use_item, dash, dodge, disengage, end_turn. Exploration intents
+  intents (`ENCOUNTER_INTENTS`): move, stand, attack (`bonus`, `reckless`,
+  `smite` slot level, `stun`, `technique`, `retarget`), cast (`slot_level`
+  0..9, `point`, `sculpt`, `metamagic`, `twin_target`), use_feature (`mode`,
+  `slot_level`, `allocations` {id: hp}, `frenzy`, `amount`), use_item
+  (`bonus`), dash, dodge, disengage, end_turn. Validation is structural
+  (types, ranges, the technique names); the Encounter judges the rules.
+  `short_rest` takes `recover_slots` (true = the server picks, or an array of
+  slot levels) for Arcane / Natural Recovery; `level_up` choices carry the
+  progression answers (subclass, fighting_style, expertise, skills,
+  invocations, metamagic, feature_options) that `LevelUp.apply` checks. Exploration intents
   (`EXPLORE_INTENTS`): explore_move, use_stairs, short_rest, equip, unequip,
   use_item, open_chest, drop_item, level_up. `use_item` is in both lists
   (`is_dual_intent`): the server routes it by whether the actor is in combat.

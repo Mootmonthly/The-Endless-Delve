@@ -13,6 +13,16 @@ extends RefCounted
 ## prepared_count prepared leveled spells. Spells the rules engine cannot cast
 ## yet (effect "unsupported") are offered greyed out: they can only be picked
 ## when there are not enough castable options to fill the count.
+##
+## Progression choices (offer "choices": subclass, fighting_style, expertise,
+## invocations, metamagic, feature_option, skills) are answered in
+## `choice_picks` (choice_key(entry) -> Array[String]) and always sent
+## explicitly by to_choices(); a choice with a single option (the SRD
+## subclass) starts picked. option_label / option_description /
+## option_implemented read data/features, fighting_styles, invocations and
+## metamagic records (and the class's subclass text) for the screen;
+## feature_cards() describes the features gained ("implemented" or "not yet
+## modelled").
 
 const HP_AVERAGE := "average"
 const HP_ROLL := "roll"
@@ -32,12 +42,19 @@ var asi_abilities: Array[int] = []
 var learn_cantrips: Array[String] = []
 var learn_spells: Array[String] = []
 var prepared: Array[String] = []
+## Progression answers: choice_key(entry) -> Array[String] of option ids.
+var choice_picks: Dictionary = {}
 
 
 func _init(p_offer: Dictionary = {}, p_sheet: CharacterSheet = null, p_content: Dictionary = {}) -> void:
 	offer = p_offer
 	sheet = p_sheet
 	content = p_content
+	for entry in choice_entries():
+		var opts := DictUtil.to_string_array(entry.get("options", []))
+		var count := DictUtil.to_int(entry.get("count", 1), 1)
+		if opts.size() == count:
+			choice_picks[LevelUpDraft.choice_key(entry)] = opts.duplicate()
 	if is_prepared_caster() and sheet != null:
 		for id in sheet.spells_prepared:
 			var s := _spell(id)
@@ -94,6 +111,186 @@ func is_prepared_caster() -> bool:
 
 func features_gained() -> Array[String]:
 	return DictUtil.to_string_array(offer.get("features_gained", []))
+
+
+## The offer's progression choices (LevelUp.choices "choices"), in order.
+func choice_entries() -> Array[Dictionary]:
+	return DictUtil.to_dict_array(offer.get("choices", []))
+
+
+## The key of a choice in choice_picks: its type, or "feature_option:<feature>".
+static func choice_key(entry: Dictionary) -> String:
+	var kind := str(entry.get("type", ""))
+	if kind == LevelUp.CHOICE_FEATURE_OPTION:
+		return "%s:%s" % [kind, str(entry.get("feature", ""))]
+	return kind
+
+
+func choice_count(entry: Dictionary) -> int:
+	return DictUtil.to_int(entry.get("count", 1), 1)
+
+
+## The options picked for a choice (copy).
+func picks_for(entry: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	out.assign(choice_picks.get(LevelUpDraft.choice_key(entry), []))
+	return out
+
+
+## Picks / unpicks an option of a choice. A one-option-count choice swaps its
+## pick; others fill up to their count (false when full or not an option).
+func toggle_choice(entry: Dictionary, option: String, on: bool) -> bool:
+	var key := LevelUpDraft.choice_key(entry)
+	var opts := DictUtil.to_string_array(entry.get("options", []))
+	var picked := picks_for(entry)
+	if not on:
+		picked.erase(option)
+		choice_picks[key] = picked
+		return true
+	if not opts.has(option):
+		return false
+	if picked.has(option):
+		return true
+	if choice_count(entry) == 1:
+		picked = [option] as Array[String]
+	elif picked.size() >= choice_count(entry):
+		return false
+	else:
+		picked.append(option)
+	choice_picks[key] = picked
+	return true
+
+
+## "Fighting style", "Expertise", "Dragon Ancestor", ... (a choice's heading).
+func choice_title(entry: Dictionary) -> String:
+	match str(entry.get("type", "")):
+		LevelUp.CHOICE_SUBCLASS:
+			var cls := _class()
+			return cls.subclass_name if cls != null and not cls.subclass_name.is_empty() else "Subclass"
+		LevelUp.CHOICE_FIGHTING_STYLE:
+			return "Fighting style"
+		LevelUp.CHOICE_EXPERTISE:
+			return "Expertise"
+		LevelUp.CHOICE_INVOCATIONS:
+			return "Eldritch invocations"
+		LevelUp.CHOICE_METAMAGIC:
+			return "Metamagic"
+		LevelUp.CHOICE_SKILLS:
+			return "Skill proficiencies"
+		LevelUp.CHOICE_FEATURE_OPTION:
+			return _record_name("features", str(entry.get("feature", "")))
+	return str(entry.get("type", "")).capitalize()
+
+
+## Display name of an option.
+func option_label(entry: Dictionary, option: String) -> String:
+	match str(entry.get("type", "")):
+		LevelUp.CHOICE_SUBCLASS:
+			var cls := _class()
+			if cls != null and cls.subclass_id == option and not cls.subclass_name.is_empty():
+				return cls.subclass_name
+		LevelUp.CHOICE_FIGHTING_STYLE:
+			return _record_name("fighting_styles", option)
+		LevelUp.CHOICE_INVOCATIONS:
+			return _record_name("invocations", option)
+		LevelUp.CHOICE_METAMAGIC:
+			return _record_name("metamagic", option)
+		LevelUp.CHOICE_EXPERTISE, LevelUp.CHOICE_SKILLS:
+			var skill := Skill.from_string(option)
+			return Skill.name_of(skill) if skill >= 0 else option.capitalize()
+		LevelUp.CHOICE_FEATURE_OPTION:
+			var full := _record_name("features", option)
+			var prefix := _record_name("features", str(entry.get("feature", ""))) + ": "
+			return full.trim_prefix(prefix) if full.begins_with(prefix) else full
+	return option.replace("_", " ").capitalize()
+
+
+## Rules text of an option ("" when the data has none).
+func option_description(entry: Dictionary, option: String) -> String:
+	match str(entry.get("type", "")):
+		LevelUp.CHOICE_SUBCLASS:
+			var cls := _class()
+			return cls.subclass_description if cls != null and cls.subclass_id == option else ""
+		LevelUp.CHOICE_FIGHTING_STYLE:
+			return _record_text("fighting_styles", option)
+		LevelUp.CHOICE_INVOCATIONS:
+			return _record_text("invocations", option)
+		LevelUp.CHOICE_METAMAGIC:
+			var text := _record_text("metamagic", option)
+			var cost := DictUtil.to_int(_record("metamagic", option).get("cost", 0), 0)
+			return ("(%d sorcery point%s) " % [cost, "" if cost == 1 else "s"] + text) if cost > 0 else text
+		LevelUp.CHOICE_FEATURE_OPTION:
+			return _record_text("features", option)
+		LevelUp.CHOICE_EXPERTISE:
+			return "Double your proficiency bonus for checks with this skill."
+		LevelUp.CHOICE_SKILLS:
+			return "Gain proficiency in this skill."
+	return ""
+
+
+## Whether the rules engine models an option (skills and expertise always).
+func option_implemented(entry: Dictionary, option: String) -> bool:
+	match str(entry.get("type", "")):
+		LevelUp.CHOICE_FIGHTING_STYLE:
+			return Features.IMPLEMENTED_FIGHTING_STYLES.has(option)
+		LevelUp.CHOICE_INVOCATIONS:
+			return Features.IMPLEMENTED_INVOCATIONS.has(option)
+		LevelUp.CHOICE_METAMAGIC:
+			return Features.IMPLEMENTED_METAMAGIC.has(option)
+		LevelUp.CHOICE_FEATURE_OPTION:
+			return Features.is_implemented(option)
+	return true
+
+
+## Features gained at the new level for the screen's cards: [{"id", "name",
+## "description", "implemented": bool, "subclass": bool}] (offer
+## "features_detail", else "features_gained").
+func feature_cards() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var detail := DictUtil.to_dict_array(offer.get("features_detail", []))
+	if detail.is_empty():
+		for f in features_gained():
+			detail.append({"id": f, "implemented": Features.is_implemented(f), "subclass": false})
+	for d in detail:
+		var id := str(d.get("id", ""))
+		out.append({"id": id, "name": _record_name("features", id), "description": _record_text("features", id),
+			"implemented": DictUtil.to_bool(d.get("implemented", Features.is_implemented(id)), false),
+			"subclass": DictUtil.to_bool(d.get("subclass", false), false)})
+	return out
+
+
+## Learnable leveled spells grouped by spell level: level -> Array[String].
+func spell_options_by_level() -> Dictionary:
+	var out := {}
+	for id in spell_options():
+		var lvl := spell_level(id)
+		if not out.has(lvl):
+			out[lvl] = [] as Array[String]
+		var list: Array[String] = out[lvl]
+		list.append(id)
+	return out
+
+
+func _class() -> ClassDefinition:
+	return sheet.class_definition(ContentLoader.resolve(content)) if sheet != null else null
+
+
+func _record(kind: String, id: String) -> Dictionary:
+	var records: Variant = ContentLoader.resolve(content).get(kind, {})
+	if typeof(records) != TYPE_DICTIONARY or not (records as Dictionary).has(id):
+		return {}
+	var rec: Variant = (records as Dictionary)[id]
+	return rec if typeof(rec) == TYPE_DICTIONARY else {}
+
+
+func _record_name(kind: String, id: String) -> String:
+	var rec := _record(kind, id)
+	var n := str(rec.get("display_name", ""))
+	return n if not n.is_empty() else ClientState.feature_name(id)
+
+
+func _record_text(kind: String, id: String) -> String:
+	return str(_record(kind, id).get("description", ""))
 
 
 ## Cantrip options (spell_options with level 0), in offer order.
@@ -277,6 +474,15 @@ func problems() -> Array[String]:
 		out.append("Learn %d spell(s) (%d chosen)." % [spells_needed(), learn_spells.size()])
 	if is_prepared_caster() and prepared.size() > prepared_count():
 		out.append("Prepare at most %d spells." % prepared_count())
+	for entry in choice_entries():
+		var picked := picks_for(entry)
+		var opts := DictUtil.to_string_array(entry.get("options", []))
+		var count := choice_count(entry)
+		if picked.size() != count:
+			out.append("Choose %d: %s (%d chosen)." % [count, choice_title(entry), picked.size()])
+		for p in picked:
+			if not opts.has(p):
+				out.append("%s is not an option for %s." % [p, choice_title(entry)])
 	return out
 
 
@@ -295,6 +501,18 @@ func to_choices() -> Dictionary:
 		d["asi"] = asi
 	if is_prepared_caster():
 		d["prepared"] = prepared.duplicate()
+	var feature_options := {}
+	for entry in choice_entries():
+		var picked := picks_for(entry)
+		match str(entry.get("type", "")):
+			LevelUp.CHOICE_SUBCLASS, LevelUp.CHOICE_FIGHTING_STYLE:
+				d[str(entry["type"])] = picked[0] if not picked.is_empty() else ""
+			LevelUp.CHOICE_FEATURE_OPTION:
+				feature_options[str(entry.get("feature", ""))] = picked[0] if not picked.is_empty() else ""
+			_:
+				d[str(entry["type"])] = picked
+	if not feature_options.is_empty():
+		d["feature_options"] = feature_options
 	return d
 
 
@@ -335,4 +553,17 @@ static func first_valid(p_offer: Dictionary, p_sheet: CharacterSheet, p_content:
 				d.toggle_learn(id, true)
 	for id in d.learn_spells:
 		d.toggle_prepared(id, true)
+	for entry in d.choice_entries():
+		d.fill_choice(entry)
 	return d
+
+
+## Fills a choice up to its count: modelled options first, in offer order.
+func fill_choice(entry: Dictionary) -> void:
+	var opts := DictUtil.to_string_array(entry.get("options", []))
+	for pass_implemented: bool in [true, false]:
+		for o in opts:
+			if picks_for(entry).size() >= choice_count(entry):
+				return
+			if option_implemented(entry, o) == pass_implemented or not pass_implemented:
+				toggle_choice(entry, o, true)

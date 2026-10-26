@@ -91,3 +91,104 @@ func test_hp_choice_and_prepared_caster() -> void:
 	var rng := Rng.new(5)
 	assert_eq(LevelUp.apply(s, d.to_choices(), {}, rng), "")
 	assert_eq(s.level, 2)
+
+
+## Every class from level 1 to 20 through LevelUpDraft.first_valid (what the
+## smoke bot sends): LevelUp.apply accepts each answer, every progression
+## choice is answered explicitly, and over the loop every choice type shows up.
+func test_first_valid_is_accepted_for_every_class_from_1_to_20() -> void:
+	var seen := {}
+	for id: String in CharacterDraft.CLASS_ORDER:
+		var d := CharacterDraft.new()
+		d.character_name = "Lev"
+		d.set_class(ContentLoader.load_classes()[id])
+		d.set_ancestry(ContentLoader.load_ancestries()["human"])
+		d.auto_assign()
+		for skill in d.class_def.skill_choices:
+			d.toggle_skill(skill, true)
+		d.auto_choose()
+		assert_true(d.is_valid(), "%s: %s" % [id, str(d.problems())])
+		var s := d.build_sheet()
+		while s.level < 20:
+			s.xp = maxi(s.xp, Experience.xp_for_level(s.level + 1))
+			var offer := LevelUp.choices(s)
+			var draft := LevelUpDraft.first_valid(offer, s)
+			assert_true(draft.is_valid(), "%s level %d: %s" % [id, s.level + 1, str(draft.problems())])
+			var made := draft.to_choices()
+			for entry in draft.choice_entries():
+				var kind := str(entry["type"])
+				seen[kind] = true
+				if kind == LevelUp.CHOICE_FEATURE_OPTION:
+					assert_true((made.get("feature_options", {}) as Dictionary).has(str(entry["feature"])), "%s answered explicitly" % entry["feature"])
+				else:
+					assert_true(made.has(kind), "%s level %d answers %s explicitly" % [id, s.level + 1, kind])
+			var err := LevelUp.apply(s, made, {}, null)
+			assert_eq(err, "", "%s to level %d" % [id, s.level + 1])
+			if not err.is_empty():
+				break
+		assert_eq(s.level, 20, id)
+		assert_false(s.subclass_id.is_empty(), "%s has a subclass by 20" % id)
+	for kind: String in [LevelUp.CHOICE_SUBCLASS, LevelUp.CHOICE_FIGHTING_STYLE, LevelUp.CHOICE_EXPERTISE,
+			LevelUp.CHOICE_INVOCATIONS, LevelUp.CHOICE_METAMAGIC, LevelUp.CHOICE_FEATURE_OPTION, LevelUp.CHOICE_SKILLS]:
+		assert_true(seen.has(kind), "the loop answered a %s choice" % kind)
+
+
+func test_choice_sections_labels_and_feature_cards() -> void:
+	var s := _sheet("fighter")
+	_level_to(s, 2)
+	s.xp = Experience.xp_for_level(3)
+	var d := LevelUpDraft.new(LevelUp.choices(s), s)
+	var sub: Dictionary = {}
+	for entry in d.choice_entries():
+		if str(entry["type"]) == LevelUp.CHOICE_SUBCLASS:
+			sub = entry
+	assert_false(sub.is_empty(), "level 3 asks for the archetype")
+	assert_eq(d.picks_for(sub), ["champion"] as Array[String], "the single SRD subclass starts picked")
+	assert_eq(d.option_label(sub, "champion"), "Champion")
+	assert_ne(d.option_description(sub, "champion"), "")
+	assert_eq(d.to_choices()["subclass"], "champion", "sent explicitly")
+	var cards := d.feature_cards()
+	var crit := {}
+	for c in cards:
+		if str(c["id"]) == "improved_critical":
+			crit = c
+	assert_false(crit.is_empty(), "subclass feature card")
+	assert_true(bool(crit["subclass"]))
+	assert_true(bool(crit["implemented"]))
+	assert_ne(str(crit["description"]), "", "description from data/features")
+	assert_true(d.is_valid(), str(d.problems()))
+	assert_true(d.toggle_choice(sub, "champion", false))
+	assert_false(d.is_valid(), "the subclass must be chosen")
+	# Warlock invocations: counts, modelled first in first_valid, labels.
+	var w := _sheet("warlock")
+	_level_to(w, 1)
+	w.xp = Experience.xp_for_level(2)
+	var wd := LevelUpDraft.new(LevelUp.choices(w), w)
+	var inv: Dictionary = {}
+	for entry in wd.choice_entries():
+		if str(entry["type"]) == LevelUp.CHOICE_INVOCATIONS:
+			inv = entry
+	assert_false(inv.is_empty(), "warlock level 2 learns invocations")
+	assert_eq(wd.choice_count(inv), 2)
+	assert_eq(wd.option_label(inv, "agonizing_blast"), "Agonizing Blast")
+	assert_true(wd.option_implemented(inv, "agonizing_blast"))
+	assert_false(wd.option_implemented(inv, "beast_speech"))
+	var auto := LevelUpDraft.first_valid(wd.offer, w)
+	for p in auto.picks_for(inv):
+		assert_true(Features.IMPLEMENTED_INVOCATIONS.has(p), "%s: modelled invocations first" % p)
+	assert_true(wd.toggle_choice(inv, "beast_speech", true))
+	assert_true(wd.toggle_choice(inv, "agonizing_blast", true))
+	assert_false(wd.toggle_choice(inv, "armor_of_shadows", true), "count reached")
+	assert_eq(wd.to_choices()["invocations"], ["beast_speech", "agonizing_blast"])
+
+
+func test_spell_options_are_grouped_by_level() -> void:
+	var s := _sheet("wizard")
+	_level_to(s, 4)
+	s.xp = Experience.xp_for_level(5)
+	var d := LevelUpDraft.new(LevelUp.choices(s), s)
+	var groups := d.spell_options_by_level()
+	assert_true(groups.has(3), "3rd-level spells at level 5")
+	for lvl: int in groups.keys():
+		for id: String in groups[lvl]:
+			assert_eq(d.spell_level(id), lvl)

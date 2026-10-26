@@ -51,7 +51,19 @@ outside a pump (exploration, monster turns, `add_player`) arrive on the next one
   On the set's last floor: `Rest.long_rest` for every living player
   (CHARACTER_STATE with `long_rest: true`), then SET_CLEARED once; every
   later intent is refused. `short_rest`: on the stairs tile, out of combat ->
-  `Rest.short_rest`, CHARACTER_STATE (with `healed`) to the sender.
+  `Rest.short_rest` (with the living party's Song of Rest die), then with
+  `recover_slots` Arcane / Natural Recovery (`Rest.recover_slots`; `true` =
+  `recovery_picks`: expended slots, highest first, within the budget),
+  CHARACTER_STATE (with `healed`, and `slots_recovered` or `recovery_error`)
+  to the sender.
+- Combat intents pass through untouched: every field the core reads (attack
+  `reckless` / `smite` / `stun` / `technique`, cast `point` / `sculpt` /
+  `metamagic` / `twin_target`, use_feature `mode` / `slot_level` /
+  `allocations` / `frenzy`, the `stand` intent) reaches `Encounter.submit`
+  after `Messages.validate_intent`; the encounter's events (conditions,
+  concentration, area effects, pushes, reactions) are broadcast as they come.
+  The core resolves reactions (Uncanny Dodge, Deflect Missiles) by itself, so
+  there is no reaction prompt.
 - Death saves before wipe (core rule): a fight lasts while each of two teams
   has a member who is conscious or still dying, so downed players roll their
   death saves while the monsters keep attacking them.
@@ -72,9 +84,12 @@ outside a pump (exploration, monster turns, `add_player`) arrive on the next one
 - Level-up (never automatic): whenever a player out of combat has
   `sheet.pending_levels() > 0` after an XP award (also on `add_player` and
   when its encounter ends), it gets LEVEL_UP_AVAILABLE `{entity_id, choices:
-  LevelUp.choices(sheet)}` for the next level only. The `level_up {choices}`
-  intent (out of combat; also accepted after SET_CLEARED) runs
-  `LevelUp.apply` (HP rolls from the LEVEL_STREAM Rng): success ->
+  LevelUp.choices(sheet)}` for the next level only (its `choices` list of
+  subclass / fighting style / expertise / invocations / metamagic / option
+  feature / skill picks and `features_detail` are forwarded untouched). The
+  `level_up {choices}` intent (out of combat; also accepted after
+  SET_CLEARED) runs `LevelUp.apply`, which validates every answer (HP rolls
+  from the LEVEL_STREAM Rng): success ->
   CHARACTER_STATE with `leveled_to` and `levels_pending`, then the next offer
   if levels remain; invalid choices or nothing pending -> ERROR, sheet unchanged.
 - Items (out of combat): `equip {item, slot}` / `unequip {slot}`

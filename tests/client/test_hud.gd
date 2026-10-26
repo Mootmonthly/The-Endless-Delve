@@ -129,3 +129,142 @@ func test_level_up_button_and_screen() -> void:
 	assert_has(screen._problems.text, "nope")
 	screen.free()
 	hud.free()
+
+
+func _class_state(class_id: String, level: int) -> ClientState:
+	var d := CharacterDraft.new()
+	d.character_name = "Kit"
+	d.set_class(ContentLoader.load_classes()[class_id])
+	d.set_ancestry(ContentLoader.load_ancestries()["human"])
+	d.auto_assign()
+	for skill in d.class_def.skill_choices:
+		d.toggle_skill(skill, true)
+	d.auto_choose()
+	var s := d.build_sheet()
+	while s.level < level:
+		s.xp = maxi(s.xp, Experience.xp_for_level(s.level + 1))
+		assert_eq(LevelUp.apply(s, LevelUpDraft.first_valid(LevelUp.choices(s), s).to_choices(), {}, null), "")
+	var st := ClientState.new("p1")
+	st.apply(Messages.make_result(Messages.FLOOR_LOADED, {"floor": {
+		"schema_version": 1, "id": "f", "display_name": "Hall", "floor_number": 1,
+		"rows": ["##########", "#A.......#", "#.......S#", "##########"], "arrival": [1, 1], "stairs": [8, 2],
+		"encounter_zones": [{"id": "z1", "rect": [1, 1, 8, 2], "monster_ids": ["goblin"], "spawn_points": [[2, 1]]}],
+	}, "entity_id": "p1"}))
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": s.to_dict()}))
+	st.apply(Messages.make_result(Messages.EXPLORE_STATE, {"entities": [
+		{"id": "p1", "kind": "player", "position": [1, 1]},
+		{"id": "z1_goblin_0", "kind": "monster", "position": [2, 1], "name": "Goblin", "monster_id": "goblin"},
+	], "tick": 1}))
+	st.apply(Messages.make_result(Messages.ENCOUNTER_EVENTS, {"encounter_id": "z1", "zone_id": "z1", "events": [
+		{"kind": "combatant_joined", "id": "p1", "initiative": 15, "position": [1, 1]},
+		{"kind": "combatant_joined", "id": "z1_goblin_0", "initiative": 5, "position": [2, 1]},
+		{"kind": "encounter_started", "order": ["p1", "z1_goblin_0"]},
+		{"kind": "turn_started", "actor": "p1", "round": 1},
+	]}))
+	return st
+
+
+func test_hud_attack_counter_conditions_and_concentration() -> void:
+	var hud := Hud.new()
+	hud._ready()
+	var st := _class_state("fighter", 5)
+	hud.refresh(st)
+	var attack: Button = hud._buttons["attack"]
+	assert_eq(attack.text, "Attack 1/2 [1]")
+	assert_has(hud._turn_label.text, "Reaction: ready")
+	st.apply(Messages.make_result(Messages.ENCOUNTER_EVENTS, {"encounter_id": "z1", "zone_id": "z1", "events": [
+		{"kind": "attack", "attacker": "p1", "target": "z1_goblin_0", "attack_name": "Longsword", "attack_kind": "melee",
+			"natural": 3, "d20s": [3], "total": 8, "target_ac": 15, "hit": false, "critical": false, "fumble": false,
+			"advantage": "normal", "bonus": false, "consumed": ""},
+		{"kind": "condition_applied", "target": "z1_goblin_0", "condition": "prone", "source": "p1", "duration": {"type": "encounter"}},
+		{"kind": "concentration_started", "actor": "z1_goblin_0", "spell": "hex"},
+	]}))
+	hud.refresh(st)
+	assert_eq(attack.text, "Attack 2/2 [1]")
+	assert_false(attack.disabled, "the second attack is still available")
+	assert_has(hud._turn_label.text, "Action: Attack 2/2 left")
+	assert_has(hud._order_label.text, "prone")
+	assert_has(hud._order_label.text, "concentrating: Hex")
+	assert_false(hud._options_row.visible, "a fighter has no attack options")
+	hud.free()
+
+
+func test_hud_attack_options_features_and_metamagic() -> void:
+	var hud := Hud.new()
+	hud._ready()
+	var pal := _class_state("paladin", 2)
+	hud.refresh(pal)
+	assert_true(hud._options_row.visible)
+	assert_true(hud._smite_picker.visible)
+	assert_false(hud._reckless_check.visible)
+	assert_eq(hud._smite_picker.item_count, 2, "no smite + 1st-level slots")
+	hud._smite_picker.select(1)
+	hud._smite_picker.item_selected.emit(1)
+	assert_eq(int(pal.attack_options["smite"]), 1)
+	hud.free()
+	var hud2 := Hud.new()
+	hud2._ready()
+	var monk := _class_state("monk", 5)
+	hud2.refresh(monk)
+	assert_true(hud2._stun_check.visible)
+	assert_true(hud2._technique_picker.visible)
+	hud2.toggle_features()
+	var mode_buttons := 0
+	for row in hud2._features_box.get_children():
+		for child in row.get_children():
+			if child is Button and (child as Button).text in ["Dash", "Disengage"]:
+				mode_buttons += 1
+	assert_eq(mode_buttons, 2, "Step of the Wind: dash / disengage")
+	hud2.free()
+	var hud3 := Hud.new()
+	hud3._ready()
+	var sorc := _class_state("sorcerer", 3)
+	sorc.sheet.metamagic = ["quickened_spell", "twinned_spell"] as Array[String]
+	hud3.refresh(sorc)
+	hud3.toggle_spells()
+	var pickers := 0
+	for row in hud3._spells_box.get_children():
+		for child in row.get_children():
+			if child is OptionButton and (child as OptionButton).get_item_text(0) == "No metamagic":
+				pickers += 1
+	assert_true(pickers > 0, "metamagic pickers on the spell rows")
+	assert_has(hud3._resources_label.text, "Sorcery points")
+	hud3.free()
+
+
+func test_level_up_screen_choice_sections_and_cards() -> void:
+	var st := _class_state("warlock", 1)
+	var s := st.sheet
+	s.xp = Experience.xp_for_level(2)
+	var packed: PackedScene = load("res://scenes/ui/level_up_screen.tscn")
+	var screen := packed.instantiate() as LevelUpScreen
+	screen._ready()
+	screen.open(LevelUp.choices(s), s)
+	var sections := screen._choices_section.get_children()
+	assert_eq(sections.size(), 1, "invocations")
+	var boxes := 0
+	var greyed := 0
+	for child in sections[0].get_children():
+		if child is CheckBox:
+			boxes += 1
+			if (child as CheckBox).text.ends_with("not yet modelled"):
+				greyed += 1
+	assert_true(boxes >= 3, "invocation options")
+	assert_true(greyed > 0, "unmodelled invocations are marked")
+	assert_true(screen._confirm.disabled, "two invocations to choose")
+	var auto := LevelUpDraft.first_valid(screen.draft.offer, s)
+	for entry in auto.choice_entries():
+		for o in auto.picks_for(entry):
+			screen._on_choice_toggled(entry, o, true)
+	for id in auto.learn_spells:
+		screen._on_learn_toggled(id, true)
+	for id in auto.learn_cantrips:
+		screen._on_learn_toggled(id, true)
+	assert_false(screen._confirm.disabled, str(screen.draft.problems()))
+	var sent: Array[Dictionary] = []
+	screen.confirmed.connect(func(c: Dictionary) -> void: sent.append(c))
+	screen._on_confirm()
+	assert_eq((sent[0]["invocations"] as Array).size(), 2)
+	assert_eq(LevelUp.apply(s, sent[0], {}, null), "", "the screen's answer is valid")
+	assert_true(screen._features_box.get_child_count() > 0, "feature cards")
+	screen.free()

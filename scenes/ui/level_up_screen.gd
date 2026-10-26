@@ -4,9 +4,15 @@ extends CanvasLayer
 ## LevelUpDraft: header "Level N!", hit points (Average +X vs Roll d(die) +
 ## CON), the ability score improvement when offered (+2 to one or +1 to two,
 ## live preview of scores and modifiers, capped at 20), cantrips and spells
-## to learn with a search box (spells the rules engine cannot cast yet are
-## greyed out), the prepared-spell picker for prepared casters (count shown),
-## and the features gained with a one-line note. Confirm stays disabled until
+## to learn with a search box, leveled spells grouped by spell level (spells
+## the rules engine cannot cast yet are greyed out), the prepared-spell picker
+## for prepared casters (count shown), one section per progression choice
+## (subclass with its description, fighting style, expertise from proficient
+## skills, invocations, metamagic, option features such as Dragon Ancestor,
+## extra skills; counts shown, every option with its rules text and a
+## "not yet modelled" badge when the engine does not model it), and the
+## features gained as cards (data/features descriptions, "implemented" /
+## "not yet modelled", subclass features marked). Confirm stays disabled until
 ## the draft is valid; it emits `confirmed(choices)` and waits (set_waiting)
 ## until the GameScene closes it on the CHARACTER_STATE with leveled_to, or
 ## shows the server's error. "Later" (or Escape) emits `dismissed`; the HUD's
@@ -19,6 +25,9 @@ const LAYER := 30
 const PANEL_SIZE := Vector2(720, 560)
 const GREY := Color(0.6, 0.6, 0.6)
 const WARN := Color(1.0, 0.65, 0.45)
+const NOTE := Color(0.78, 0.78, 0.82)
+const BADGE_OK := Color(0.55, 0.9, 0.55)
+const BADGE_TODO := Color(1.0, 0.75, 0.4)
 ## One-line notes for class features the rules engine implements (else the id is shown).
 const FEATURE_NOTES: Dictionary[String, String] = {
 	"second_wind": "Bonus action: regain 1d10 + your level in hit points; back after a short rest.",
@@ -54,7 +63,8 @@ var _spell_header: Label
 var _spell_box: VBoxContainer
 var _prepared_header: Label
 var _prepared_box: VBoxContainer
-var _features_label: Label
+var _features_box: VBoxContainer
+var _choices_section: VBoxContainer
 var _problems: Label
 var _confirm: Button
 var _later: Button
@@ -84,15 +94,17 @@ func open(offer: Dictionary, sheet: CharacterSheet, content: Dictionary = {}) ->
 	_waiting = false
 	_search.text = ""
 	_title.text = "Level %d!%s" % [draft.new_level(), ("  " + class_name_text) if not class_name_text.is_empty() else ""]
-	_hp_average.text = "Average: +%d HP" % draft.average_hp()
+	var bonus := DictUtil.to_int((offer.get("hp", {}) as Dictionary).get("bonus", 0), 0) if typeof(offer.get("hp")) == TYPE_DICTIONARY else 0
+	_hp_average.text = "Average: +%d HP%s" % [draft.average_hp() + bonus, (" (incl. +%d from features)" % bonus) if bonus > 0 else ""]
 	_hp_roll.text = "Roll: d%d %s CON" % [draft.hit_die(), "%+d" % draft.con_mod()]
 	_hp_roll.disabled = not draft.may_roll()
 	_asi_box.visible = draft.asi_offered()
 	if draft.asi_offered():
 		_set_asi_default()
 	_rebuild_lists()
-	_features_label.text = _features_text()
-	_features_section.visible = not draft.features_gained().is_empty()
+	_fill_choices()
+	_fill_feature_cards()
+	_features_section.visible = not draft.feature_cards().is_empty()
 	visible = true
 	_refresh()
 
@@ -208,6 +220,11 @@ func _build_ui() -> void:
 	_asi_preview = Label.new()
 	_asi_box.add_child(_asi_preview)
 
+	# Progression choices (subclass, fighting style, expertise, ...).
+	_choices_section = VBoxContainer.new()
+	_choices_section.add_theme_constant_override("separation", 6)
+	body.add_child(_choices_section)
+
 	# Spells to learn.
 	_learn_section = VBoxContainer.new()
 	body.add_child(_learn_section)
@@ -240,10 +257,9 @@ func _build_ui() -> void:
 	_features_section = VBoxContainer.new()
 	body.add_child(_features_section)
 	_features_section.add_child(_heading("Features gained"))
-	_features_label = Label.new()
-	_features_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_features_label.custom_minimum_size = Vector2(PANEL_SIZE.x - 60, 0)
-	_features_section.add_child(_features_label)
+	_features_box = VBoxContainer.new()
+	_features_box.add_theme_constant_override("separation", 6)
+	_features_section.add_child(_features_box)
 
 	_problems = Label.new()
 	_problems.modulate = WARN
@@ -321,10 +337,20 @@ func _fill_learn(box: VBoxContainer, options: Array[String], cantrips: bool, fil
 		box.remove_child(child)
 		child.queue_free()
 	var chosen := draft.learn_cantrips if cantrips else draft.learn_spells
-	for id in options:
+	var sorted := options.duplicate()
+	if not cantrips:
+		sorted.sort_custom(func(a: String, b: String) -> bool:
+			return draft.spell_level(a) < draft.spell_level(b) or (draft.spell_level(a) == draft.spell_level(b) and options.find(a) < options.find(b)))
+	var last_level := -1
+	for id in sorted:
 		var spell_label := draft.spell_name(id)
 		if not filter.is_empty() and not spell_label.to_lower().contains(filter) and not chosen.has(id):
 			continue
+		if not cantrips and draft.spell_level(id) != last_level:
+			last_level = draft.spell_level(id)
+			var group := _label("%s-level spells" % ClientState.ordinal(last_level))
+			group.modulate = NOTE
+			box.add_child(group)
 		var c := CheckBox.new()
 		c.text = spell_label if cantrips else "%s (%s level)" % [spell_label, ClientState.ordinal(draft.spell_level(id))]
 		if not draft.is_supported(id):
@@ -356,13 +382,76 @@ func _fill_prepared() -> void:
 		_prepared_box.add_child(c)
 
 
-func _features_text() -> String:
-	var lines: PackedStringArray = []
-	for f in draft.features_gained():
-		var note: String = FEATURE_NOTES.get(f, "")
-		var title := ClientState.feature_name(f)
-		lines.append("%s - %s" % [title, note] if not note.is_empty() else "%s (%s)" % [title, f])
-	return "\n".join(lines)
+## One card per feature gained: name, badges, rules text (data/features).
+func _fill_feature_cards() -> void:
+	_clear(_features_box)
+	for card in draft.feature_cards():
+		var box := VBoxContainer.new()
+		_features_box.add_child(box)
+		var head := HBoxContainer.new()
+		box.add_child(head)
+		var name_label := _label(str(card["name"]))
+		name_label.add_theme_font_size_override("font_size", 16)
+		head.add_child(name_label)
+		if bool(card["subclass"]):
+			var sub := _label("subclass")
+			sub.modulate = NOTE
+			head.add_child(sub)
+		var badge := _label("implemented" if bool(card["implemented"]) else "not yet modelled")
+		badge.modulate = BADGE_OK if bool(card["implemented"]) else BADGE_TODO
+		head.add_child(badge)
+		var text := str(card["description"])
+		if text.is_empty():
+			text = FEATURE_NOTES.get(str(card["id"]), "")
+		if not text.is_empty():
+			box.add_child(_description(text))
+
+
+## One section per progression choice: heading with the count, then each
+## option (radio for a single pick, check boxes otherwise) with its rules text.
+func _fill_choices() -> void:
+	_clear(_choices_section)
+	for entry in draft.choice_entries():
+		var count := draft.choice_count(entry)
+		var section := VBoxContainer.new()
+		section.set_meta("choice", entry)
+		_choices_section.add_child(section)
+		var heading := _heading("%s (choose %d)" % [draft.choice_title(entry), count])
+		heading.set_meta("heading", true)
+		section.add_child(heading)
+		var group: ButtonGroup = ButtonGroup.new() if count == 1 else null
+		if group != null:
+			group.allow_unpress = true
+		for option in DictUtil.to_string_array(entry.get("options", [])):
+			var c := CheckBox.new()
+			c.text = draft.option_label(entry, option)
+			if not draft.option_implemented(entry, option):
+				c.text += " - not yet modelled"
+				c.modulate = GREY
+			c.button_group = group
+			c.button_pressed = draft.picks_for(entry).has(option)
+			c.set_meta("option", option)
+			var e := entry
+			var o := option
+			c.toggled.connect(func(on: bool) -> void: _on_choice_toggled(e, o, on))
+			section.add_child(c)
+			var text := draft.option_description(entry, option)
+			if not text.is_empty():
+				section.add_child(_description(text))
+
+
+func _description(text: String) -> Label:
+	var l := _label(text)
+	l.modulate = NOTE
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(PANEL_SIZE.x - 80, 0)
+	return l
+
+
+func _clear(box: Container) -> void:
+	for child in box.get_children():
+		box.remove_child(child)
+		child.queue_free()
 
 
 func _refresh() -> void:
@@ -375,6 +464,8 @@ func _refresh() -> void:
 	for box: VBoxContainer in [_cantrip_box, _spell_box]:
 		for child in box.get_children():
 			var c := child as CheckBox
+			if c == null:
+				continue  # a spell-level heading
 			var id := str(c.get_meta("spell"))
 			var cantrip := bool(c.get_meta("cantrip"))
 			var chosen := draft.learn_cantrips if cantrip else draft.learn_spells
@@ -386,6 +477,17 @@ func _refresh() -> void:
 		var id := str(c.get_meta("spell"))
 		c.set_pressed_no_signal(draft.prepared.has(id))
 		c.disabled = _waiting or (not draft.prepared.has(id) and draft.prepared.size() >= draft.prepared_count())
+	for section in _choices_section.get_children():
+		var entry: Dictionary = section.get_meta("choice", {})
+		var picked := draft.picks_for(entry)
+		var full := picked.size() >= draft.choice_count(entry)
+		for child in section.get_children():
+			var c := child as CheckBox
+			if c == null:
+				continue
+			var o := str(c.get_meta("option"))
+			c.set_pressed_no_signal(picked.has(o))
+			c.disabled = _waiting or (not picked.has(o) and full and draft.choice_count(entry) > 1)
 	_asi_second.visible = _asi_split.button_pressed
 	_asi_preview.text = _asi_preview_text()
 	var problems := draft.problems()
@@ -435,6 +537,13 @@ func _on_learn_toggled(id: String, on: bool) -> void:
 		return
 	draft.toggle_learn(id, on)
 	_fill_prepared()
+	_refresh()
+
+
+func _on_choice_toggled(entry: Dictionary, option: String, on: bool) -> void:
+	if _syncing or draft == null:
+		return
+	draft.toggle_choice(entry, option, on)
 	_refresh()
 
 

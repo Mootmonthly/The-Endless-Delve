@@ -183,3 +183,63 @@ func test_position_helpers() -> void:
 	assert_false(Messages.is_position([1.5, 2]))
 	assert_false(Messages.is_position(Vector2i(1, 2)))
 	assert_eq(Messages.to_position([7.0, -3]), Vector2i(7, -3))
+
+
+func test_progression_intent_fields_validate() -> void:
+	var good: Array[Dictionary] = [
+		Messages.make_intent(Messages.STAND, {"actor": "p1"}),
+		Messages.make_intent(Messages.ATTACK, {"actor": "p1", "target": "g1", "attack_index": 0,
+			"reckless": true, "smite": 2, "stun": false, "retarget": true}),
+		Messages.make_intent(Messages.ATTACK, {"actor": "p1", "target": "g1", "attack_index": 2, "bonus": true, "technique": "push"}),
+		Messages.make_intent(Messages.CAST, {"actor": "p1", "spell": "fireball", "slot_level": 3, "point": [4, 5],
+			"sculpt": ["p2"], "metamagic": ["empowered_spell"]}),
+		Messages.make_intent(Messages.CAST, {"actor": "p1", "spell": "chill_touch", "target": "g1", "metamagic": ["twinned_spell"], "twin_target": "g2"}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "step_of_the_wind", "mode": "dash"}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "font_of_magic", "mode": "create_slot", "slot_level": 2}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "preserve_life", "allocations": {"p1": 3, "p2": 7.0}}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "rage", "frenzy": true}),
+		Messages.make_intent(Messages.USE_ITEM, {"actor": "p1", "item": "potion_of_healing", "bonus": true}),
+		Messages.make_intent(Messages.SHORT_REST, {"actor": "p1", "hit_dice": 0, "recover_slots": true}),
+		Messages.make_intent(Messages.SHORT_REST, {"actor": "p1", "hit_dice": 1, "recover_slots": [1, 2.0]}),
+		Messages.make_intent(Messages.LEVEL_UP, {"actor": "p1", "choices": {"hp": "average", "subclass": "champion",
+			"fighting_style": "defense", "feature_options": {"hunters_prey": "colossus_slayer"}}}),
+	]
+	for d in good:
+		assert_eq(Messages.validate_intent(d), "", str(d))
+	assert_true(Messages.is_encounter_intent(Messages.make_intent(Messages.STAND, {"actor": "p1"})), "stand is a combat intent")
+
+
+func test_progression_intent_fields_reject_bad_values() -> void:
+	var bad: Array[Dictionary] = [
+		Messages.make_intent(Messages.ATTACK, {"actor": "p1", "target": "g1", "attack_index": 0, "reckless": "yes"}),
+		Messages.make_intent(Messages.ATTACK, {"actor": "p1", "target": "g1", "attack_index": 0, "smite": 10}),
+		Messages.make_intent(Messages.ATTACK, {"actor": "p1", "target": "g1", "attack_index": 0, "smite": -1}),
+		Messages.make_intent(Messages.ATTACK, {"actor": "p1", "target": "g1", "attack_index": 0, "stun": 1}),
+		Messages.make_intent(Messages.ATTACK, {"actor": "p1", "target": "g1", "attack_index": 0, "technique": "trip"}),
+		Messages.make_intent(Messages.ATTACK, {"actor": "p1", "target": "g1", "attack_index": 0, "retarget": "true"}),
+		Messages.make_intent(Messages.CAST, {"actor": "p1", "spell": "fireball", "point": [1]}),
+		Messages.make_intent(Messages.CAST, {"actor": "p1", "spell": "fireball", "slot_level": 12}),
+		Messages.make_intent(Messages.CAST, {"actor": "p1", "spell": "fireball", "sculpt": "p2"}),
+		Messages.make_intent(Messages.CAST, {"actor": "p1", "spell": "fireball", "metamagic": [""]}),
+		Messages.make_intent(Messages.CAST, {"actor": "p1", "spell": "fire_bolt", "twin_target": ""}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "cunning_action", "mode": ""}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "font_of_magic", "slot_level": "2"}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "preserve_life", "allocations": [3]}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "preserve_life", "allocations": {"p1": 0}}),
+		Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1", "feature": "rage", "frenzy": "on"}),
+		Messages.make_intent(Messages.USE_ITEM, {"actor": "p1", "item": "potion_of_healing", "bonus": 1}),
+		Messages.make_intent(Messages.SHORT_REST, {"actor": "p1", "hit_dice": 0, "recover_slots": "all"}),
+		Messages.make_intent(Messages.SHORT_REST, {"actor": "p1", "hit_dice": 0, "recover_slots": [0]}),
+	]
+	for d in bad:
+		assert_ne(Messages.validate_intent(d), "", "should reject %s" % str(d))
+
+
+func test_reaction_policy_intent() -> void:
+	var good := Messages.make_intent(Messages.REACTION_POLICY, {"actor": "p1", "policy": {"creature_left_reach": "never", "shield": "auto"}})
+	assert_eq(Messages.validate_intent(good), "")
+	assert_true(Messages.is_dual_intent(good), "settable in and out of combat")
+	assert_eq(Messages.validate_intent(Messages.make_intent(Messages.REACTION_POLICY, {"actor": "p1", "policy": {}})), "", "all auto")
+	for bad: Dictionary in [{"actor": "p1"}, {"actor": "p1", "policy": "never"}, {"actor": "p1", "policy": {"missed": "sometimes"}},
+			{"actor": "p1", "policy": {"missed": true}}]:
+		assert_ne(Messages.validate_intent(Messages.make_intent(Messages.REACTION_POLICY, bad)), "", str(bad))

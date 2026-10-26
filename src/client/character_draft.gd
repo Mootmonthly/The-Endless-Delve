@@ -4,6 +4,14 @@ extends RefCounted
 ## name, class, ancestry, a standard-array assignment and skill picks.
 ## The CharacterCreator scene edits a draft and asks it for the preview and,
 ## once is_valid(), the finished CharacterSheet (built by CharacterBuilder).
+##
+## Level-1 progression: classes whose subclass starts at level 1 (cleric,
+## sorcerer, warlock) get their SRD subclass (subclass_info()), and
+## creation_choices() (CharacterBuilder.creation_choices: fighting style,
+## expertise from the chosen skills, Dragon Ancestor, ...) are answered in
+## `creation_picks` (LevelUpDraft.choice_key -> [options]) and passed to
+## CharacterBuilder.create. Picks that stop being options (another class,
+## other skills) are dropped.
 
 ## Menu order of the SRD classes (all twelve are offered); classes missing
 ## here follow in display-name order.
@@ -24,6 +32,8 @@ var ancestry: AncestryDefinition = null
 ## Base score per Ability.Type (before ancestry bonuses); UNASSIGNED = not chosen.
 var assigned: Array[int] = [UNASSIGNED, UNASSIGNED, UNASSIGNED, UNASSIGNED, UNASSIGNED, UNASSIGNED]
 var skills: Array[int] = []
+## Answers to creation_choices(): LevelUpDraft.choice_key(entry) -> Array[String].
+var creation_picks: Dictionary = {}
 
 
 ## Every class of an id -> ClassDefinition map: CLASS_ORDER first, then
@@ -56,6 +66,8 @@ static func sorted_ancestries(all_ancestries: Dictionary) -> Array[AncestryDefin
 
 ## Changes class and drops skill picks the new class does not offer.
 func set_class(def: ClassDefinition) -> void:
+	if def != class_def:
+		creation_picks.clear()
 	class_def = def
 	var kept: Array[int] = []
 	if def != null:
@@ -124,6 +136,91 @@ func skills_needed() -> int:
 	return class_def.skill_choice_count if class_def != null else 0
 
 
+## The level-1 progression choices of the class with the chosen skills
+## (LevelUp choice entries; [] without a class). Stale picks are dropped.
+func creation_choices(content: Dictionary = {}) -> Array[Dictionary]:
+	if class_def == null:
+		return [] as Array[Dictionary]
+	var entries := CharacterBuilder.creation_choices(class_def, _picked_skills(), content)
+	var keys: Array[String] = []
+	for entry in entries:
+		var key := LevelUpDraft.choice_key(entry)
+		keys.append(key)
+		var opts := DictUtil.to_string_array(entry.get("options", []))
+		var kept: Array[String] = []
+		for p in DictUtil.to_string_array(creation_picks.get(key, [])):
+			if opts.has(p) and kept.size() < DictUtil.to_int(entry.get("count", 1), 1):
+				kept.append(p)
+		if kept.is_empty() and opts.size() == DictUtil.to_int(entry.get("count", 1), 1):
+			kept = opts.duplicate()
+		creation_picks[key] = kept
+	for key: Variant in creation_picks.keys():
+		if not keys.has(str(key)):
+			creation_picks.erase(key)
+	return entries
+
+
+## A LevelUpDraft over the creation choices (labels, descriptions, toggling).
+func creation_draft(content: Dictionary = {}) -> LevelUpDraft:
+	var d := LevelUpDraft.new({"choices": creation_choices(content)}, build_sheet_without_choices(), content)
+	d.choice_picks = creation_picks
+	return d
+
+
+## Picks / unpicks an option of a creation choice (see LevelUpDraft.toggle_choice).
+func toggle_creation_choice(entry: Dictionary, option: String, on: bool) -> bool:
+	var d := LevelUpDraft.new({"choices": [entry]}, null)
+	d.choice_picks = creation_picks
+	return d.toggle_choice(entry, option, on)
+
+
+## {"id", "name", "description"} of the subclass a new character starts with
+## (cleric, sorcerer, warlock), else {}.
+func subclass_info() -> Dictionary:
+	if class_def == null or not class_def.has_subclass() or class_def.subclass_level > 1:
+		return {}
+	return {"id": class_def.subclass_id, "name": class_def.subclass_name, "description": class_def.subclass_description}
+
+
+## The `choices` CharacterBuilder.create takes, from creation_picks.
+func creation_answers() -> Dictionary:
+	var out := {}
+	var feature_options := {}
+	for entry in creation_choices():
+		var picked := DictUtil.to_string_array(creation_picks.get(LevelUpDraft.choice_key(entry), []))
+		match str(entry.get("type", "")):
+			LevelUp.CHOICE_SUBCLASS, LevelUp.CHOICE_FIGHTING_STYLE:
+				if not picked.is_empty():
+					out[str(entry["type"])] = picked[0]
+			LevelUp.CHOICE_FEATURE_OPTION:
+				if not picked.is_empty():
+					feature_options[str(entry.get("feature", ""))] = picked[0]
+			_:
+				if picked.size() == DictUtil.to_int(entry.get("count", 1), 1):
+					out[str(entry["type"])] = picked  # incomplete answers are left to the defaults
+	if not feature_options.is_empty():
+		out["feature_options"] = feature_options
+	return out
+
+
+## Picks every creation choice that is still open: modelled options first.
+func auto_choose() -> void:
+	var d := creation_draft()
+	for entry in d.choice_entries():
+		d.fill_choice(entry)
+	creation_picks = d.choice_picks
+
+
+func _picked_skills() -> Array[int]:
+	var picked: Array[int] = []
+	if class_def == null:
+		return picked
+	for s in skills:
+		if class_def.skill_choices.has(s) and picked.size() < class_def.skill_choice_count:
+			picked.append(s)
+	return picked
+
+
 ## Every reason the draft cannot be confirmed yet ([] when valid).
 func problems() -> Array[String]:
 	var out: Array[String] = []
@@ -140,6 +237,12 @@ func problems() -> Array[String]:
 		out.append("Assign every standard-array score.")
 	if class_def != null and skills.size() != class_def.skill_choice_count:
 		out.append("Choose %d skills (%d chosen)." % [class_def.skill_choice_count, skills.size()])
+	if class_def != null:
+		var d := creation_draft()
+		for entry in d.choice_entries():
+			var count := d.choice_count(entry)
+			if d.picks_for(entry).size() != count:
+				out.append("Choose %d: %s (%d chosen)." % [count, d.choice_title(entry), d.picks_for(entry).size()])
 	return out
 
 
@@ -160,11 +263,16 @@ func base_scores() -> AbilityScores:
 func build_sheet() -> CharacterSheet:
 	if class_def == null:
 		return null
-	var picked: Array[int] = []
-	for s in skills:
-		if class_def.skill_choices.has(s) and picked.size() < class_def.skill_choice_count:
-			picked.append(s)
-	return CharacterBuilder.create(character_name.strip_edges(), class_def, ancestry, base_scores(), picked)
+	return CharacterBuilder.create(character_name.strip_edges(), class_def, ancestry, base_scores(), _picked_skills(),
+		null, {}, creation_answers())
+
+
+## The sheet without the creation answers (defaults), for labels and previews
+## that must not recurse into creation_choices.
+func build_sheet_without_choices() -> CharacterSheet:
+	if class_def == null:
+		return null
+	return CharacterBuilder.create(character_name.strip_edges(), class_def, ancestry, base_scores(), _picked_skills())
 
 
 ## Numbers for the live preview: {"hp", "ac", "speed", "attack_name", "to_hit",

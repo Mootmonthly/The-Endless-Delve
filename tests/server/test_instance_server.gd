@@ -1296,3 +1296,336 @@ func test_ranged_attack_and_combat_item_and_feature() -> void:
 	_tick()
 	_flush()
 	assert_eq(_of_kind(Messages.ERROR).size(), 2, "the encounter judged the bonus attack")
+
+
+# --- class progression round A: new intents through the server ------------------------
+
+## Raises a sheet to `level` with LevelUp.apply: average HP, +2 to the first
+## ability at 18 or less, the first cantrips / spells offered, every progression
+## choice answered with its default (the first options).
+func _level_to(sheet: CharacterSheet, level: int) -> void:
+	var spells: Dictionary = ContentLoader.cache()["spells"]
+	while sheet.level < level:
+		sheet.xp = maxi(sheet.xp, Experience.xp_for_level(sheet.level + 1))
+		var ch := LevelUp.choices(sheet)
+		var cantrips: Array[String] = []
+		var leveled: Array[String] = []
+		for id in DictUtil.to_string_array(ch["spell_options"]):
+			var sp: SpellDefinition = spells.get(id)
+			if sp == null:
+				continue
+			if sp.level == 0 and cantrips.size() < int(ch["cantrips_to_learn"]):
+				cantrips.append(id)
+			elif sp.level > 0 and leveled.size() < int(ch["spells_to_learn"]):
+				leveled.append(id)
+		var made := {"hp": "average", "learn_cantrips": cantrips, "learn_spells": leveled}
+		for entry: Dictionary in ch["choices"]:
+			var opts := DictUtil.to_string_array(entry["options"]).slice(0, int(entry["count"]))
+			match str(entry["type"]):
+				"subclass", "fighting_style":
+					made[str(entry["type"])] = opts[0]
+				"feature_option":
+					var fo: Dictionary = made.get("feature_options", {})
+					fo[str(entry["feature"])] = opts[0]
+					made["feature_options"] = fo
+				_:
+					made[str(entry["type"])] = opts
+		if bool(ch["asi"]):
+			for ability: String in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+				if sheet.abilities.get_score(Ability.from_string(ability)) <= 18:
+					made["asi"] = {ability: 2}
+					break
+		assert_eq(LevelUp.apply(sheet, made, {}, null), "", "%s to level %d" % [sheet.class_id, sheet.level + 1])
+
+
+## A sheet of class_id at `level` with 200 hp (see _class_sheet).
+func _leveled_sheet(class_id: String, level: int) -> CharacterSheet:
+	var sheet := _class_sheet(class_id)
+	_level_to(sheet, level)
+	sheet.xp = Experience.xp_for_level(level)
+	sheet.max_hp = 200
+	sheet.current_hp = 200
+	return sheet
+
+
+## Walks into z1 (rat at (8,2) with `rat_hp` hp) and waits for p1's turn.
+func _fight_rat(sheet: CharacterSheet, rat_hp: int = 500) -> Encounter:
+	_setup(false, sheet)
+	var rat := server.get_entity(RAT).sheet
+	rat.max_hp = rat_hp
+	rat.current_hp = rat_hp
+	_walk_to(Vector2i(10, 1))
+	var enc := _wait_for_my_turn()
+	assert_not_null(enc, "p1's turn comes")
+	results.clear()
+	return enc
+
+
+func _melee_index(sheet: CharacterSheet) -> int:
+	for i in range(sheet.attacks.size()):
+		if str(sheet.attacks[i].get("kind", "")) == "melee" and sheet.attacks[i].get("off_hand", false) != true:
+			return i
+	return sheet.attacks.size()  # the unarmed strike
+
+
+## Steps p1 next to the rat (on its turn) when it is not adjacent yet.
+func _close_in(enc: Encounter) -> void:
+	var me := enc.get_combatant("p1")
+	var rat := enc.get_combatant(RAT)
+	if GridMath.is_adjacent(me.position, rat.position):
+		return
+	var path := enc.walk_map.path_to(me.position, rat.position, enc.occupied_cells("p1"))
+	path.resize(mini(path.size() - 1, me.movement_remaining))
+	_send(Messages.MOVE, {"path": GridMath.vec_list_to_arr(path)})
+	_tick()
+	_flush()
+
+
+func test_wizard_fireball_area_through_the_server() -> void:
+	var sheet := _class_sheet("wizard", "Mage")
+	sheet.spells_known.append("fireball")
+	sheet.spells_prepared.append("fireball")
+	sheet.spell_slots_max = [4, 3, 2] as Array[int]
+	sheet.spell_slots = [4, 3, 2] as Array[int]
+	var enc := _fight_rat(sheet, 7)
+	_send(Messages.CAST, {"spell": "fireball", "slot_level": 3, "point": [8, 2]})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0, str(_of_kind(Messages.ERROR)))
+	var cast := _events_of("cast", "spell", "fireball")
+	assert_eq(cast.size(), 1)
+	assert_eq(cast[0]["point"], [8, 2])
+	assert_eq(int(cast[0]["slot_level"]), 3)
+	var area := _events_of("area_effect", "spell", "fireball")
+	assert_eq(area.size(), 1, "area_effect broadcast")
+	assert_eq(str(area[0]["shape"]), "sphere")
+	assert_has(area[0]["affected"], RAT)
+	assert_true(_has_event("save", "target", RAT), "the rat saves")
+	assert_true(_has_event("damage", "spell", "fireball"), "fire damage")
+	assert_eq(server.get_entity("p1").sheet.slots_left(3), 1, "a 3rd-level slot was spent")
+	assert_true(enc != null)
+
+
+func test_fighter_extra_attack_sequence() -> void:
+	var sheet := _leveled_sheet("fighter", 5)
+	assert_eq(sheet.attacks_per_action(), 2, "Extra Attack at level 5")
+	var enc := _fight_rat(sheet)
+	_close_in(enc)
+	results.clear()
+	var index := _melee_index(sheet)
+	_send(Messages.ATTACK, {"target": RAT, "attack_index": index})
+	_tick()
+	_send(Messages.ATTACK, {"target": RAT, "attack_index": index})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0, "two attacks per Attack action: %s" % str(_of_kind(Messages.ERROR)))
+	assert_eq(_events_of("attack", "attacker", "p1").size(), 2)
+	_send(Messages.ATTACK, {"target": RAT, "attack_index": index})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 1, "a third attack needs Action Surge")
+	_send(Messages.USE_FEATURE, {"feature": "action_surge"})
+	_send(Messages.ATTACK, {"target": RAT, "attack_index": index})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 1, "Action Surge gives the action back")
+	assert_true(_has_event("feature_used", "feature", "action_surge"))
+	assert_eq(_events_of("attack", "attacker", "p1").size(), 3)
+
+
+func test_stunned_monster_skips_its_turn() -> void:
+	var sheet := _leveled_sheet("monk", 5)
+	assert_true(sheet.has_feature("stunning_strike"))
+	var enc := _fight_rat(sheet)
+	sheet = server.get_entity("p1").sheet  # the server's copy
+	var stunned := false
+	for _round in range(12):
+		_close_in(enc)
+		var me := enc.get_combatant("p1")
+		if not me.action_used and sheet.class_resource("ki") > 0:
+			_send(Messages.ATTACK, {"target": RAT, "attack_index": _melee_index(sheet), "stun": true})
+			_tick()
+			_flush()
+		if _has_event("condition_applied", "condition", "stunned"):
+			stunned = true
+			break
+		_send(Messages.END_TURN)
+		_tick()
+		if _wait_for_my_turn() == null:
+			break
+	assert_true(stunned, "Stunning Strike landed within a few rounds (seed %d)" % SEED)
+	assert_eq(_of_kind(Messages.ERROR).size(), 0, str(_of_kind(Messages.ERROR)))
+	assert_true(_has_event("feature_used", "feature", "stunning_strike"))
+	results.clear()
+	_send(Messages.END_TURN)
+	_tick()
+	assert_not_null(_wait_for_my_turn(), "back to p1 after the rat's skipped turn")
+	var rat_turn := false
+	var rat_acted := false
+	for e in _all_events():
+		if str(e["kind"]) == "turn_started" and str(e["actor"]) == RAT:
+			rat_turn = true
+		if str(e["kind"]) in ["attack", "moved"] and str(e.get("attacker", e.get("actor", ""))) == RAT:
+			rat_acted = true
+	assert_true(rat_turn, "the rat's turn started")
+	assert_false(rat_acted, "a stunned rat neither moves nor attacks")
+
+
+func test_paladin_divine_smite_spends_a_slot_on_a_hit() -> void:
+	var sheet := _leveled_sheet("paladin", 2)
+	assert_true(sheet.has_feature("divine_smite"))
+	var enc := _fight_rat(sheet)
+	sheet = server.get_entity("p1").sheet  # the server's copy
+	var slots := sheet.slots_left(1)
+	assert_true(slots > 0)
+	var hit := false
+	for _round in range(10):
+		_close_in(enc)
+		results.clear()
+		_send(Messages.ATTACK, {"target": RAT, "attack_index": _melee_index(sheet), "smite": 1})
+		_tick()
+		_flush()
+		assert_eq(_of_kind(Messages.ERROR).size(), 0, str(_of_kind(Messages.ERROR)))
+		var attack := _events_of("attack", "attacker", "p1")
+		if not attack.is_empty() and bool(attack[0]["hit"]):
+			hit = true
+			break
+		assert_eq(sheet.slots_left(1), slots, "a miss keeps the slot")
+		_send(Messages.END_TURN)
+		_tick()
+		if _wait_for_my_turn() == null:
+			break
+	assert_true(hit, "the paladin hit within a few rounds")
+	assert_true(_has_event("feature_used", "feature", "divine_smite"), "smite reported")
+	var smitten := false
+	for e in _events_of("damage", "target", RAT):
+		for x: Variant in (e.get("extra", []) as Array):
+			if str((x as Dictionary).get("source", "")) == "divine_smite":
+				smitten = true
+	assert_true(smitten, "radiant smite dice in the damage extras")
+	assert_eq(sheet.slots_left(1), slots - 1, "the slot is spent on the hit")
+
+
+func test_level_3_subclass_choice_round_trip() -> void:
+	var sheet := _class_sheet("fighter")
+	_level_to(sheet, 2)
+	sheet.xp = Experience.xp_for_level(3)
+	_setup(true, sheet)
+	_flush()
+	var offer: Dictionary = _last(Messages.LEVEL_UP_AVAILABLE)["choices"]
+	assert_eq(int(offer["new_level"]), 3)
+	var sub: Dictionary = {}
+	for entry: Dictionary in offer["choices"]:
+		if str(entry["type"]) == "subclass":
+			sub = entry
+	assert_false(sub.is_empty(), "the level 3 offer asks for the subclass")
+	assert_eq(DictUtil.to_string_array(sub["options"]), ["champion"] as Array[String])
+	var detail_ids: Array[String] = []
+	for d: Dictionary in offer["features_detail"]:
+		detail_ids.append(str(d["id"]))
+	assert_has(detail_ids, "improved_critical", "subclass features are listed")
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "average", "subclass": "berserker"}})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR)["message"]), "not a subclass option")
+	results.clear()
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "average", "subclass": "champion"}})
+	_tick()
+	_flush()
+	var state := _last(Messages.CHARACTER_STATE)
+	assert_eq(int(state.get("leveled_to", 0)), 3)
+	assert_eq(str(state["sheet"]["subclass_id"]), "champion")
+	var p1 := server.get_entity("p1").sheet
+	assert_eq(p1.subclass_id, "champion")
+	assert_true(p1.has_feature("improved_critical"))
+
+
+func test_concentration_broken_by_damage() -> void:
+	var sheet := _class_sheet("warlock", "Hexer")
+	sheet.abilities.set_score(Ability.Type.CON, 1)  # CON save -5: the check fails
+	sheet.unequip(CharacterSheet.SLOT_ARMOR, {})
+	sheet.abilities.set_score(Ability.Type.DEX, 1)  # AC 5: the rat hits
+	var enc := _fight_rat(sheet)
+	_send(Messages.CAST, {"spell": "hex", "target": RAT})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0, str(_of_kind(Messages.ERROR)))
+	assert_true(_has_event("concentration_started", "spell", "hex"), "hex needs concentration")
+	var broken := false
+	for _round in range(10):
+		_send(Messages.END_TURN)
+		_tick()
+		if _wait_for_my_turn() == null:
+			break
+		if _has_event("concentration_ended", "reason", "damage"):
+			broken = true
+			break
+	assert_true(broken, "the rat's hit broke concentration")
+	assert_true(_has_event("concentration_check", "success", false))
+	assert_true(_has_event("effect_ended", "effect", "hex"), "the hex mark ends with it")
+	assert_true(enc.get_combatant("p1").concentration.is_empty())
+
+
+func test_short_rest_recovers_slots_on_request() -> void:
+	var sheet := _class_sheet("wizard", "Mage")
+	_level_to(sheet, 3)
+	sheet.spell_slots[0] = 0
+	sheet.spell_slots[1] = 0
+	_setup(true, sheet)
+	_walk_to(Vector2i(10, 4))
+	results.clear()
+	_send(Messages.SHORT_REST, {"hit_dice": 0, "recover_slots": true})
+	_tick()
+	_flush()
+	var state := _last(Messages.CHARACTER_STATE)
+	assert_eq(state.get("slots_recovered", []), [2], "budget 2 (half of level 3, rounded up): one 2nd-level slot")
+	var p1 := server.get_entity("p1").sheet
+	assert_eq(p1.slots_left(2), 1)
+	assert_eq(p1.slots_left(1), 0)
+	results.clear()
+	_send(Messages.SHORT_REST, {"hit_dice": 0, "recover_slots": [1]})
+	_tick()
+	_flush()
+	state = _last(Messages.CHARACTER_STATE)
+	assert_false(state.has("slots_recovered"), "once per long rest")
+	assert_has(str(state.get("recovery_error", "")), "no slot recovery")
+	assert_eq(p1.slots_left(1), 0)
+
+
+func test_stand_intent_reaches_the_encounter() -> void:
+	var enc := _fight_rat(_fighter())
+	_send(Messages.STAND)
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR).get("message", "")), "not prone", "the encounter judged stand")
+	enc.get_combatant("p1").conditions.append({"condition": "prone", "source": RAT,
+		"duration": {"type": "encounter"}, "turns_left": 0})
+	_send(Messages.STAND)
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 1, "a prone fighter stands up")
+	assert_false(enc.get_combatant("p1").has_condition("prone"))
+
+
+func test_reaction_policy_is_stored_and_handed_to_encounters() -> void:
+	_setup()
+	_send(Messages.REACTION_POLICY, {"policy": {"creature_left_reach": "never"}})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0)
+	var state := _last(Messages.CHARACTER_STATE)
+	assert_eq(state.get("reaction_policy", {}), {"creature_left_reach": "never"})
+	assert_eq(server.get_entity("p1").reaction_policy, {"creature_left_reach": "never"})
+	_walk_to(Vector2i(10, 1))
+	var enc := server.get_encounter_for("p1")
+	assert_not_null(enc)
+	var me := enc.get_combatant("p1")
+	if "reaction_policy" in me:
+		assert_eq(me.get("reaction_policy"), {"creature_left_reach": "never"}, "the combatant joins with the policy")
+	# Off-turn changes reach the active encounter too.
+	_send(Messages.REACTION_POLICY, {"policy": {"creature_left_reach": "auto", "creature_hit_me": "never"}})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0, "allowed any time")
+	if "reaction_policy" in me:
+		assert_eq(me.get("reaction_policy"), {"creature_left_reach": "auto", "creature_hit_me": "never"})

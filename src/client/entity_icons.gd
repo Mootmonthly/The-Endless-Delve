@@ -5,10 +5,21 @@ extends RefCounted
 ## monster_id), item kinds (by ItemDefinition.kind, with aliases such as
 ## "consumable" -> "potion") and the chest_closed / chest_open tiles.
 ## Loaded once and shared; column_for() is -1 for an unknown id.
+## Monsters without a column of their own (the imported SRD bestiary) use the
+## glyph their data file names under "icon" (data/monsters/<id>.json), else
+## the glyph for their creature type (CREATURE_TYPE_ICONS, the importer's map).
 
 const MAP_PATH := "res://assets/icons/entity_icons.json"
 const CHEST_CLOSED := "chest_closed"
 const CHEST_OPEN := "chest_open"
+const MONSTER_DATA_DIR := "res://data/monsters"
+## Creature type -> fallback glyph (tools/import_srd.py ICON_BY_TYPE).
+const CREATURE_TYPE_ICONS: Dictionary[String, String] = {
+	"beast": "giant_rat", "humanoid": "goblin", "undead": "skeleton", "giant": "ogre",
+	"monstrosity": "giant_spider", "aberration": "ghoul", "dragon": "kobold", "fiend": "bugbear",
+	"celestial": "hobgoblin", "construct": "zombie", "elemental": "ogre", "fey": "goblin",
+	"ooze": "zombie", "plant": "giant_centipede",
+}
 
 static var _shared: EntityIcons = null
 
@@ -20,6 +31,7 @@ var icons: Dictionary[String, int] = {}
 var aliases: Dictionary[String, String] = {}
 
 var _texture: Texture2D = null
+var _monster_icons: Dictionary[String, String] = {}  # monster id -> glyph id ("" = none)
 var _atlas_cache: Dictionary[int, AtlasTexture] = {}
 
 
@@ -58,11 +70,35 @@ func column_for(id: String) -> int:
 	return -1
 
 
-## Column for an entity: players by "class_id", monsters by "monster_id"; -1 when unknown.
+## Column for an entity: players by "class_id", monsters by "monster_id"
+## (with the fallback glyph, see monster_icon_id); -1 when unknown.
 func column_for_entity(e: Dictionary) -> int:
 	if str(e.get("kind", "")) == ClientState.KIND_PLAYER:
 		return column_for(str(e.get("class_id", "")))
-	return column_for(str(e.get("monster_id", "")))
+	return column_for(monster_icon_id(str(e.get("monster_id", ""))))
+
+
+## The glyph a monster is drawn with: its own column when the atlas has one,
+## else its data file's "icon", else its creature type's glyph ("" = none).
+## Cached per id.
+func monster_icon_id(monster_id: String) -> String:
+	if monster_id.is_empty():
+		return ""
+	if icons.has(monster_id):
+		return monster_id
+	if _monster_icons.has(monster_id):
+		return _monster_icons[monster_id]
+	var icon := ""
+	var path := MONSTER_DATA_DIR.path_join(monster_id + ".json")
+	var creature_type := ""
+	if FileAccess.file_exists(path):
+		var rec := ContentLoader.load_json(path)
+		icon = str(rec.get("icon", "")) if rec.get("icon") != null else ""
+		creature_type = str(rec.get("creature_type", "")).to_lower() if rec.get("creature_type") != null else ""
+	if icon.is_empty() or column_for(icon) < 0:
+		icon = CREATURE_TYPE_ICONS.get(creature_type, "")
+	_monster_icons[monster_id] = icon
+	return icon
 
 
 ## Column for an item: by its definition's kind (e.g. "weapon", "consumable").

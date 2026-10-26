@@ -44,8 +44,9 @@ extends Node
 ## use_item, open_chest, drop_item, level_up) are refused
 ## while the sender's character is in combat; combat intents are refused
 ## while it explores. use_stairs needs the stairs tile and no active encounter
-## on the floor; short_rest needs the stairs tile. Errors go only to the
-## sending peer as ERROR results.
+## on the floor; short_rest needs the stairs tile (recover_slots: Arcane /
+## Natural Recovery as it ends; Song of Rest from the living party's bards).
+## Errors go only to the sending peer as ERROR results.
 ##
 ## Stairs: FLOOR_CLEARED {floor_id} is broadcast. In a set with a next floor,
 ## the whole instance descends: monsters of the old floor are dropped, the
@@ -367,6 +368,9 @@ func _on_intent_received(peer_id: int, intent: Dictionary) -> void:
 	if not entity.is_alive():
 		_send_error(peer_id, "%s is dead" % entity.display_name)
 		return
+	if type == Messages.REACTION_POLICY:
+		_handle_reaction_policy(entity, intent["policy"])
+		return
 	if Messages.is_encounter_intent(intent) or (Messages.is_dual_intent(intent) and entity.in_combat()):
 		_handle_combat_intent(peer_id, entity, intent)
 		return
@@ -379,7 +383,7 @@ func _on_intent_received(peer_id: int, intent: Dictionary) -> void:
 		Messages.USE_STAIRS:
 			_handle_use_stairs(peer_id, entity)
 		Messages.SHORT_REST:
-			_handle_short_rest(peer_id, entity, DictUtil.to_int(intent["hit_dice"], 0))
+			_handle_short_rest(peer_id, entity, DictUtil.to_int(intent["hit_dice"], 0), intent.get("recover_slots", false))
 		Messages.EQUIP:
 			_handle_equip(peer_id, entity, str(intent["item"]), str(intent["slot"]))
 		Messages.UNEQUIP:
@@ -548,12 +552,67 @@ func _clear_set(extras: Dictionary = {}) -> void:
 	_transport.broadcast_result(Messages.make_result(Messages.SET_CLEARED, {"set_id": _set_id}))
 
 
-func _handle_short_rest(peer_id: int, entity: ServerEntity, hit_dice: int) -> void:
+## Stores the player's reaction policy (any time, also off-turn) and hands it
+## to its active encounter through Encounter.set_reaction_policy when the core
+## provides it (logged there for replays); later encounters get it as the
+## combatant joins. Answers CHARACTER_STATE with "reaction_policy".
+func _handle_reaction_policy(entity: ServerEntity, policy: Dictionary) -> void:
+	entity.reaction_policy = {}
+	for key: Variant in policy.keys():
+		entity.reaction_policy[str(key)] = str(policy[key])
+	var enc := get_encounter_for(entity.id)
+	if enc != null and enc.has_method("set_reaction_policy"):
+		enc.call("set_reaction_policy", entity.id, entity.reaction_policy.duplicate())
+	_send_character_state(entity, {"reaction_policy": entity.reaction_policy.duplicate()})
+
+
+## Short rest on the stairs: hit dice (with the party's Song of Rest die),
+## short-rest resources and pact slots (Rest.short_rest), then, when asked,
+## Arcane / Natural Recovery (Rest.recover_slots): `recover_slots` true lets
+## the server pick (recovery_picks), an array names the slot levels. A refused
+## recovery still rests: CHARACTER_STATE carries "recovery_error" instead of
+## "slots_recovered".
+func _handle_short_rest(peer_id: int, entity: ServerEntity, hit_dice: int, recover: Variant = false) -> void:
 	if entity.position != _floor.stairs:
 		_send_error(peer_id, "a short rest is only possible on the stairs")
 		return
-	var healed := Rest.short_rest(entity.sheet, hit_dice, _rest_rng)
-	_send_character_state(entity, {"healed": healed})
+	var party: Array[CharacterSheet] = []
+	for e in _players():
+		if e.is_alive():
+			party.append(e.sheet)
+	var healed := Rest.short_rest(entity.sheet, hit_dice, _rest_rng, Rest.song_of_rest_die(party))
+	var extra := {"healed": healed}
+	var levels: Array[int] = []
+	if typeof(recover) == TYPE_ARRAY:
+		for v: Variant in (recover as Array):
+			levels.append(DictUtil.to_int(v, 0))
+	elif recover == true:
+		levels = InstanceServer.recovery_picks(entity.sheet)
+	if typeof(recover) == TYPE_ARRAY or recover == true:
+		var err := Rest.recover_slots(entity.sheet, levels) if not levels.is_empty() else "no expended slots to recover"
+		if err.is_empty():
+			extra["slots_recovered"] = levels
+		else:
+			extra["recovery_error"] = err
+	_send_character_state(entity, extra)
+
+
+## Arcane / Natural Recovery picks: expended slots, highest level first, while
+## the budget (Rest.slot_recovery_options) allows. [] when nothing applies.
+static func recovery_picks(sheet: CharacterSheet) -> Array[int]:
+	var out: Array[int] = []
+	var opts := Rest.slot_recovery_options(sheet)
+	if opts.is_empty():
+		return out
+	var budget := DictUtil.to_int(opts.get("budget", 0), 0)
+	var top := mini(DictUtil.to_int(opts.get("max_slot_level", 5), 5), sheet.spell_slots_max.size())
+	for lvl in range(top, 0, -1):
+		var missing := sheet.spell_slots_max[lvl - 1] - sheet.slots_left(lvl)
+		while missing > 0 and budget >= lvl:
+			out.append(lvl)
+			budget -= lvl
+			missing -= 1
+	return out
 
 
 # --- items, chests, level-up (out of combat) ----------------------------------------

@@ -45,7 +45,29 @@ extends RefCounted
 ##   target on the clicked tile. Ranged attacks need no mode: clicking a
 ##   monster uses `selected_attack`.
 ## - Combat attacks are indexed like the server's Combatant: the sheet's
-##   attacks at the start of the encounter plus the unarmed strike.
+##   attacks at the start of the encounter plus the unarmed strike (plus the
+##   Pact of the Blade weapon once effect_applied "pact_weapon" arrives).
+##
+## Class progression (round A):
+## - `conditions` (id -> [{condition, source, duration, turns_left}]) follow
+##   condition_applied / condition_ended; turns_left counts down on turn_ended
+##   exactly as the core does, for the "(2 turns)" tags. `concentration`
+##   (id -> spell) follows concentration_started / concentration_ended.
+## - Extra Attack: the first attack takes the action and leaves
+##   attacks_per_action() - 1 `attacks_remaining`; Action Surge gives the
+##   action back; Flurry of Blows grants `bonus_attacks_remaining`. Features
+##   map to their resource (ki, channel_divinity, sorcery_points, ...) so a
+##   feature_used "remaining" updates the right counter.
+## - `attack_options` (reckless, smite, stun, technique) are added to attack
+##   intents when they apply to that attack; smite and stun are one-shot.
+## - Area spells: begin_cast enters targeting with "area": true; a click picks
+##   the point; area_preview(tile) gives the footprint and the creatures it
+##   would catch (Sculpt Spells allies left out). Metamagic rides on cast
+##   intents; Twinned Spell asks for a second target.
+## - `reaction_policy` (CHARACTER_STATE "reaction_policy") and
+##   reaction_policy_intent() when the core has reaction policies
+##   (reaction_policy_supported()); reaction_used / damage_reduced mark the
+##   player's reaction as spent.
 
 enum Mode { LOADING, EXPLORING, COMBAT, GAME_OVER, FLOOR_CLEARED, SET_CLEARED }
 
@@ -58,17 +80,48 @@ const TARGET_CAST := "cast"
 const TARGET_FEATURE := "feature"
 const TARGET_ATTACK := "attack"
 const FEATURE_MARTIAL_ARTS_STRIKE := "martial_arts"
+## Pseudo features of the Features list that are bonus-action attacks.
+const FEATURE_OFF_HAND_ATTACK := "off_hand_attack"
+const FEATURE_FLURRY_STRIKE := "flurry_strike"
+const FEATURE_FRENZY_ATTACK := "frenzy_attack"
+## use_feature ids that take the action / cost nothing (the rest are bonus
+## actions), as Encounter._feature_cost.
+const ACTION_FEATURES: Array[String] = ["lay_on_hands", "turn_undead", "turn_the_unholy", "preserve_life", "sacred_weapon", "pact_weapon"]
+const FREE_FEATURES: Array[String] = ["action_surge"]
+## use_feature "mode" choices.
+const FEATURE_MODES: Dictionary[String, Array] = {
+	"step_of_the_wind": ["dash", "disengage"], "cunning_action": ["dash", "disengage"],
+	"font_of_magic": ["create_slot", "convert_slot"],
+}
+## Channel Divinity / Preserve Life reach (Encounter.CHANNEL_DIVINITY_RANGE_TILES).
+const CHANNEL_DIVINITY_RANGE := 6
+## Conditions that drop speed to 0 (Conditions.IMMOBILIZING).
+const IMMOBILIZING: Array[String] = ["stunned", "paralyzed", "restrained", "grappled"]
+const CONCENTRATION_REASONS: Dictionary[String, String] = {
+	"new_spell": "casting another concentration spell", "damage": "taking damage", "unconscious": "falling unconscious",
+	"incapacitated": "being incapacitated", "rage": "raging",
+}
 ## Bardic Inspiration reach (Encounter.BARDIC_INSPIRATION_RANGE_TILES).
 const BARDIC_INSPIRATION_RANGE := 12
 ## Effect id -> the tag shown next to a combatant ("dodge" comes from the dodge event).
 const STATUS_TAGS: Dictionary[String, String] = {
 	"dodge": "dodging", "rage": "raging", "hex": "hexed", "guiding_bolt_mark": "marked",
 	"slow": "slowed", "mockery": "mocked", "bardic_inspiration": "inspired",
-	"mage_armor": "mage armor", "no_reactions": "no reactions",
+	"mage_armor": "mage armor", "no_reactions": "no reactions", "frenzy": "frenzied",
+	"reckless_attack": "reckless", "sacred_weapon": "sacred weapon", "pact_weapon": "pact weapon",
 }
 const FEATURE_NAMES: Dictionary[String, String] = {
 	"second_wind": "Second Wind", "rage": "Rage", "lay_on_hands": "Lay on Hands",
 	"bardic_inspiration": "Bardic Inspiration", "martial_arts": "Martial Arts strike",
+	"action_surge": "Action Surge", "ki": "Ki", "channel_divinity": "Channel Divinity",
+	"sorcery_points": "Sorcery points", "arcane_recovery": "Arcane Recovery", "natural_recovery": "Natural Recovery",
+	"flurry_of_blows": "Flurry of Blows", "patient_defense": "Patient Defense", "step_of_the_wind": "Step of the Wind",
+	"cunning_action": "Cunning Action", "turn_undead": "Turn Undead", "turn_the_unholy": "Turn the Unholy",
+	"preserve_life": "Preserve Life", "sacred_weapon": "Sacred Weapon", "font_of_magic": "Font of Magic",
+	"pact_weapon": "Pact Weapon", "divine_smite": "Divine Smite", "stunning_strike": "Stunning Strike",
+	"open_hand_technique": "Open Hand Technique", "off_hand_attack": "Off-hand attack",
+	"flurry_strike": "Flurry of Blows strike", "frenzy_attack": "Frenzy attack",
+	"deflect_missiles": "Deflect Missiles", "uncanny_dodge": "Uncanny Dodge", "destroy_undead": "Destroy Undead",
 }
 const SLOT_NAMES: Dictionary[String, String] = {"main_hand": "Main hand", "off_hand": "Off hand", "armor": "Armor"}
 const LOOT_SOURCES: Dictionary[String, String] = {"chest": "from the chest", "monster": "from the fallen", "floor": "found on the floor"}
@@ -95,6 +148,35 @@ var bonus_action_used: bool = false  # the player's, tracked from events
 var attack_action_taken: bool = false  # the player took the Attack action this turn (Martial Arts)
 ## Combat effects per combatant id: Array[String] of effect ids (see STATUS_TAGS).
 var statuses: Dictionary = {}
+## Conditions per combatant id: Array[Dictionary] {"condition", "source",
+## "duration" (Conditions duration dict), "turns_left"}.
+var conditions: Dictionary = {}
+## Concentration per combatant id: the spell id.
+var concentration: Dictionary = {}
+## Further attacks of the player's Attack action this turn (Extra Attack).
+var attacks_remaining: int = 0
+## Bonus-action attacks granted this turn (Flurry of Blows) and their source.
+var bonus_attacks_remaining: int = 0
+var bonus_attack_source: String = ""
+## Action Surge used this turn.
+var action_surged: bool = false
+## The player started raging this turn (Frenzy attacks start next turn).
+var rage_started_this_turn: bool = false
+## The player's reaction is spent (Uncanny Dodge / Deflect Missiles).
+var reaction_used: bool = false
+## Attack options added to the player's next attack intents when they apply:
+## "reckless" (bool, first attack of a turn), "smite" (slot level, 0 = none;
+## one-shot), "stun" (bool; one-shot), "technique" ("" / prone / push /
+## no_reactions, Flurry of Blows strikes).
+var attack_options: Dictionary = {"reckless": false, "smite": 0, "stun": false, "technique": ""}
+## The player's reaction policy as the server last confirmed it (CHARACTER_STATE
+## "reaction_policy"): trigger or reaction id -> "auto" | "never".
+var reaction_policy: Dictionary = {}
+## The latest area_effect of the player's encounter ({} = none): {"caster",
+## "spell", "point": Vector2i, "shape", "size_tiles", "affected", "sculpted"}.
+var last_area: Dictionary = {}
+## Bumped by every area_effect (views may flash the area).
+var area_serial: int = 0
 
 # --- items, chests, spells, level-ups ---
 ## Content definitions ({} = ContentLoader.cache()).
@@ -139,6 +221,8 @@ var _unread_log: Array[String] = []
 var _last_seen_order: Array[String] = []  # latest encounter_started order (any encounter)
 var _event_zone_id: String = ""  # "zone_id" of the ENCOUNTER_EVENTS being applied
 var _combat_attacks: Array[Dictionary] = []  # snapshot at the start of the encounter
+var _pending_smite: int = 0  # slot level of the last smite intent built (divine_smite events lack it)
+var _feature_move: String = ""  # a feature whose dash / dodge / disengage event follows (no action spent)
 
 
 ## player_id is the entity id the server gives this client ("p<peer_id>").
@@ -266,6 +350,17 @@ func _apply_character_state(result: Dictionary) -> void:
 		_log("Level up! %s is now level %d." % [who, last_leveled_to])
 	if not level_up_offer.is_empty() and sheet.pending_levels() <= 0:
 		level_up_offer = {}  # stale: nothing left to choose
+	if typeof(result.get("reaction_policy")) == TYPE_DICTIONARY:
+		reaction_policy = (result["reaction_policy"] as Dictionary).duplicate()
+		_log("Reaction settings saved.")
+	var recovered := DictUtil.to_string_array(result.get("slots_recovered", []))
+	if not recovered.is_empty():
+		var levels: PackedStringArray = []
+		for lvl in recovered:
+			levels.append(ClientState.ordinal(DictUtil.to_int(lvl, 0)))
+		_log("%s recovers spell slots: %s." % [who, ", ".join(levels)])
+	if typeof(result.get("recovery_error")) == TYPE_STRING:
+		_log("No slots recovered: %s." % str(result["recovery_error"]))
 	if DictUtil.to_bool(result.get("long_rest", false), false):
 		_log("You take a long rest in the safe zone: HP and Hit Dice restored.")
 	if entities.has(player_id):
@@ -418,7 +513,7 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 	var kind := str(ev.get("kind", ""))
 	if in_encounter and not encounter_id.is_empty() and not enc_id.is_empty() and enc_id != encounter_id:
 		# Another encounter's events: keep positions and health current, nothing else.
-		if kind == "moved" or kind == "damage" or kind == "combatant_joined" or kind == "heal":
+		if kind in ["moved", "damage", "combatant_joined", "heal", "pushed", "destroyed"]:
 			_apply_world_effect(ev)
 		return
 	match kind:
@@ -453,16 +548,25 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 		"turn_started":
 			var actor := str(ev.get("actor", ""))
 			_remove_status(actor, "dodge")  # Dodge lasts until the dodger's next turn
+			_remove_status(actor, "reckless_attack")  # so does Reckless Attack
 			if in_encounter and order.has(actor):
 				current_actor = actor
 				round_number = DictUtil.to_int(ev.get("round", round_number), round_number)
 				if actor == player_id:
-					movement_remaining = speed_tiles()
+					movement_remaining = 0 if is_immobilized(player_id) else speed_tiles()
 					action_used = false
 					bonus_action_used = false
 					attack_action_taken = false
+					attacks_remaining = 0
+					bonus_attacks_remaining = 0
+					bonus_attack_source = ""
+					action_surged = false
+					rage_started_this_turn = false
+					reaction_used = false
+					_feature_move = ""
 					_log("Your turn.")
 		"turn_ended":
+			_count_down_conditions(str(ev.get("actor", "")))
 			if in_encounter and str(ev.get("actor", "")) == current_actor:
 				current_actor = ""
 		"moved":
@@ -473,17 +577,18 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 			var actor := str(ev.get("actor", ""))
 			if actor == player_id:
 				movement_remaining += speed_tiles()
-				action_used = true
+				if not _take_feature_move():
+					action_used = true
 			_log("%s dashes." % display_name(actor))
 		"dodge":
 			var actor := str(ev.get("actor", ""))
-			if actor == player_id:
+			if actor == player_id and not _take_feature_move():
 				action_used = true
 			_add_status(actor, "dodge")
 			_log("%s takes the Dodge action." % display_name(actor))
 		"disengage":
 			var actor := str(ev.get("actor", ""))
-			if actor == player_id:
+			if actor == player_id and not _take_feature_move():
 				action_used = true
 			_log("%s disengages." % display_name(actor))
 		"opportunity_attack":
@@ -493,10 +598,20 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 			var attack_kind := str(ev.get("attack_kind", "melee"))
 			if attacker == player_id and current_actor == player_id:
 				if DictUtil.to_bool(ev.get("bonus", false), false):
-					bonus_action_used = true
+					if bonus_attacks_remaining > 0:
+						bonus_attacks_remaining -= 1
+					else:
+						bonus_action_used = true
 				elif attack_kind != "spell":
-					action_used = true
-					attack_action_taken = true
+					if action_used and attack_action_taken and attacks_remaining > 0:
+						attacks_remaining -= 1
+					else:
+						action_used = true
+						attack_action_taken = true
+						attacks_remaining = attacks_per_action() - 1
+				if attack_kind != "spell":
+					attack_options["smite"] = 0  # one-shot options
+					attack_options["stun"] = false
 			var consumed := str(ev.get("consumed", ""))
 			if attacker == player_id and sheet != null and not consumed.is_empty():
 				sheet.remove_item(consumed, 1, _content())
@@ -536,21 +651,7 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 					sheet.remove_item(item, 1, _content())
 			_log("%s uses %s." % [display_name(actor), item_name(item)])
 		"feature_used":
-			var actor := str(ev.get("actor", ""))
-			var feature := str(ev.get("feature", ""))
-			if actor == player_id:
-				if current_actor == player_id:
-					if feature == ClassDefinition.FEATURE_LAY_ON_HANDS:
-						action_used = true
-					else:
-						bonus_action_used = true
-				if sheet != null and ev.has("remaining"):
-					sheet.class_resources[feature] = DictUtil.to_int(ev["remaining"], 0)
-			var target := str(ev.get("target", actor))
-			var line := "%s uses %s" % [display_name(actor), ClientState.feature_name(feature)]
-			if not target.is_empty() and target != actor:
-				line += " on %s" % display_name(target)
-			_log(line + ".")
+			_apply_feature_used(ev)
 		"inspiration_used":
 			var actor := str(ev.get("actor", ""))
 			_remove_status(actor, "bardic_inspiration")
@@ -560,12 +661,61 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 			var target := str(ev.get("target", ""))
 			var effect := str(ev.get("effect", ""))
 			_add_status(target, effect)
+			if target == player_id:
+				if effect == "rage" and current_actor == player_id:
+					rage_started_this_turn = true
+				elif effect == "pact_weapon" and sheet != null:
+					var index := DictUtil.to_int(ev.get("attack_index", _combat_attacks.size()), _combat_attacks.size())
+					if index >= _combat_attacks.size():
+						_combat_attacks.append(Encounter.pact_weapon_attack(sheet))
 			_log(_effect_line(target, effect, true))
 		"effect_ended":
 			var target := str(ev.get("target", ""))
 			var effect := str(ev.get("effect", ""))
 			_remove_status(target, effect)
+			if effect == "rage":
+				_remove_status(target, "frenzy")
 			_log(_effect_line(target, effect, false))
+		"condition_applied":
+			_apply_condition_applied(ev)
+		"condition_ended":
+			_apply_condition_ended(ev)
+		"concentration_started":
+			var actor := str(ev.get("actor", ""))
+			concentration[actor] = str(ev.get("spell", ""))
+			_log("%s is concentrating on %s." % [display_name(actor), spell_name(str(ev.get("spell", "")))])
+		"concentration_check":
+			var actor := str(ev.get("actor", ""))
+			_log("%s makes a concentration check: %d vs DC %d, %s." % [display_name(actor),
+				DictUtil.to_int(ev.get("total", 0), 0), DictUtil.to_int(ev.get("dc", 0), 0),
+				"holds" if DictUtil.to_bool(ev.get("success", false), false) else "fails"])
+		"concentration_ended":
+			var actor := str(ev.get("actor", ""))
+			concentration.erase(actor)
+			var reason := str(ev.get("reason", ""))
+			_log("%s loses concentration on %s%s." % [display_name(actor), spell_name(str(ev.get("spell", ""))),
+				(" (%s)" % CONCENTRATION_REASONS.get(reason, reason)) if not reason.is_empty() else ""])
+		"area_effect":
+			_apply_area_effect(ev)
+		"damage_reduced":
+			var actor := str(ev.get("actor", ""))
+			if actor == player_id:
+				reaction_used = true
+			_log("%s uses %s: %d damage avoided." % [display_name(actor), ClientState.feature_name(str(ev.get("feature", ""))),
+				DictUtil.to_int(ev.get("amount", 0), 0)])
+		"reaction_used":
+			# Forward compatible: round B cores report each reaction they spend.
+			var actor := str(ev.get("actor", ""))
+			if actor == player_id:
+				reaction_used = true
+			_log("%s reacts: %s." % [display_name(actor), ClientState.feature_name(str(ev.get("reaction", "reaction")))])
+		"pushed":
+			_apply_world_effect(ev)
+			_log("%s is pushed back." % display_name(str(ev.get("target", ""))))
+		"destroyed":
+			_apply_world_effect(ev)
+			_log("%s is destroyed by %s's %s!" % [display_name(str(ev.get("target", ""))), display_name(str(ev.get("source", ""))),
+				ClientState.feature_name(str(ev.get("feature", "destroy_undead")))])
 		"combatant_removed":
 			var id := str(ev.get("id", ""))
 			order.erase(id)
@@ -598,6 +748,15 @@ func _apply_world_effect(ev: Dictionary) -> void:
 			var e := _entity_or_new(str(ev.get("actor", "")))
 			if Messages.is_position(ev.get("to")):
 				e["position"] = Messages.to_position(ev["to"])
+		"pushed":
+			var e := _entity_or_new(str(ev.get("target", "")))
+			if Messages.is_position(ev.get("to")):
+				e["position"] = Messages.to_position(ev["to"])
+		"destroyed":
+			var e := _entity_or_new(str(ev.get("target", "")))
+			e["dead"] = true
+			e["down"] = false
+			e["hp"] = 0
 		"damage":
 			var target := str(ev.get("target", ""))
 			var e := _entity_or_new(target)
@@ -674,6 +833,7 @@ func _enter_encounter(new_order: Array[String], enc_id: String) -> void:
 	action_used = false
 	bonus_action_used = false
 	attack_action_taken = false
+	_reset_progression_combat_state()
 	statuses.clear()
 	targeting = {}
 	_combat_attacks = _attacks_from_sheet()
@@ -696,6 +856,7 @@ func _leave_encounter() -> void:
 	action_used = false
 	bonus_action_used = false
 	attack_action_taken = false
+	_reset_progression_combat_state()
 	statuses.clear()
 	targeting = {}
 	_combat_attacks.clear()
@@ -795,20 +956,31 @@ func _apply_cast(ev: Dictionary) -> void:
 	var spell_id := str(ev.get("spell", ""))
 	var spell := spell_def(spell_id)
 	var slot := DictUtil.to_int(ev.get("slot_level", 0), 0)
+	var meta := DictUtil.to_string_array(ev.get("metamagic", []))
 	if actor == player_id:
 		if current_actor == player_id:
-			if spell != null and spell.uses_bonus_action():
+			if (spell != null and spell.uses_bonus_action()) or meta.has("quickened_spell"):
 				bonus_action_used = true
 			else:
 				action_used = true
 		if sheet != null and slot >= 1 and slot <= sheet.spell_slots.size():
 			sheet.spell_slots[slot - 1] = maxi(0, sheet.spell_slots[slot - 1] - 1)
+		if sheet != null and not meta.is_empty() and spell != null:
+			var cost := 0
+			for m in meta:
+				cost += ClientState.metamagic_cost(m, spell)
+			sheet.class_resources["sorcery_points"] = maxi(0, sheet.class_resource("sorcery_points") - cost)
 	var target := str(ev.get("target", actor))
 	var line := "%s casts %s" % [display_name(actor), spell.display_name if spell != null else spell_id.capitalize()]
 	if not target.is_empty() and target != actor:
 		line += " at %s" % display_name(target)
 	if slot > 0:
 		line += " (level %d slot)" % slot
+	if not meta.is_empty():
+		var names: PackedStringArray = []
+		for m in meta:
+			names.append(ClientState.metamagic_name(m))
+		line += " [%s]" % ", ".join(names)
 	_log(line + ".")
 
 
@@ -855,6 +1027,155 @@ func _remove_status(id: String, effect: String) -> void:
 	if statuses.has(id):
 		var list: Array[String] = statuses[id]
 		list.erase(effect)
+
+
+func _reset_progression_combat_state() -> void:
+	conditions.clear()
+	concentration.clear()
+	attacks_remaining = 0
+	bonus_attacks_remaining = 0
+	bonus_attack_source = ""
+	action_surged = false
+	rage_started_this_turn = false
+	reaction_used = false
+	last_area = {}
+	_pending_smite = 0
+	_feature_move = ""
+	attack_options["smite"] = 0
+	attack_options["stun"] = false
+
+
+## True (and forgets it) when the dash / dodge / disengage event being applied
+## came from the player's feature (Cunning Action, Step of the Wind, Patient
+## Defense): no action is spent.
+func _take_feature_move() -> bool:
+	if _feature_move.is_empty():
+		return false
+	_feature_move = ""
+	return true
+
+
+## turn_ended of `actor`: its own "rounds" / "until its turn end" conditions
+## and the "until the source's next turn" conditions it imposed count down
+## (the core then ends those at 0 with condition_ended).
+func _count_down_conditions(actor: String) -> void:
+	for id: Variant in conditions.keys():
+		var list: Array[Dictionary] = conditions[id]
+		for entry in list:
+			var duration: Dictionary = entry.get("duration", {})
+			var kind := str(duration.get("type", ""))
+			var own := str(id) == actor and kind in [Conditions.DURATION_TARGET_TURN_END, Conditions.DURATION_ROUNDS]
+			var imposed := str(entry.get("source", "")) == actor and kind == Conditions.DURATION_SOURCE_NEXT_TURN
+			if own or imposed:
+				entry["turns_left"] = maxi(0, DictUtil.to_int(entry.get("turns_left", 1), 1) - 1)
+
+
+func _apply_condition_applied(ev: Dictionary) -> void:
+	var target := str(ev.get("target", ""))
+	var condition := str(ev.get("condition", ""))
+	var source := str(ev.get("source", ""))
+	var duration: Dictionary = ev.get("duration", {}) if typeof(ev.get("duration")) == TYPE_DICTIONARY else {}
+	var turns := 0
+	match str(duration.get("type", "")):
+		Conditions.DURATION_SOURCE_NEXT_TURN:
+			turns = 2 if current_actor == source and not source.is_empty() else 1
+		Conditions.DURATION_TARGET_TURN_END:
+			turns = 1
+		Conditions.DURATION_ROUNDS:
+			turns = DictUtil.to_int(duration.get("rounds", 1), 1)
+	if not conditions.has(target):
+		conditions[target] = [] as Array[Dictionary]
+	var list: Array[Dictionary] = conditions[target]
+	for i in range(list.size() - 1, -1, -1):
+		if str(list[i]["condition"]) == condition and str(list[i]["source"]) == source:
+			list.remove_at(i)  # the same condition from the same source is replaced
+	var entry := {"condition": condition, "source": source, "duration": duration.duplicate(), "turns_left": turns}
+	list.append(entry)
+	if target == player_id and IMMOBILIZING.has(condition):
+		movement_remaining = 0
+	var by := (" by %s" % display_name(source)) if not source.is_empty() and source != target else ""
+	_log("%s is %s%s." % [display_name(target), condition_text(entry), by])
+
+
+func _apply_condition_ended(ev: Dictionary) -> void:
+	var target := str(ev.get("target", ""))
+	var condition := str(ev.get("condition", ""))
+	if conditions.has(target):
+		var list: Array[Dictionary] = conditions[target]
+		for i in range(list.size()):
+			if str(list[i]["condition"]) == condition:
+				list.remove_at(i)
+				break
+	if target == player_id and sheet != null:
+		sheet.conditions.erase(condition)
+	_log("%s is no longer %s." % [display_name(target), condition.replace("_", " ")])
+
+
+## feature_used: the action economy (action / bonus / free), the spent
+## resource (feature_resource; "remaining" is what is left of it), and the
+## feature's own effect on what the client predicts.
+func _apply_feature_used(ev: Dictionary) -> void:
+	var actor := str(ev.get("actor", ""))
+	var feature := str(ev.get("feature", ""))
+	var mode := str(ev.get("mode", ""))
+	if actor == player_id:
+		if current_actor == player_id and Encounter.USABLE_FEATURES.has(feature):
+			match ClientState.feature_cost(feature):
+				"action":
+					action_used = true
+				"bonus":
+					bonus_action_used = true
+		var res := ClientState.feature_resource(feature)
+		if sheet != null and ev.has("remaining") and not res.is_empty():
+			sheet.class_resources[res] = DictUtil.to_int(ev["remaining"], 0)
+		match feature:
+			"action_surge":
+				action_used = false
+				attacks_remaining = 0
+				action_surged = true
+			"flurry_of_blows":
+				bonus_attacks_remaining = 2
+				bonus_attack_source = "flurry_of_blows"
+			"patient_defense", "step_of_the_wind", "cunning_action":
+				_feature_move = feature  # its dodge / dash / disengage event follows
+			"font_of_magic":
+				var lvl := DictUtil.to_int(ev.get("slot_level", 0), 0)
+				if sheet != null and lvl >= 1:
+					while sheet.spell_slots.size() < lvl:
+						sheet.spell_slots.append(0)
+					if mode == "create_slot":
+						sheet.spell_slots[lvl - 1] += 1
+					else:
+						sheet.spell_slots[lvl - 1] = maxi(0, sheet.spell_slots[lvl - 1] - 1)
+			"divine_smite":
+				var smite_level := DictUtil.to_int(ev.get("slot_level", _pending_smite), _pending_smite)
+				if sheet != null and smite_level >= 1 and smite_level <= sheet.spell_slots.size():
+					sheet.spell_slots[smite_level - 1] = DictUtil.to_int(ev.get("remaining", 0), 0)
+	var target := str(ev.get("target", actor))
+	var line := "%s uses %s" % [display_name(actor), ClientState.feature_name(feature)]
+	if not mode.is_empty():
+		line += " (%s)" % mode.replace("_", " ")
+	if not target.is_empty() and target != actor:
+		line += " on %s" % display_name(target)
+	_log(line + ".")
+
+
+func _apply_area_effect(ev: Dictionary) -> void:
+	var affected := DictUtil.to_string_array(ev.get("affected", []))
+	var sculpted := DictUtil.to_string_array(ev.get("sculpted", []))
+	last_area = {
+		"caster": str(ev.get("caster", "")), "spell": str(ev.get("spell", "")),
+		"point": Messages.to_position(ev["point"]) if Messages.is_position(ev.get("point")) else Vector2i.ZERO,
+		"shape": str(ev.get("shape", "")), "size_tiles": DictUtil.to_int(ev.get("size_tiles", 0), 0),
+		"affected": affected, "sculpted": sculpted,
+	}
+	area_serial += 1
+	var who := "no one" if affected.is_empty() else ", ".join(_names(affected))
+	var line := "%s's %s (%s) catches %s" % [display_name(str(ev.get("caster", ""))), spell_name(str(ev.get("spell", ""))),
+		str(ev.get("shape", "area")), who]
+	if not sculpted.is_empty():
+		line += "; %s spared" % ", ".join(_names(sculpted))
+	_log(line + ".")
 
 
 func _names(ids: Array[String]) -> PackedStringArray:
@@ -992,7 +1313,12 @@ func can_take_bonus_action() -> bool:
 
 ## True when the selected attack can hit some hostile right now.
 func can_attack() -> bool:
-	return can_take_action() and not attack_targets().is_empty()
+	return is_my_turn() and not attack_targets().is_empty()
+
+
+## The Attack action is free, or it was taken and Extra Attack rolls remain.
+func can_make_attack() -> bool:
+	return is_my_turn() and (not action_used or (attack_action_taken and attacks_remaining > 0))
 
 
 func on_stairs() -> bool:
@@ -1004,8 +1330,21 @@ func can_use_stairs() -> bool:
 	return mode == Mode.EXPLORING and not in_encounter and on_stairs() and is_player_conscious()
 
 
+## Resting helps: hit dice to heal, short-rest resources or pact slots to
+## regain, or slots to recover (Arcane / Natural Recovery).
 func can_short_rest() -> bool:
-	return can_use_stairs() and sheet != null and sheet.hit_dice_remaining > 0 and sheet.current_hp < sheet.max_hp
+	if not can_use_stairs() or sheet == null:
+		return false
+	if sheet.hit_dice_remaining > 0 and sheet.current_hp < sheet.max_hp:
+		return true
+	for r in resource_entries():
+		if bool(r["short_rest"]) and int(r["remaining"]) < int(r["max"]):
+			return true
+	if sheet.slot_recovery == ClassDefinition.SLOT_RECOVERY_SHORT:
+		for i in range(sheet.spell_slots_max.size()):
+			if sheet.slots_left(i + 1) < sheet.spell_slots_max[i]:
+				return true
+	return not slot_recovery().is_empty()
 
 
 ## 1-based floor number: the floor's own floor_number, else its place in the set.
@@ -1126,17 +1465,22 @@ func step_intent(dir: Vector2i) -> Dictionary:
 
 ## Attack with attack_index (-1 = selected_attack). target "" = the first
 ## hostile the attack can reach (adjacent for melee), in initiative order.
+## Off-hand attacks are always bonus attacks. attack_options that apply to
+## this attack are added (see attack_option_fields).
 func attack_intent(target: String = "", attack_index: int = -1, bonus: bool = false) -> Dictionary:
 	var index := selected_attack if attack_index < 0 else attack_index
+	var b: bool = bonus or get_attack(index).get("off_hand", false) == true
 	var t := target
 	if t.is_empty():
-		var near := attack_targets(index)
+		var near := attack_targets(index, b)
 		if near.is_empty():
 			return {}
 		t = near[0]
 	var fields := {"actor": player_id, "target": t, "attack_index": index}
-	if bonus:
+	if b:
 		fields["bonus"] = true
+	fields.merge(attack_option_fields(index, b))
+	_pending_smite = DictUtil.to_int(fields.get("smite", 0), 0)
 	return Messages.make_intent(Messages.ATTACK, fields)
 
 
@@ -1145,20 +1489,65 @@ func simple_intent(type: String) -> Dictionary:
 	return Messages.make_intent(type, {"actor": player_id})
 
 
-func short_rest_intent(hit_dice: int = 1) -> Dictionary:
-	return Messages.make_intent(Messages.SHORT_REST, {"actor": player_id, "hit_dice": hit_dice})
+## short_rest; recover_slots asks the server for Arcane / Natural Recovery
+## (it picks the slots) when slot_recovery() offers it.
+func short_rest_intent(hit_dice: int = 1, recover_slots: bool = false) -> Dictionary:
+	var fields := {"actor": player_id, "hit_dice": hit_dice}
+	if recover_slots:
+		fields["recover_slots"] = true
+	return Messages.make_intent(Messages.SHORT_REST, fields)
 
 
-func cast_intent(spell_id: String, target: String = "", slot_level: int = 0) -> Dictionary:
-	return Messages.make_intent(Messages.CAST, {"actor": player_id, "spell": spell_id,
-		"target": target if not target.is_empty() else player_id, "slot_level": slot_level})
+## cast; extra may add "point", "metamagic", "twin_target", "sculpt".
+func cast_intent(spell_id: String, target: String = "", slot_level: int = 0, extra: Dictionary = {}) -> Dictionary:
+	var fields := {"actor": player_id, "spell": spell_id,
+		"target": target if not target.is_empty() else player_id, "slot_level": slot_level}
+	for key: String in ["point", "metamagic", "twin_target", "sculpt"]:
+		if extra.has(key):
+			var v: Variant = extra[key]
+			if typeof(v) == TYPE_ARRAY and (v as Array).is_empty():
+				continue
+			fields[key] = v
+	return Messages.make_intent(Messages.CAST, fields)
 
 
-## use_feature; target "" = self, amount only for lay_on_hands.
-func feature_intent(feature: String, target: String = "", amount: int = 0) -> Dictionary:
+## A prone player stands up (half the speed).
+func stand_intent() -> Dictionary:
+	return Messages.make_intent(Messages.STAND, {"actor": player_id})
+
+
+## The reaction_policy intent with one trigger switched to "auto" (on) or
+## "never" (off), the other entries kept.
+func reaction_policy_intent(trigger: String, on: bool) -> Dictionary:
+	var policy := reaction_policy.duplicate()
+	policy[trigger] = "auto" if on else "never"
+	return Messages.make_intent(Messages.REACTION_POLICY, {"actor": player_id, "policy": policy})
+
+
+## Whether the player reacts automatically to a trigger (missing = "auto").
+func reacts_to(trigger: String) -> bool:
+	return str(reaction_policy.get(trigger, "auto")) != "never"
+
+
+static var _policy_supported: int = -1
+
+
+## True when the rules engine has reaction policies (Combatant.reaction_policy).
+static func reaction_policy_supported() -> bool:
+	if _policy_supported < 0:
+		_policy_supported = 1 if "reaction_policy" in Combatant.new() else 0
+	return _policy_supported == 1
+
+
+## use_feature; target "" = self, amount only for lay_on_hands; extra may add
+## "mode", "slot_level", "allocations", "frenzy".
+func feature_intent(feature: String, target: String = "", amount: int = 0, extra: Dictionary = {}) -> Dictionary:
 	var fields := {"actor": player_id, "feature": feature, "target": target if not target.is_empty() else player_id}
 	if amount > 0:
 		fields["amount"] = amount
+	for key: String in ["mode", "slot_level", "allocations", "frenzy"]:
+		if extra.has(key):
+			fields[key] = extra[key]
 	return Messages.make_intent(Messages.USE_FEATURE, fields)
 
 
@@ -1302,12 +1691,14 @@ func attack_error(target: String, attack_index: int = -1, bonus: bool = false) -
 	var index := selected_attack if attack_index < 0 else attack_index
 	if not is_my_turn():
 		return "not your turn"
-	if bonus:
-		if not can_take_bonus_action():
-			return "bonus action already used"
-	elif action_used:
-		return "action already used"
 	var attack := get_attack(index)
+	var b: bool = bonus or attack.get("off_hand", false) == true
+	if b:
+		var src := bonus_attack_error(attack)
+		if not src.is_empty():
+			return src
+	elif not can_make_attack():
+		return "action already used"
 	if attack.is_empty():
 		return "no such attack"
 	var supply := attack_supply_error(attack)
@@ -1353,13 +1744,15 @@ func range_tiles() -> Dictionary:
 		if spell == null:
 			return out
 		normal = maxi(1, spell.range_tiles()) if spell.range_ft > 0 else 0
+		if spell.is_area() and spell.range_ft == 0:
+			normal = spell.area_size_tiles()  # cones / lines reach their size
 		long = normal
 	elif targeting.get("mode", "") == TARGET_FEATURE:
 		normal = BARDIC_INSPIRATION_RANGE if str(targeting["feature"]) == ClassDefinition.FEATURE_BARDIC_INSPIRATION else 1
 		long = normal
 	else:
 		var attack := get_attack(int(targeting.get("attack_index", selected_attack)))
-		if attack.is_empty() or (targeting.is_empty() and (action_used or not ClientState.is_ranged_attack(attack))):
+		if attack.is_empty() or (targeting.is_empty() and (not can_make_attack() or not ClientState.is_ranged_attack(attack))):
 			return out
 		var r := Encounter.attack_range_tiles(attack)
 		normal = r[0]
@@ -1419,18 +1812,26 @@ func cast_slot_options(spell_id: String) -> Array[int]:
 	return out
 
 
-## "" when spell_id can be cast now (slot_level 0 = cantrip / lowest free slot).
-func cast_error(spell_id: String, slot_level: int = 0) -> String:
+## "" when spell_id can be cast now (slot_level 0 = cantrip / lowest free
+## slot) with the given metamagic options.
+func cast_error(spell_id: String, slot_level: int = 0, metamagic: Array[String] = []) -> String:
 	var def := spell_def(spell_id)
 	if def == null or sheet == null:
 		return "unknown spell"
 	if not def.is_supported():
 		return "not supported yet"
+	if not def.is_combat_castable():
+		return "takes too long to cast in combat"
 	if not sheet.is_spell_prepared(spell_id):
 		return "not prepared"
 	if not is_my_turn():
 		return "only on your turn in combat"
-	if def.uses_bonus_action():
+	if status_tags(player_id).has("raging"):
+		return "no spells while raging"
+	var meta_error := metamagic_error(spell_id, metamagic)
+	if not meta_error.is_empty():
+		return meta_error
+	if def.uses_bonus_action() or metamagic.has("quickened_spell"):
 		if bonus_action_used:
 			return "bonus action already used"
 	elif action_used:
@@ -1470,67 +1871,207 @@ func cast_target_error(spell_id: String, target: String) -> String:
 
 ## Starts casting: a self-only spell returns its intent at once; others enter
 ## targeting mode and return {}. {} with `hint` set when it cannot be cast.
-func begin_cast(spell_id: String, slot_level: int = 0) -> Dictionary:
-	hint = cast_error(spell_id, slot_level)
+## Area spells centred on the caster cast at once; other area spells enter
+## targeting with "area": true (the click picks the point). Twinned Spell
+## asks for a second target after the first.
+func begin_cast(spell_id: String, slot_level: int = 0, metamagic: Array[String] = []) -> Dictionary:
+	hint = cast_error(spell_id, slot_level, metamagic)
 	if not hint.is_empty():
 		return {}
 	var def := spell_def(spell_id)
 	var slot := 0 if def.level == 0 else (slot_level if slot_level > 0 else sheet.lowest_available_slot(def.level))
-	if def.target == SpellDefinition.TARGET_SELF:
+	var extra := {"metamagic": metamagic.duplicate()}
+	var warning := concentration_warning(spell_id)
+	if def.is_area():
+		if ClientState.is_self_centred(def):
+			targeting = {}
+			extra["sculpt"] = sculpt_ids(def, area_preview_tiles(def, player_position()))
+			return cast_intent(spell_id, player_id, slot, extra)
+		targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot, "area": true, "metamagic": metamagic.duplicate()}
+		hint = "%s: click %s." % [def.display_name, "a direction to aim the %s" % def.area_shape if def.range_ft == 0 else "the point at the centre of the %s" % def.area_shape]
+	elif def.target == SpellDefinition.TARGET_SELF:
 		targeting = {}
-		return cast_intent(spell_id, player_id, slot)
-	targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot}
-	hint = "%s: click a target%s." % [def.display_name, "" if def.is_harmful() else " (yourself or an ally)"]
+		return cast_intent(spell_id, player_id, slot, extra)
+	else:
+		targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot, "metamagic": metamagic.duplicate()}
+		hint = "%s: click a target%s%s." % [def.display_name, "" if def.is_harmful() else " (yourself or an ally)",
+			" (Twinned: then a second one)" if metamagic.has("twinned_spell") else ""]
+	if not warning.is_empty():
+		hint += " " + warning
 	revision += 1
 	return {}
 
 
 # --- features -----------------------------------------------------------------------
 
-## Class features usable in combat: {"id", "name", "remaining", "max", "error"}.
+## Class features usable in combat (Encounter.USABLE_FEATURES the sheet has,
+## plus bonus-action attack shortcuts): {"id", "name", "remaining", "max"
+## (-1 = no resource), "resource", "cost" ("action"|"bonus"|"free"),
+## "modes": Array[String], "error"}.
 func feature_entries() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if sheet == null:
 		return out
-	for f in CharacterSheet.RESOURCE_FEATURES:
-		if sheet.has_feature(f):
-			out.append({"id": f, "name": ClientState.feature_name(f), "remaining": sheet.class_resource(f),
-				"max": sheet.resource_max(f), "error": feature_error(f)})
+	for f in Encounter.USABLE_FEATURES:
+		if not has_usable_feature(f):
+			continue
+		var res := ClientState.feature_resource(f)
+		var modes: Array[String] = []
+		modes.assign(FEATURE_MODES.get(f, []))
+		if f == ClassDefinition.FEATURE_RAGE and sheet.has_feature("frenzy"):
+			modes.assign(["rage", "frenzy"])
+		out.append({"id": f, "name": ClientState.feature_name(f),
+			"remaining": sheet.class_resource(res) if not res.is_empty() else -1,
+			"max": sheet.resource_max(res) if not res.is_empty() else -1, "resource": res,
+			"cost": ClientState.feature_cost(f), "modes": modes, "error": feature_error(f)})
+	var pseudo: Array[String] = []
 	if sheet.has_feature(ClassDefinition.FEATURE_MARTIAL_ARTS):
-		out.append({"id": FEATURE_MARTIAL_ARTS_STRIKE, "name": ClientState.feature_name(FEATURE_MARTIAL_ARTS_STRIKE),
-			"remaining": -1, "max": -1, "error": feature_error(FEATURE_MARTIAL_ARTS_STRIKE)})
+		pseudo.append(FEATURE_MARTIAL_ARTS_STRIKE)
+	if off_hand_attack_index() >= 0:
+		pseudo.append(FEATURE_OFF_HAND_ATTACK)
+	if has_usable_feature("flurry_of_blows"):
+		pseudo.append(FEATURE_FLURRY_STRIKE)
+	if sheet.has_feature("frenzy"):
+		pseudo.append(FEATURE_FRENZY_ATTACK)
+	for f in pseudo:
+		out.append({"id": f, "name": ClientState.feature_name(f), "remaining": -1, "max": -1, "resource": "",
+			"cost": "bonus", "modes": [] as Array[String], "error": feature_error(f)})
 	return out
 
 
-func feature_error(feature: String) -> String:
+## Whether the sheet can use a use_feature id (Encounter._has_usable_feature).
+func has_usable_feature(feature: String) -> bool:
+	if sheet == null:
+		return false
+	if sheet.has_feature(feature):
+		return true
+	if Encounter.KI_FEATURES.has(feature):
+		return sheet.has_feature("ki")
+	if feature == "pact_weapon":
+		return sheet.has_feature("pact_of_the_blade")
+	return false
+
+
+## The class resource a feature spends ("" = none), as Encounter._feature_resource;
+## Stunning Strike spends ki too.
+static func feature_resource(feature: String) -> String:
+	if Encounter.KI_FEATURES.has(feature) or feature == "stunning_strike":
+		return "ki"
+	if Encounter.CHANNEL_DIVINITY_FEATURES.has(feature):
+		return "channel_divinity"
+	if feature == "font_of_magic":
+		return "sorcery_points"
+	if CharacterSheet.RESOURCE_FEATURES.has(feature):
+		return feature
+	return ""
+
+
+## "action", "bonus" or "free" (Encounter._feature_cost).
+static func feature_cost(feature: String) -> String:
+	if ACTION_FEATURES.has(feature):
+		return "action"
+	if FREE_FEATURES.has(feature):
+		return "free"
+	return "bonus"
+
+
+func feature_error(feature: String, mode: String = "") -> String:
 	if sheet == null:
 		return "no character"
 	if not is_my_turn():
 		return "only on your turn in combat"
-	if feature == FEATURE_MARTIAL_ARTS_STRIKE:
-		if not attack_action_taken:
-			return "take the Attack action first"
-		if bonus_action_used:
-			return "bonus action already used"
-		return ""
-	if not sheet.has_feature(feature):
+	match feature:
+		FEATURE_MARTIAL_ARTS_STRIKE:
+			return bonus_attack_error(get_attack(available_attacks().size() - 1), true)
+		FEATURE_OFF_HAND_ATTACK:
+			var index := off_hand_attack_index()
+			return "no off-hand weapon" if index < 0 else bonus_attack_error(get_attack(index))
+		FEATURE_FLURRY_STRIKE:
+			if bonus_attacks_remaining <= 0 or bonus_attack_source != "flurry_of_blows":
+				return "use Flurry of Blows first"
+			return ""
+		FEATURE_FRENZY_ATTACK:
+			return bonus_attack_error(get_attack(selected_attack))
+	if not has_usable_feature(feature):
 		return "you lack %s" % ClientState.feature_name(feature)
-	if sheet.class_resource(feature) <= 0:
-		return "no uses left"
-	if feature == ClassDefinition.FEATURE_LAY_ON_HANDS:
-		return "action already used" if action_used else ""
-	if bonus_action_used:
-		return "bonus action already used"
-	if feature == ClassDefinition.FEATURE_RAGE and status_tags(player_id).has("raging"):
-		return "already raging"
+	var res := ClientState.feature_resource(feature)
+	if not res.is_empty() and feature != "font_of_magic" and sheet.class_resource(res) <= 0:
+		return "no %s left" % ("uses" if res == feature else ClientState.feature_name(res).to_lower())
+	match ClientState.feature_cost(feature):
+		"action":
+			if action_used:
+				return "action already used"
+		"bonus":
+			if bonus_action_used:
+				return "bonus action already used"
+	match feature:
+		ClassDefinition.FEATURE_RAGE:
+			if status_tags(player_id).has("raging"):
+				return "already raging"
+		"action_surge":
+			if action_surged:
+				return "once per turn"
+		"flurry_of_blows":
+			if not attack_action_taken:
+				return "take the Attack action first"
+		"step_of_the_wind", "cunning_action":
+			if not mode.is_empty() and not mode in ["dash", "disengage"]:
+				return "choose dash or disengage"
+		"preserve_life":
+			if preserve_life_allocations().is_empty():
+				return "no ally in range below half hit points"
+		"font_of_magic":
+			if font_of_magic_options().filter(func(o: Dictionary) -> bool: return str(o["error"]).is_empty()).is_empty():
+				return "nothing to convert"
+		"pact_weapon":
+			if status_tags(player_id).has(STATUS_TAGS["pact_weapon"]):
+				return "the pact weapon is already in hand"
 	return ""
 
 
-## Starts a feature: second_wind / rage return their intent; lay_on_hands
-## (amount from the pool) and bardic_inspiration enter targeting mode; the
-## Martial Arts strike targets like an attack with the unarmed strike.
-func begin_feature(feature: String, amount: int = 0) -> Dictionary:
-	hint = feature_error(feature)
+## Why a bonus-action attack with `attack` is not possible now ("" = it is),
+## as Encounter._bonus_attack_source: Flurry of Blows strikes (unarmed), the
+## off-hand attack or Martial Arts strike after the Attack action, Frenzy
+## (melee, raging and frenzied, from the turn after the rage started).
+func bonus_attack_error(attack: Dictionary, martial_arts: bool = false) -> String:
+	if not is_my_turn():
+		return "not your turn"
+	var unarmed: bool = attack.get("unarmed", false) == true
+	if bonus_attacks_remaining > 0:
+		return "" if unarmed else "Flurry of Blows strikes are unarmed strikes"
+	if bonus_action_used:
+		return "bonus action already used"
+	if attack.get("off_hand", false) == true:
+		return "" if attack_action_taken else "take the Attack action first"
+	var martial := sheet != null and sheet.has_feature(ClassDefinition.FEATURE_MARTIAL_ARTS)
+	if unarmed and martial:
+		return "" if attack_action_taken else "take the Attack action first"
+	if martial_arts:
+		return "you lack Martial Arts"
+	var tags := status_tags(player_id)
+	if tags.has("frenzied") and tags.has("raging") and not attack.is_empty() and not ClientState.is_ranged_attack(attack):
+		return "the Frenzy attack starts on the turn after you rage" if rage_started_this_turn else ""
+	return "no bonus-action attack"
+
+
+## Index of the off-hand attack entry, or -1.
+func off_hand_attack_index() -> int:
+	var list := available_attacks()
+	for i in range(list.size()):
+		if list[i].get("off_hand", false) == true:
+			return i
+	return -1
+
+
+## Starts a feature. Self features return their intent; lay_on_hands (amount
+## from the pool) and bardic_inspiration enter targeting mode; the bonus
+## attacks (Martial Arts, off-hand, Flurry strike, Frenzy) target like an
+## attack; `mode` picks step_of_the_wind / cunning_action ("dash" /
+## "disengage"), font_of_magic ("create_slot" / "convert_slot" with
+## slot_level) and rage ("frenzy" = Frenzy); preserve_life spreads its pool
+## over the wounded allies in range (preserve_life_allocations).
+func begin_feature(feature: String, amount: int = 0, mode: String = "", slot_level: int = 0) -> Dictionary:
+	hint = feature_error(feature, mode)
 	if not hint.is_empty():
 		return {}
 	match feature:
@@ -1541,14 +2082,105 @@ func begin_feature(feature: String, amount: int = 0) -> Dictionary:
 		ClassDefinition.FEATURE_BARDIC_INSPIRATION:
 			targeting = {"mode": TARGET_FEATURE, "feature": feature, "amount": 0}
 			hint = "Bardic Inspiration: click an ally within %d tiles." % BARDIC_INSPIRATION_RANGE
-		FEATURE_MARTIAL_ARTS_STRIKE:
+		FEATURE_MARTIAL_ARTS_STRIKE, FEATURE_FLURRY_STRIKE:
 			targeting = {"mode": TARGET_ATTACK, "attack_index": available_attacks().size() - 1, "bonus": true}
-			hint = "Martial Arts: click an adjacent hostile."
+			hint = "%s: click an adjacent hostile." % ClientState.feature_name(feature)
+		FEATURE_OFF_HAND_ATTACK:
+			targeting = {"mode": TARGET_ATTACK, "attack_index": off_hand_attack_index(), "bonus": true}
+			hint = "Off-hand attack: click a hostile."
+		FEATURE_FRENZY_ATTACK:
+			var melee := selected_attack if not ClientState.is_ranged_attack(get_attack(selected_attack)) else 0
+			targeting = {"mode": TARGET_ATTACK, "attack_index": melee, "bonus": true}
+			hint = "Frenzy: click an adjacent hostile."
+		"step_of_the_wind", "cunning_action":
+			targeting = {}
+			return feature_intent(feature, "", 0, {"mode": mode if not mode.is_empty() else "dash"})
+		"font_of_magic":
+			var m := mode if not mode.is_empty() else "create_slot"
+			for o in font_of_magic_options():
+				if str(o["mode"]) == m and int(o["slot_level"]) == slot_level:
+					hint = str(o["error"])
+					if not hint.is_empty():
+						return {}
+					targeting = {}
+					return feature_intent(feature, "", 0, {"mode": m, "slot_level": slot_level})
+			hint = "choose a slot level"
+			return {}
+		"preserve_life":
+			targeting = {}
+			return feature_intent(feature, "", 0, {"allocations": preserve_life_allocations()})
+		ClassDefinition.FEATURE_RAGE:
+			targeting = {}
+			return feature_intent(feature, "", 0, {"frenzy": true} if mode == "frenzy" else {})
 		_:
 			targeting = {}
 			return feature_intent(feature)
 	revision += 1
 	return {}
+
+
+## Preserve Life: up to 5 x level hit points over living allies within 6
+## tiles below half their maximum (most hurt first), none past half.
+## {id: hp}; {} when nobody qualifies.
+func preserve_life_allocations() -> Dictionary:
+	var out := {}
+	if sheet == null:
+		return out
+	var budget := 5 * sheet.level
+	var me := player_position()
+	var allies: Array[Dictionary] = []
+	var ids: Array[String] = order.duplicate() if in_encounter else [player_id] as Array[String]
+	for id in ids:
+		var e := get_entity(id)
+		if e.is_empty() or str(e["kind"]) != KIND_PLAYER or bool(e["dead"]):
+			continue
+		var hp := int(e.get("hp", -1))
+		var max_hp := int(e.get("max_hp", -1))
+		if id == player_id:
+			hp = sheet.current_hp
+			max_hp = sheet.max_hp
+		if hp < 0 or max_hp <= 0:
+			continue
+		var p: Vector2i = e["position"]
+		if GridMath.distance_tiles(me, p) > CHANNEL_DIVINITY_RANGE:
+			continue
+		var room := floori(max_hp / 2.0) - hp
+		if room > 0:
+			allies.append({"id": id, "hp": hp, "room": room})
+	allies.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a["hp"]) < int(b["hp"]) or (int(a["hp"]) == int(b["hp"]) and str(a["id"]) < str(b["id"])))
+	for a in allies:
+		if budget <= 0:
+			break
+		var give := mini(budget, int(a["room"]))
+		out[str(a["id"])] = give
+		budget -= give
+	return out
+
+
+## Font of Magic choices: {"mode", "slot_level", "cost" (points spent, or
+## gained for convert_slot), "label", "error"}: create a slot of level 1..5
+## from sorcery points, or convert a slot into points.
+func font_of_magic_options() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if sheet == null or not sheet.has_feature("font_of_magic"):
+		return out
+	var points := sheet.class_resource("sorcery_points")
+	var cls := sheet.class_definition(_content())
+	for lvl in range(1, Progression.MAX_CREATED_SLOT + 1):
+		var cost: int = Progression.SLOT_CREATION_COST.get(lvl, 99)
+		if cls != null and cls.sorcery_slot_costs.has(lvl):
+			cost = DictUtil.to_int(cls.sorcery_slot_costs[lvl], cost)
+		out.append({"mode": "create_slot", "slot_level": lvl, "cost": cost,
+			"label": "Create a %s-level slot (%d points)" % [ClientState.ordinal(lvl), cost],
+			"error": "" if points >= cost else "needs %d sorcery points" % cost})
+	for lvl in range(1, sheet.spell_slots_max.size() + 1):
+		if sheet.spell_slots_max[lvl - 1] <= 0:
+			continue
+		out.append({"mode": "convert_slot", "slot_level": lvl, "cost": lvl,
+			"label": "Convert a %s-level slot (+%d points)" % [ClientState.ordinal(lvl), lvl],
+			"error": "" if sheet.slots_left(lvl) > 0 else "no %s-level slot left" % ClientState.ordinal(lvl)})
+	return out
 
 
 ## Ranged / thrown attack (or any attack) via an explicit target pick.
@@ -1583,6 +2215,16 @@ func creature_at(tile: Vector2i) -> String:
 
 
 func _targeted_intent(tile: Vector2i) -> Dictionary:
+	if str(targeting.get("mode", "")) == TARGET_CAST and bool(targeting.get("area", false)):
+		var area_spell := str(targeting["spell"])
+		var def := spell_def(area_spell)
+		hint = area_point_error(area_spell, tile)
+		if not hint.is_empty() or def == null:
+			return {}
+		var meta: Array[String] = []
+		meta.assign(targeting.get("metamagic", []))
+		return cast_intent(area_spell, player_id, int(targeting.get("slot_level", 0)), {"point": GridMath.vec_to_arr(tile),
+			"metamagic": meta, "sculpt": sculpt_ids(def, area_preview_tiles(def, tile))})
 	var target := creature_at(tile)
 	if target.is_empty():
 		hint = "No creature there."
@@ -1591,8 +2233,24 @@ func _targeted_intent(tile: Vector2i) -> Dictionary:
 		TARGET_CAST:
 			var spell_id := str(targeting["spell"])
 			hint = cast_target_error(spell_id, target)
-			if hint.is_empty():
-				return cast_intent(spell_id, target, int(targeting.get("slot_level", 0)))
+			if not hint.is_empty():
+				return {}
+			var meta: Array[String] = []
+			meta.assign(targeting.get("metamagic", []))
+			var extra := {"metamagic": meta}
+			if meta.has("twinned_spell"):
+				var first := str(targeting.get("first_target", ""))
+				if first.is_empty():
+					targeting["first_target"] = target
+					hint = "Twinned Spell: click a second, different target."
+					revision += 1
+					return {}
+				if first == target:
+					hint = "Twinned Spell needs a different second target."
+					return {}
+				extra["twin_target"] = target
+				target = first
+			return cast_intent(spell_id, target, int(targeting.get("slot_level", 0)), extra)
 		TARGET_FEATURE:
 			var feature := str(targeting["feature"])
 			hint = feature_target_error(feature, target)
@@ -1651,7 +2309,33 @@ func inventory_rows() -> Array[Dictionary]:
 			"kind": def.kind if def != null else ItemDefinition.KIND_MISC, "qty": qty,
 			"weight": (def.weight * qty) if def != null else 0.0, "equipped": slots_held,
 			"equip_slots": equip_slots_for(id), "usable": def != null and def.has_implemented_use(),
+			"properties": weapon_properties(id),
 		})
+	return out
+
+
+## Weapon properties that matter for fighting styles and two-weapon fighting:
+## "two-handed", "heavy", "light", "versatile (1d10)", "finesse", "thrown",
+## "ranged" ([] for non-weapons).
+func weapon_properties(item_id: String) -> Array[String]:
+	var out: Array[String] = []
+	var w := CharacterSheet.weapon_for_item(item_id, _content())
+	if w == null:
+		return out
+	if w.is_two_handed():
+		out.append("two-handed")
+	if w.has_property("heavy"):
+		out.append("heavy")
+	if w.has_property("light"):
+		out.append("light")
+	if w.has_property("versatile"):
+		out.append("versatile (%s)" % w.versatile_damage if not w.versatile_damage.is_empty() else "versatile")
+	if w.is_finesse():
+		out.append("finesse")
+	if w.is_thrown():
+		out.append("thrown")
+	if w.ranged:
+		out.append("ranged")
 	return out
 
 
@@ -1754,42 +2438,394 @@ static func _signed_or_zero(v: int) -> String:
 	return "0" if v == 0 else "%+d" % v
 
 
-## "Slots: 1st 2/2  2nd 0/1" ("" for non-casters). Pact magic adds "(short rest)".
+## "Slots: 1st 2/2  2nd 0/1" ("" for non-casters). Pact magic reads
+## "Pact slots: 2nd 2/2 (short rest)". Slots created beyond the maximum
+## (Font of Magic) show as "3/2".
 func slots_text() -> String:
 	if sheet == null or sheet.spell_slots_max.is_empty():
 		return ""
 	var parts: PackedStringArray = []
-	for i in range(sheet.spell_slots_max.size()):
-		if sheet.spell_slots_max[i] > 0:
-			var left := sheet.spell_slots[i] if i < sheet.spell_slots.size() else 0
-			parts.append("%s %d/%d" % [ClientState.ordinal(i + 1), left, sheet.spell_slots_max[i]])
+	for i in range(maxi(sheet.spell_slots_max.size(), sheet.spell_slots.size())):
+		var max_n := sheet.spell_slots_max[i] if i < sheet.spell_slots_max.size() else 0
+		var left := sheet.spell_slots[i] if i < sheet.spell_slots.size() else 0
+		if max_n > 0 or left > 0:
+			parts.append("%s %d/%d" % [ClientState.ordinal(i + 1), left, max_n])
 	if parts.is_empty():
 		return ""
-	var text := "Slots: " + "  ".join(parts)
 	if sheet.slot_recovery == ClassDefinition.SLOT_RECOVERY_SHORT:
-		text += " (short rest)"
-	return text
+		return "Pact slots: " + "  ".join(parts) + " (short rest)"
+	return "Slots: " + "  ".join(parts)
 
 
-## "Second Wind 1/1  Rage 2/2" ("" without resource features).
-func resources_text() -> String:
+## The class resources the character has: [{"id", "name", "remaining", "max",
+## "short_rest": bool, "die" (Bardic Inspiration, else 0)}].
+func resource_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	if sheet == null:
-		return ""
+		return out
+	for r in CharacterSheet.RESOURCE_FEATURES:
+		if not sheet.has_feature(str(CharacterSheet.RESOURCE_OWNERS.get(r, r))):
+			continue
+		out.append({"id": r, "name": ClientState.feature_name(r), "remaining": sheet.class_resource(r),
+			"max": sheet.resource_max(r), "short_rest": sheet.resource_short_rest(r),
+			"die": sheet.bardic_inspiration_die() if r == "bardic_inspiration" else 0})
+	return out
+
+
+## "Second Wind 1/1  Ki 3/5  Bardic Inspiration 3/3 (d6)" ("" without resources).
+func resources_text() -> String:
 	var parts: PackedStringArray = []
-	for f in CharacterSheet.RESOURCE_FEATURES:
-		if sheet.has_feature(f):
-			parts.append("%s %d/%d" % [ClientState.feature_name(f), sheet.class_resource(f), sheet.resource_max(f)])
+	for r in resource_entries():
+		var text := "%s %d/%d" % [str(r["name"]), int(r["remaining"]), int(r["max"])]
+		if int(r["die"]) > 0:
+			text += " (d%d)" % int(r["die"])
+		parts.append(text)
 	return "  ".join(parts)
 
 
-## Status tags of a combatant ("dodging", "raging", "marked", ...).
+## Status tags of a combatant: effects ("dodging", "raging", "marked", ...),
+## then conditions with their remaining duration ("stunned (1 turn)",
+## "restrained (save DC 13 STR)"), lasting sheet conditions of the player, and
+## "concentrating: Hex".
 func status_tags(id: String) -> PackedStringArray:
 	var out: PackedStringArray = []
-	if not statuses.has(id):
+	if statuses.has(id):
+		var list: Array[String] = statuses[id]
+		for effect in list:
+			out.append(STATUS_TAGS.get(effect, effect.replace("_", " ")))
+	for entry in conditions_of(id):
+		out.append(condition_text(entry))
+	if id == player_id and sheet != null:
+		var listed: Array[String] = []
+		for entry in conditions_of(id):
+			listed.append(str(entry["condition"]))
+		for c in sheet.conditions:
+			if not listed.has(c):
+				out.append(c.replace("_", " "))
+	if concentration.has(id):
+		out.append("concentrating: %s" % spell_name(str(concentration[id])))
+	return out
+
+
+## The condition entries the client knows for a combatant (encounter only).
+func conditions_of(id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if conditions.has(id):
+		out.assign(conditions[id])
+	return out
+
+
+## Whether a combatant has a condition (encounter entries; the player's
+## lasting sheet conditions too). Stunned / paralyzed count as incapacitated.
+func has_condition(id: String, condition: String) -> bool:
+	for entry in conditions_of(id):
+		var c := str(entry["condition"])
+		if c == condition or (condition == "incapacitated" and c in ["stunned", "paralyzed"]):
+			return true
+	return id == player_id and sheet != null and sheet.conditions.has(condition)
+
+
+## Speed 0 (stunned, paralyzed, restrained, grappled).
+func is_immobilized(id: String) -> bool:
+	for c in IMMOBILIZING:
+		if has_condition(id, c):
+			return true
+	return false
+
+
+## "stunned (1 turn)", "frightened (9 rounds)", "prone", "poisoned (ends this
+## turn)", "restrained (save DC 13 STR)".
+func condition_text(entry: Dictionary) -> String:
+	var name := str(entry.get("condition", "")).replace("_", " ")
+	var duration: Dictionary = entry.get("duration", {}) if typeof(entry.get("duration")) == TYPE_DICTIONARY else {}
+	var left := DictUtil.to_int(entry.get("turns_left", 0), 0)
+	match str(duration.get("type", "")):
+		Conditions.DURATION_SOURCE_NEXT_TURN:
+			return "%s (%d turn%s)" % [name, maxi(1, left), "" if maxi(1, left) == 1 else "s"]
+		Conditions.DURATION_TARGET_TURN_END:
+			return "%s (ends this turn)" % name
+		Conditions.DURATION_ROUNDS:
+			return "%s (%d round%s)" % [name, maxi(1, left), "" if maxi(1, left) == 1 else "s"]
+		Conditions.DURATION_SAVE_ENDS:
+			return "%s (save DC %d %s)" % [name, DictUtil.to_int(duration.get("dc", 10), 10), str(duration.get("ability", "WIS"))]
+	return name
+
+
+## "" or a warning that casting spell_id ends the player's concentration.
+func concentration_warning(spell_id: String) -> String:
+	var def := spell_def(spell_id)
+	if def == null or not def.concentration or not concentration.has(player_id):
+		return ""
+	return "Casting %s ends your concentration on %s." % [def.display_name, spell_name(str(concentration[player_id]))]
+
+
+# --- attack flow (Extra Attack, options) ----------------------------------------------
+
+## Attack rolls per Attack action (Extra Attack).
+func attacks_per_action() -> int:
+	return sheet.attacks_per_action() if sheet != null else 1
+
+
+## "Attack 1/2" before the first of several attacks, "Attack 2/2" while the
+## Attack action has rolls left; "" with a single attack or none left.
+func attack_counter_text() -> String:
+	var n := attacks_per_action()
+	if n <= 1 or not is_my_turn():
+		return ""
+	if not action_used:
+		return "Attack 1/%d" % n
+	if attack_action_taken and attacks_remaining > 0:
+		return "Attack %d/%d" % [n - attacks_remaining + 1, n]
+	return ""
+
+
+## Which attack options the character has: subset of reckless, smite, stun, technique.
+func attack_option_kinds() -> Array[String]:
+	var out: Array[String] = []
+	if sheet == null:
 		return out
-	var list: Array[String] = statuses[id]
-	for effect in list:
-		out.append(STATUS_TAGS.get(effect, effect.replace("_", " ")))
+	if sheet.has_feature("reckless_attack"):
+		out.append("reckless")
+	if sheet.has_feature("divine_smite"):
+		out.append("smite")
+	if sheet.has_feature("stunning_strike"):
+		out.append("stun")
+	if sheet.has_feature("open_hand_technique"):
+		out.append("technique")
+	return out
+
+
+func set_attack_option(key: String, value: Variant) -> void:
+	if not attack_options.has(key):
+		return
+	match key:
+		"reckless", "stun":
+			attack_options[key] = value == true
+		"smite":
+			attack_options[key] = clampi(DictUtil.to_int(value, 0), 0, Messages.MAX_SLOT_LEVEL)
+		"technique":
+			attack_options[key] = str(value) if Messages.TECHNIQUES.has(str(value)) else ""
+	revision += 1
+
+
+## Slot levels Divine Smite could use now (slots left).
+func smite_levels() -> Array[int]:
+	var out: Array[int] = []
+	if sheet == null:
+		return out
+	for lvl in range(1, sheet.spell_slots.size() + 1):
+		if sheet.slots_left(lvl) > 0:
+			out.append(lvl)
+	return out
+
+
+## The attack_options that apply to attacks[index] now, as intent fields:
+## reckless (first attack of the turn, melee STR, not a bonus attack), smite
+## (melee, a slot of that level left), stun (melee, 1 ki), technique (a
+## Flurry of Blows strike).
+func attack_option_fields(index: int, bonus: bool) -> Dictionary:
+	var out := {}
+	var attack := get_attack(index)
+	if sheet == null or attack.is_empty():
+		return out
+	var melee := not ClientState.is_ranged_attack(attack)
+	if bool(attack_options.get("reckless", false)) and sheet.has_feature("reckless_attack") and not bonus \
+			and not attack_action_taken and melee and str(attack.get("ability", "STR")) == "STR":
+		out["reckless"] = true
+	var smite := DictUtil.to_int(attack_options.get("smite", 0), 0)
+	if smite > 0 and sheet.has_feature("divine_smite") and melee and sheet.slots_left(smite) > 0:
+		out["smite"] = smite
+	if bool(attack_options.get("stun", false)) and sheet.has_feature("stunning_strike") and melee and sheet.class_resource("ki") >= 1:
+		out["stun"] = true
+	var technique := str(attack_options.get("technique", ""))
+	if not technique.is_empty() and sheet.has_feature("open_hand_technique") and bonus \
+			and bonus_attacks_remaining > 0 and bonus_attack_source == "flurry_of_blows":
+		out["technique"] = technique
+	return out
+
+
+# --- metamagic ------------------------------------------------------------------------
+
+## Sorcery points a metamagic option costs for spell (Encounter._metamagic_cost).
+static func metamagic_cost(id: String, spell: SpellDefinition) -> int:
+	match id:
+		"quickened_spell":
+			return 2
+		"empowered_spell":
+			return 1
+		"twinned_spell":
+			return maxi(1, spell.level if spell != null else 1)
+	return 0
+
+
+static func metamagic_name(id: String) -> String:
+	return id.replace("_spell", "").capitalize()
+
+
+## The modelled metamagic options the character knows, for spell_id:
+## [{"id", "name", "cost", "error"}].
+func metamagic_options(spell_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if sheet == null:
+		return out
+	var def := spell_def(spell_id)
+	for m in sheet.metamagic:
+		if not Features.IMPLEMENTED_METAMAGIC.has(m):
+			continue
+		var one: Array[String] = [m]
+		out.append({"id": m, "name": ClientState.metamagic_name(m), "cost": ClientState.metamagic_cost(m, def),
+			"error": metamagic_error(spell_id, one)})
+	return out
+
+
+## "" when the metamagic options can apply to spell_id (Encounter._check_cast rules).
+func metamagic_error(spell_id: String, metamagic: Array[String]) -> String:
+	if metamagic.is_empty():
+		return ""
+	var def := spell_def(spell_id)
+	if def == null or sheet == null:
+		return "unknown spell"
+	var cost := 0
+	for m in metamagic:
+		if not sheet.metamagic.has(m):
+			return "you do not know %s" % ClientState.metamagic_name(m)
+		if not Features.IMPLEMENTED_METAMAGIC.has(m):
+			return "%s is not modelled yet" % ClientState.metamagic_name(m)
+		cost += ClientState.metamagic_cost(m, def)
+	if metamagic.has("quickened_spell") and metamagic.has("twinned_spell"):
+		return "only one of Quickened and Twinned per casting"
+	if metamagic.has("quickened_spell") and def.uses_bonus_action():
+		return "Quickened needs a spell cast with an action"
+	if metamagic.has("twinned_spell") and (def.is_area() or def.range_ft == 0 or def.target == SpellDefinition.TARGET_SELF):
+		return "Twinned needs a single-target spell"
+	if sheet.class_resource("sorcery_points") < cost:
+		return "needs %d sorcery points" % cost
+	return ""
+
+
+# --- area spells ------------------------------------------------------------------------
+
+## Range-self spheres / cubes / cylinders are centred on the caster (no point).
+static func is_self_centred(spell: SpellDefinition) -> bool:
+	return spell != null and spell.range_ft == 0 and spell.area_shape in ["sphere", "cube", "cylinder"]
+
+
+## "" when tile is a valid point for area spell_id (Encounter._check_area).
+func area_point_error(spell_id: String, tile: Vector2i) -> String:
+	var def := spell_def(spell_id)
+	if def == null or not def.is_area():
+		return "not an area spell"
+	if ClientState.is_self_centred(def):
+		return ""
+	if region.has_area() and not region.has_point(tile):
+		return "outside the battle area"
+	var me := player_position()
+	if def.range_ft == 0:
+		return "aim away from yourself" if tile == me else ""
+	if GridMath.distance_tiles(me, tile) > def.range_tiles():
+		return "out of range"
+	if floor_data != null and not floor_data.walk_map.has_line_of_sight(me, tile):
+		return "no line of sight"
+	return ""
+
+
+## Tiles an area spell covers when aimed / centred at tile (cones and lines
+## from the player toward tile; self-centred areas around the player).
+func area_preview_tiles(def: SpellDefinition, tile: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var wm := movement_map()
+	if def == null or not def.is_area() or wm == null:
+		return out
+	var me := player_position()
+	var point := me if ClientState.is_self_centred(def) else tile
+	return AreaOfEffect.tiles(def.area_shape, def.area_size_tiles(), me, point, wm)
+
+
+## Allies Sculpt Spells keeps out of an evocation area (at most 1 + level):
+## the other player characters of the encounter on the covered tiles (SRD:
+## creatures other than the caster).
+func sculpt_ids(def: SpellDefinition, tiles: Array[Vector2i]) -> Array[String]:
+	var out: Array[String] = []
+	if def == null or sheet == null or not sheet.has_feature("sculpt_spells") or def.school.to_lower() != "evocation":
+		return out
+	var ids: Array[String] = order.duplicate() if in_encounter else [player_id] as Array[String]
+	for id in ids:
+		if out.size() >= 1 + def.level:
+			break
+		var e := get_entity(id)
+		if e.is_empty() or str(e["kind"]) != KIND_PLAYER or bool(e["dead"]):
+			continue
+		if id == player_id:
+			continue
+		var p: Vector2i = e["position"]
+		if tiles.has(p):
+			out.append(id)
+	return out
+
+
+## What an area spell in targeting mode would do at tile: {"tiles":
+## Array[Vector2i], "affected": Array[String] (creatures caught, initiative
+## order), "sculpted": Array[String], "error": String}. {} outside area targeting.
+func area_preview(tile: Vector2i) -> Dictionary:
+	if str(targeting.get("mode", "")) != TARGET_CAST or not bool(targeting.get("area", false)):
+		return {}
+	var def := spell_def(str(targeting["spell"]))
+	var error := area_point_error(str(targeting["spell"]), tile)
+	var tiles: Array[Vector2i] = []
+	if error.is_empty():
+		tiles = area_preview_tiles(def, tile)
+	var sculpted := sculpt_ids(def, tiles)
+	var affected: Array[String] = []
+	var ids: Array[String] = order.duplicate()
+	if not in_encounter:
+		for key: Variant in entities.keys():
+			ids.append(str(key))
+	for id in ids:
+		var e := get_entity(id)
+		if e.is_empty() or bool(e["dead"]) or sculpted.has(id):
+			continue
+		if id == player_id and ClientState.is_self_centred(def):
+			continue
+		var p: Vector2i = e["position"]
+		if tiles.has(p):
+			affected.append(id)
+	return {"tiles": tiles, "affected": affected, "sculpted": sculpted, "error": error}
+
+
+# --- rests ----------------------------------------------------------------------------
+
+## Arcane / Natural Recovery the character could use after a short rest:
+## {"feature", "budget", "max_slot_level", "levels": Array[int] (what the
+## server picks for recover_slots: true)}; {} when none applies.
+func slot_recovery() -> Dictionary:
+	if sheet == null:
+		return {}
+	var opts := Rest.slot_recovery_options(sheet)
+	if opts.is_empty():
+		return {}
+	var levels := ClientState.recovery_picks(sheet)
+	if levels.is_empty():
+		return {}
+	var out := opts.duplicate()
+	out["levels"] = levels
+	return out
+
+
+## Expended slots, highest level first, within the recovery budget (the same
+## picks as InstanceServer.recovery_picks).
+static func recovery_picks(s: CharacterSheet) -> Array[int]:
+	var out: Array[int] = []
+	var opts := Rest.slot_recovery_options(s)
+	if opts.is_empty():
+		return out
+	var budget := DictUtil.to_int(opts.get("budget", 0), 0)
+	var top := mini(DictUtil.to_int(opts.get("max_slot_level", 5), 5), s.spell_slots_max.size())
+	for lvl in range(top, 0, -1):
+		var missing := s.spell_slots_max[lvl - 1] - s.slots_left(lvl)
+		while missing > 0 and budget >= lvl:
+			out.append(lvl)
+			budget -= lvl
+			missing -= 1
 	return out
 
 

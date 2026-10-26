@@ -915,3 +915,14 @@ func test_step_intent_ignores_targeting() -> void:
 	var step := st.step_intent(Vector2i.RIGHT)
 	assert_eq(step.get("type"), Messages.MOVE)
 	assert_eq(step.get("path"), [[5, 3]])
+
+
+func test_imported_monsters_fall_back_to_their_glyph() -> void:
+	var icons := EntityIcons.shared()
+	assert_eq(icons.monster_icon_id("goblin"), "goblin", "an atlas column of its own")
+	assert_eq(icons.monster_icon_id("awakened_shrub"), "giant_centipede", "the data file's icon")
+	assert_eq(icons.column_for_entity({"kind": "monster", "monster_id": "aboleth"}), icons.column_for("ghoul"),
+		"an aberration without a column")
+	assert_eq(icons.monster_icon_id("no_such_monster"), "")
+	var custom := EntityIcons.from_dict({"icons": {"skeleton": 3}})
+	assert_eq(custom.monster_icon_id("lich"), "skeleton", "undead by creature type when the named icon is missing")

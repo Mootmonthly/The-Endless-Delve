@@ -10,22 +10,44 @@ extends RefCounted
 ## Intents (all carry "actor": the combatant / character id the sender
 ## wants to act as; the server checks it belongs to the sending peer):
 ##   move        {"path": [[x, y], ...]}              encounter movement
-##   attack      {"target": id, "attack_index": int, "bonus"?: bool}
-##   cast        {"spell": id, "target"?: id, "slot_level"?: int >= 0}
-##   use_feature {"feature": id, "target"?: id, "amount"?: int >= 0}
+##   stand                                            a prone combatant stands up
+##   attack      {"target": id, "attack_index": int, "bonus"?: bool,
+##                "reckless"?: bool, "smite"?: int 0..9 (slot level, 0 = none),
+##                "stun"?: bool, "technique"?: "prone"|"push"|"no_reactions",
+##                "retarget"?: bool}
+##   cast        {"spell": id, "target"?: id, "slot_level"?: int 0..9,
+##                "point"?: [x, y] (area spells), "sculpt"?: [id],
+##                "metamagic"?: [id], "twin_target"?: id}
+##   use_feature {"feature": id, "target"?: id, "amount"?: int >= 0,
+##                "mode"?: String, "slot_level"?: int 0..9,
+##                "allocations"?: {id: int >= 1}, "frenzy"?: bool}
 ##   dash, dodge, disengage, end_turn                 no extra fields
-##   use_item    {"item": id, "target"?: id}          BOTH: resolved by the encounter
+##   use_item    {"item": id, "target"?: id, "bonus"?: bool}
+##                                                    BOTH: resolved by the encounter
 ##                                                    when the actor is in one, else
 ##                                                    out of combat by the server
 ##   explore_move {"target": [x, y]}                  real-time walking
 ##   use_stairs                                       no extra fields
-##   short_rest  {"hit_dice": int >= 0}
+##   short_rest  {"hit_dice": int >= 0, "recover_slots"?: true | [int 1..9]}
+##                                                    recover_slots: Arcane / Natural
+##                                                    Recovery as the rest ends (true =
+##                                                    the server picks the slots)
 ##   equip       {"item": id, "slot": "main_hand"|"off_hand"|"armor"}
 ##   unequip     {"slot": "main_hand"|"off_hand"|"armor"}
 ##   open_chest  {"chest_id": id}                     on or adjacent to the chest
 ##   drop_item   {"item": id, "qty": int >= 1}        discarded (nothing on the floor in M2)
+##   reaction_policy {"policy": {trigger or reaction id: "auto"|"never"}}
+##                                                    BOTH (any time, also off-turn):
+##                                                    the server stores it and hands it
+##                                                    to the character's encounters
+##                                                    (Encounter.set_reaction_policy when
+##                                                    the core has it); answered with
+##                                                    CHARACTER_STATE "reaction_policy"
 ##   level_up    {"choices": {"hp": "average"|"roll", "asi"?: {ABILITY: int},
-##                "learn_cantrips"?: [id], "learn_spells"?: [id], "prepared"?: [id]}}
+##                "learn_cantrips"?: [id], "learn_spells"?: [id], "prepared"?: [id],
+##                "subclass"?: id, "fighting_style"?: id, "expertise"?: [SKILL],
+##                "skills"?: [SKILL], "invocations"?: [id], "metamagic"?: [id],
+##                "feature_options"?: {feature: option}}}  (LevelUp.apply checks them)
 ## Results:
 ##   encounter_events {"events": [event dicts, each with "kind"]}
 ##   explore_state    {"entities": [{"id", "position": [x, y], "kind"}], "tick": int}
@@ -38,7 +60,8 @@ extends RefCounted
 ##   character_state  {"sheet": CharacterSheet.to_dict()}
 ##                    extras: "entity_id", "healed", "xp_gained", "floor_clear_xp",
 ##                    "leveled_to" (after a level_up intent), "long_rest", "item_used",
-##                    "equipped", "unequipped", "dropped"
+##                    "equipped", "unequipped", "dropped", "slots_recovered" ([levels],
+##                    after a short_rest with recover_slots), "recovery_error"
 ##   loot_gained      {"entity_id", "items": [{"item", "qty"}], "source": "chest"|"monster"|"floor"}
 ##                    extras: "chest_id" (chest loot)
 ##   chest_opened     {"chest_id": id}                  extras: "entity_id" (the opener)
@@ -57,6 +80,7 @@ const PROTOCOL_VERSION := 1
 
 # --- Intent types (client -> server) ---
 const MOVE := "move"
+const STAND := "stand"
 const ATTACK := "attack"
 const DASH := "dash"
 const DODGE := "dodge"
@@ -73,18 +97,30 @@ const UNEQUIP := "unequip"
 const OPEN_CHEST := "open_chest"
 const DROP_ITEM := "drop_item"
 const LEVEL_UP := "level_up"
+const REACTION_POLICY := "reaction_policy"
+## Reaction triggers of a reaction policy (Combatant.reaction_policy); a key
+## may also be a reaction id. Values: "auto" (react when able) or "never".
+const REACTION_TRIGGERS: Array[String] = [
+	"creature_left_reach", "creature_hit_me", "damage_taken", "missed", "failed_save",
+	"ally_attacked", "ally_hit", "spell_cast_in_range",
+]
+const REACTION_POLICY_VALUES: Array[String] = ["auto", "never"]
 
 ## Equipment slot names accepted by equip / unequip (CharacterSheet.SLOTS).
 const EQUIP_SLOTS: Array[String] = ["main_hand", "off_hand", "armor"]
+## Open Hand Technique options of an attack's "technique" (Encounter.TECHNIQUES).
+const TECHNIQUES: Array[String] = ["prone", "push", "no_reactions"]
+## Highest spell slot level ("slot_level", "smite", recovered slots).
+const MAX_SLOT_LEVEL := 9
 
 ## Intents resolved by an Encounter (Encounter.submit).
 const ENCOUNTER_INTENTS: Array[String] = [
-	MOVE, ATTACK, DASH, DODGE, DISENGAGE, END_TURN, CAST, USE_ITEM, USE_FEATURE,
+	MOVE, STAND, ATTACK, DASH, DODGE, DISENGAGE, END_TURN, CAST, USE_ITEM, USE_FEATURE, REACTION_POLICY,
 ]
 ## Intents resolved by the real-time floor simulation. USE_ITEM is in both
 ## lists: the server routes it to the encounter when the actor is in one.
 const EXPLORE_INTENTS: Array[String] = [
-	EXPLORE_MOVE, USE_STAIRS, SHORT_REST, EQUIP, UNEQUIP, USE_ITEM, OPEN_CHEST, DROP_ITEM, LEVEL_UP,
+	EXPLORE_MOVE, USE_STAIRS, SHORT_REST, EQUIP, UNEQUIP, USE_ITEM, OPEN_CHEST, DROP_ITEM, LEVEL_UP, REACTION_POLICY,
 ]
 
 # --- Result kinds (server -> client) ---
@@ -182,21 +218,34 @@ static func validate_intent(d: Dictionary) -> String:
 				return "attack: 'attack_index' must be an int"
 			if Messages._as_int(d["attack_index"]) < 0:
 				return "attack: 'attack_index' must be >= 0"
-			if d.has("bonus") and typeof(d["bonus"]) != TYPE_BOOL:
-				return "attack: 'bonus' must be a bool"
+			for key: String in ["bonus", "reckless", "stun", "retarget"]:
+				if d.has(key) and typeof(d[key]) != TYPE_BOOL:
+					return "attack: '%s' must be a bool" % key
+			if d.has("smite") and not Messages._is_slot_level(d["smite"]):
+				return "attack: 'smite' must be a slot level 0..%d" % MAX_SLOT_LEVEL
+			if d.has("technique") and (typeof(d["technique"]) != TYPE_STRING or not TECHNIQUES.has(str(d["technique"]))):
+				return "attack: 'technique' must be one of %s" % ", ".join(TECHNIQUES)
 		CAST:
 			if not Messages._is_non_empty_string(d.get("spell")):
 				return "cast: missing or empty 'spell'"
 			if d.has("target") and not Messages._is_non_empty_string(d["target"]):
 				return "cast: 'target' must be a non-empty string"
-			if d.has("slot_level"):
-				if not Messages._is_int_like(d["slot_level"]) or Messages._as_int(d["slot_level"]) < 0:
-					return "cast: 'slot_level' must be an int >= 0"
+			if d.has("slot_level") and not Messages._is_slot_level(d["slot_level"]):
+				return "cast: 'slot_level' must be an int 0..%d" % MAX_SLOT_LEVEL
+			if d.has("point") and not Messages.is_position(d["point"]):
+				return "cast: 'point' must be [x, y]"
+			for key: String in ["sculpt", "metamagic"]:
+				if d.has(key) and not Messages._is_id_list(d[key]):
+					return "cast: '%s' must be an array of non-empty strings" % key
+			if d.has("twin_target") and not Messages._is_non_empty_string(d["twin_target"]):
+				return "cast: 'twin_target' must be a non-empty string"
 		USE_ITEM:
 			if not Messages._is_non_empty_string(d.get("item")):
 				return "use_item: missing or empty 'item'"
 			if d.has("target") and not Messages._is_non_empty_string(d["target"]):
 				return "use_item: 'target' must be a non-empty string"
+			if d.has("bonus") and typeof(d["bonus"]) != TYPE_BOOL:
+				return "use_item: 'bonus' must be a bool"
 		USE_FEATURE:
 			if not Messages._is_non_empty_string(d.get("feature")):
 				return "use_feature: missing or empty 'feature'"
@@ -205,6 +254,21 @@ static func validate_intent(d: Dictionary) -> String:
 			if d.has("amount"):
 				if not Messages._is_int_like(d["amount"]) or Messages._as_int(d["amount"]) < 0:
 					return "use_feature: 'amount' must be an int >= 0"
+			if d.has("mode") and not Messages._is_non_empty_string(d["mode"]):
+				return "use_feature: 'mode' must be a non-empty string"
+			if d.has("slot_level") and not Messages._is_slot_level(d["slot_level"]):
+				return "use_feature: 'slot_level' must be an int 0..%d" % MAX_SLOT_LEVEL
+			if d.has("frenzy") and typeof(d["frenzy"]) != TYPE_BOOL:
+				return "use_feature: 'frenzy' must be a bool"
+			if d.has("allocations"):
+				if typeof(d["allocations"]) != TYPE_DICTIONARY:
+					return "use_feature: 'allocations' must be a dictionary {id: hit points}"
+				var alloc: Dictionary = d["allocations"]
+				for key: Variant in alloc.keys():
+					if not Messages._is_non_empty_string(key):
+						return "use_feature: 'allocations' keys must be combatant ids"
+					if not Messages._is_int_like(alloc[key]) or Messages._as_int(alloc[key]) < 1:
+						return "use_feature: allocation for '%s' must be an int >= 1" % str(key)
 		EQUIP:
 			if not Messages._is_non_empty_string(d.get("item")):
 				return "equip: missing or empty 'item'"
@@ -224,6 +288,15 @@ static func validate_intent(d: Dictionary) -> String:
 		LEVEL_UP:
 			if typeof(d.get("choices")) != TYPE_DICTIONARY:
 				return "level_up: 'choices' must be a dictionary"
+		REACTION_POLICY:
+			if typeof(d.get("policy")) != TYPE_DICTIONARY:
+				return "reaction_policy: 'policy' must be a dictionary {trigger: \"auto\"|\"never\"}"
+			var policy: Dictionary = d["policy"]
+			for key: Variant in policy.keys():
+				if not Messages._is_non_empty_string(key):
+					return "reaction_policy: keys must be trigger or reaction ids"
+				if typeof(policy[key]) != TYPE_STRING or not REACTION_POLICY_VALUES.has(str(policy[key])):
+					return "reaction_policy: '%s' must be \"auto\" or \"never\"" % str(key)
 		EXPLORE_MOVE:
 			if not Messages.is_position(d.get("target")):
 				return "explore_move: 'target' must be [x, y]"
@@ -232,6 +305,14 @@ static func validate_intent(d: Dictionary) -> String:
 				return "short_rest: 'hit_dice' must be an int"
 			if Messages._as_int(d["hit_dice"]) < 0:
 				return "short_rest: 'hit_dice' must be >= 0"
+			if d.has("recover_slots"):
+				var rs: Variant = d["recover_slots"]
+				if typeof(rs) == TYPE_ARRAY:
+					for lvl: Variant in (rs as Array):
+						if not Messages._is_slot_level(lvl) or Messages._as_int(lvl) < 1:
+							return "short_rest: 'recover_slots' levels must be ints 1..%d" % MAX_SLOT_LEVEL
+				elif typeof(rs) != TYPE_BOOL:
+					return "short_rest: 'recover_slots' must be a bool or an array of slot levels"
 	return ""
 
 
@@ -359,6 +440,21 @@ static func _is_non_empty_string(v: Variant) -> bool:
 		return false
 	var s: String = v
 	return not s.is_empty()
+
+
+## An int (or integral float) slot level 0..MAX_SLOT_LEVEL.
+static func _is_slot_level(v: Variant) -> bool:
+	return Messages._is_int_like(v) and Messages._as_int(v) >= 0 and Messages._as_int(v) <= MAX_SLOT_LEVEL
+
+
+## An array of non-empty strings (may be empty).
+static func _is_id_list(v: Variant) -> bool:
+	if typeof(v) != TYPE_ARRAY:
+		return false
+	for item: Variant in (v as Array):
+		if not Messages._is_non_empty_string(item):
+			return false
+	return true
 
 
 static func _is_int_like(v: Variant) -> bool:
