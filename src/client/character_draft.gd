@@ -5,8 +5,12 @@ extends RefCounted
 ## The CharacterCreator scene edits a draft and asks it for the preview and,
 ## once is_valid(), the finished CharacterSheet (built by CharacterBuilder).
 
-## Classes offered in M1 (GDD wave 1), in menu order.
-const WAVE_1_CLASSES: Array[String] = ["fighter", "rogue", "cleric", "wizard"]
+## Menu order of the SRD classes (all twelve are offered); classes missing
+## here follow in display-name order.
+const CLASS_ORDER: Array[String] = [
+	"fighter", "rogue", "cleric", "wizard", "barbarian", "bard", "druid", "monk",
+	"paladin", "ranger", "sorcerer", "warlock",
+]
 const UNASSIGNED := -1
 const MAX_NAME_LENGTH := 24
 ## Abilities filled after a class's primary abilities by auto_assign().
@@ -22,13 +26,21 @@ var assigned: Array[int] = [UNASSIGNED, UNASSIGNED, UNASSIGNED, UNASSIGNED, UNAS
 var skills: Array[int] = []
 
 
-## Wave-1 classes from an id -> ClassDefinition map, in WAVE_1_CLASSES order.
-static func wave_1_classes(all_classes: Dictionary) -> Array[ClassDefinition]:
+## Every class of an id -> ClassDefinition map: CLASS_ORDER first, then
+## any others by display name.
+static func ordered_classes(all_classes: Dictionary) -> Array[ClassDefinition]:
 	var out: Array[ClassDefinition] = []
-	for id in WAVE_1_CLASSES:
+	for id in CLASS_ORDER:
 		if all_classes.has(id):
 			var def: ClassDefinition = all_classes[id]
 			out.append(def)
+	var rest: Array[ClassDefinition] = []
+	for id: Variant in all_classes.keys():
+		if not CLASS_ORDER.has(str(id)):
+			var def: ClassDefinition = all_classes[id]
+			rest.append(def)
+	rest.sort_custom(func(a: ClassDefinition, b: ClassDefinition) -> bool: return a.display_name < b.display_name)
+	out.append_array(rest)
 	return out
 
 
@@ -156,16 +168,69 @@ func build_sheet() -> CharacterSheet:
 
 
 ## Numbers for the live preview: {"hp", "ac", "speed", "attack_name", "to_hit",
-## "damage", "damage_type", "scores": Array[int] after ancestry bonuses}.
-## {} without a class.
-func preview() -> Dictionary:
+## "damage", "damage_type" (first attack), "scores": Array[int] after ancestry
+## bonuses, "armor": equipped armor + shield text, "attacks": Array[String]
+## (every attack: melee, thrown and ranged with ranges), "spells":
+## Array[String] (prepared, cantrips first; unsupported ones marked),
+## "slots": String, "features": Array[String], "kit": Array[String] (carried
+## items with quantities), "gold": int}. {} without a class.
+func preview(content: Dictionary = {}) -> Dictionary:
 	var sheet := build_sheet()
 	if sheet == null:
 		return {}
+	var c := ContentLoader.resolve(content)
 	var attack: Dictionary = sheet.attacks[0] if not sheet.attacks.is_empty() else sheet.unarmed_strike()
 	var final_scores: Array[int] = []
 	for i in range(Ability.COUNT):
 		final_scores.append(sheet.abilities.get_score(i))
+	var attacks: Array[String] = []
+	for a in sheet.attacks:
+		attacks.append(CharacterDraft.attack_text(a))
+	if sheet.attacks.is_empty():
+		attacks.append(CharacterDraft.attack_text(sheet.unarmed_strike()))
+	var spells: Array[String] = []
+	var spell_defs: Dictionary = c["spells"]
+	var prepared: Array[SpellDefinition] = []
+	for id in sheet.spells_prepared:
+		if spell_defs.has(id):
+			var sd: SpellDefinition = spell_defs[id]
+			prepared.append(sd)
+	prepared.sort_custom(func(a: SpellDefinition, b: SpellDefinition) -> bool:
+		return a.level < b.level or (a.level == b.level and a.display_name < b.display_name))
+	for sd in prepared:
+		var text := "%s (%s)" % [sd.display_name, "cantrip" if sd.level == 0 else "level %d" % sd.level]
+		if not sd.is_supported():
+			text += " [not castable yet]"
+		spells.append(text)
+	var slot_parts: PackedStringArray = []
+	for i in range(sheet.spell_slots_max.size()):
+		if sheet.spell_slots_max[i] > 0:
+			slot_parts.append("%d x level %d" % [sheet.spell_slots_max[i], i + 1])
+	var features: Array[String] = []
+	for f in sheet.features:
+		features.append(ClientState.feature_name(f))
+	var kit: Array[String] = []
+	for entry in sheet.inventory:
+		var id := str(entry["item"])
+		if id == CharacterSheet.GOLD_ITEM:
+			continue
+		var item := CharacterSheet.item_def(id, c)
+		var label := item.display_name if item != null else id.replace("_", " ").capitalize()
+		var qty := DictUtil.to_int(entry["qty"], 1)
+		if sheet.equipped_count(id) > 0:
+			label += " (equipped)"
+		kit.append(ClientState.quantity_text(label, qty))
+	var armor_parts: PackedStringArray = []
+	var armor_id := sheet.equipped_item(CharacterSheet.SLOT_ARMOR)
+	if not armor_id.is_empty():
+		var armor_def := CharacterSheet.item_def(armor_id, c)
+		armor_parts.append(armor_def.display_name if armor_def != null else armor_id)
+	elif sheet.armor_base > 0:
+		armor_parts.append("armor %d" % sheet.armor_base)
+	else:
+		armor_parts.append("no armor")
+	if sheet.shield_bonus > 0:
+		armor_parts.append("shield +%d" % sheet.shield_bonus)
 	return {
 		"hp": sheet.max_hp,
 		"ac": sheet.armor_class(),
@@ -175,4 +240,22 @@ func preview() -> Dictionary:
 		"damage": str(attack.get("damage", "")),
 		"damage_type": str(attack.get("damage_type", "")),
 		"scores": final_scores,
+		"armor": ", ".join(armor_parts),
+		"attacks": attacks,
+		"spells": spells,
+		"slots": ", ".join(slot_parts),
+		"features": features,
+		"kit": kit,
+		"gold": sheet.gold(),
 	}
+
+
+## "Longbow (ranged 30/120 ft): +4, 1d8+2 piercing".
+static func attack_text(a: Dictionary) -> String:
+	var kind := str(a.get("kind", "melee"))
+	var where := kind
+	if Encounter.is_ranged_attack(a):
+		var r := Encounter.attack_range_tiles(a)
+		where = "%s %d/%d ft" % [kind, r[0] * GridMath.FEET_PER_TILE, r[1] * GridMath.FEET_PER_TILE]
+	return "%s (%s): %+d, %s %s" % [str(a.get("name", "")), where, DictUtil.to_int(a.get("to_hit", 0), 0),
+		str(a.get("damage", "")), str(a.get("damage_type", ""))]

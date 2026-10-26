@@ -1,12 +1,17 @@
 class_name CharacterCreator
 extends Control
-## Character creation screen: name, wave-1 class, SRD ancestry, standard-array
-## scores (each value used once), class skill picks and a live preview.
+## Character creation screen: name, any of the twelve SRD classes, SRD
+## ancestry, standard-array scores (each value used once), class skill picks
+## and a live preview (scores, HP, AC with the starting armor, every attack
+## with ranges, prepared spells and slots, features and the starting kit).
 ## Start stays disabled until the CharacterDraft is valid; pressing it emits
 ## character_created with the finished level 1 sheet.
 ##
 ## The whole UI is built in code from _ready(); every control is reachable
-## with the keyboard (Tab / arrows / Enter), no mouse needed.
+## with the keyboard (Tab / arrows / Enter), no mouse needed. Escape
+## (open_settings) opens the settings on the first press even while the name
+## field has focus: _input() releases the field's focus first, so the key
+## reaches Main's _unhandled_input instead of being eaten by the LineEdit.
 
 signal character_created(sheet: CharacterSheet)
 ## The Settings button was pressed (Main opens the SettingsMenu).
@@ -34,7 +39,7 @@ var _syncing: bool = false
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	_classes = CharacterDraft.wave_1_classes(ContentLoader.load_classes())
+	_classes = CharacterDraft.ordered_classes(ContentLoader.load_classes())
 	_ancestries = CharacterDraft.sorted_ancestries(ContentLoader.load_ancestries())
 	_build_ui()
 	if not _classes.is_empty():
@@ -137,10 +142,15 @@ func _build_ui() -> void:
 	_skill_box = VBoxContainer.new()
 	right.add_child(_skill_box)
 	right.add_child(_heading("Preview"))
+	var preview_scroll := ScrollContainer.new()
+	preview_scroll.custom_minimum_size = Vector2(420, 300)
+	preview_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	right.add_child(preview_scroll)
 	_preview = Label.new()
 	_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_preview.custom_minimum_size = Vector2(360, 0)
-	right.add_child(_preview)
+	_preview.custom_minimum_size = Vector2(400, 0)
+	_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_scroll.add_child(_preview)
 	_problems = Label.new()
 	_problems.modulate = Color(1.0, 0.65, 0.45)
 	_problems.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -232,11 +242,39 @@ func _preview_text() -> String:
 		parts.append("%s %d (%+d)" % [Ability.abbreviation(ability), score, Ability.modifier(score)])
 	var lines: PackedStringArray = []
 	lines.append("  ".join(parts))
-	lines.append("HP %d    AC %d    Speed %d ft" % [int(p["hp"]), int(p["ac"]), int(p["speed"])])
-	lines.append("%s: %+d to hit, %s %s" % [str(p["attack_name"]), int(p["to_hit"]), str(p["damage"]), str(p["damage_type"])])
+	lines.append("HP %d    AC %d (%s)    Speed %d ft" % [int(p["hp"]), int(p["ac"]), str(p["armor"]), int(p["speed"])])
 	if draft.ancestry != null:
 		lines.append("%s, speed %d ft." % [draft.ancestry.display_name, draft.ancestry.speed])
+	lines.append("")
+	lines.append("Attacks:")
+	for a: String in p["attacks"]:
+		lines.append("  " + a)
+	var spells: Array = p["spells"]
+	if not spells.is_empty():
+		lines.append("Spells prepared%s:" % ((" (slots: %s)" % str(p["slots"])) if not str(p["slots"]).is_empty() else ""))
+		for sp: String in spells:
+			lines.append("  " + sp)
+	elif not str(p["slots"]).is_empty():
+		lines.append("Spell slots: %s" % str(p["slots"]))
+	var features: Array = p["features"]
+	if not features.is_empty():
+		var names: PackedStringArray = []
+		for f: String in features:
+			names.append(f)
+		lines.append("Features: %s" % ", ".join(names))
+	var kit: Array = p["kit"]
+	var kit_names: PackedStringArray = []
+	for k: String in kit:
+		kit_names.append(k)
+	lines.append("Kit: %s; %d gold" % [", ".join(kit_names), int(p["gold"])])
 	return "\n".join(lines)
+
+
+## The name field would swallow the first Escape (LineEdit ends editing on
+## ui_cancel); drop its focus so Escape reaches Main and opens the settings.
+func _input(event: InputEvent) -> void:
+	if _name_edit != null and _name_edit.has_focus() and event.is_action_pressed("open_settings"):
+		_name_edit.release_focus()
 
 
 func _on_name_changed(text: String) -> void:

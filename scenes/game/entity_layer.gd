@@ -1,45 +1,82 @@
 class_name EntityLayer
 extends Node2D
-## Draws the entities of a ClientState as tiles from the dungeon tileset:
-## players (TILE_PLAYER), monsters (TILE_MONSTER), the downed (TILE_UNCONSCIOUS),
-## plus a selection ring (TILE_SELECTION) on the combatant whose turn it is.
+## Draws the entities and chests of a ClientState:
+## - chests from the icon atlas (chest_closed / chest_open); hidden chests are
+##   only in the state once the server revealed them;
+## - players by class_id and monsters by monster_id from the icon atlas
+##   (res://assets/icons/entity_icons.json); ids without an icon fall back to
+##   the dungeon tileset's TILE_PLAYER / TILE_MONSTER;
+## - the downed (and dead players) as TILE_UNCONSCIOUS;
+## - a selection ring (TILE_SELECTION) on the combatant whose turn it is.
 ## Slain monsters are not drawn. Pure view: reads the state, never changes it.
 
 const TILESET_PATH := "res://assets/tiles/dungeon_tiles.tres"
 
-var figures: TileMapLayer
+var chest_layer: TileMapLayer
 var markers: TileMapLayer
+## Dungeon-tileset figures (fallback icons and the downed).
+var fallback: TileMapLayer
+## Icon-atlas figures.
+var figures: TileMapLayer
+var icons: EntityIcons
 
 
 func _init() -> void:
 	var tile_set: TileSet = load(TILESET_PATH)
+	icons = EntityIcons.shared()
+	var icon_set := icons.tile_set()
+	chest_layer = TileMapLayer.new()
+	chest_layer.name = "Chests"
+	chest_layer.tile_set = icon_set
+	add_child(chest_layer)
 	markers = TileMapLayer.new()
 	markers.name = "Markers"
 	markers.tile_set = tile_set
 	add_child(markers)
+	fallback = TileMapLayer.new()
+	fallback.name = "FallbackFigures"
+	fallback.tile_set = tile_set
+	add_child(fallback)
 	figures = TileMapLayer.new()
 	figures.name = "Figures"
-	figures.tile_set = tile_set
+	figures.tile_set = icon_set
 	add_child(figures)
 
 
-## Redraws every entity from scratch (a floor holds at most a few hundred).
+## Redraws every entity and chest from scratch (a floor holds at most a few hundred).
 func refresh(state: ClientState) -> void:
 	figures.clear()
+	fallback.clear()
 	markers.clear()
+	chest_layer.clear()
+	for c in state.visible_chests():
+		var col := icons.column_for(EntityIcons.CHEST_OPEN if bool(c["opened"]) else EntityIcons.CHEST_CLOSED)
+		if col >= 0:
+			chest_layer.set_cell(c["position"], icons.source_id, Vector2i(col, 0))
 	for id: String in state.entities.keys():
 		var e: Dictionary = state.entities[id]
 		var p: Vector2i = e["position"]
+		var icon := EntityLayer.icon_for(e, icons)
+		if icon >= 0:
+			figures.set_cell(p, icons.source_id, Vector2i(icon, 0))
+			continue
 		var tile := EntityLayer.tile_for(e)
 		if tile >= 0:
-			figures.set_cell(p, FloorView.SOURCE_ID, Vector2i(tile, 0))
+			fallback.set_cell(p, FloorView.SOURCE_ID, Vector2i(tile, 0))
 	if state.in_encounter and state.entities.has(state.current_actor):
 		var current: Dictionary = state.entities[state.current_actor]
 		var cp: Vector2i = current["position"]
 		markers.set_cell(cp, FloorView.SOURCE_ID, Vector2i(FloorView.TILE_SELECTION, 0))
 
 
-## Atlas column for an entity, or -1 when it is not drawn (a slain monster).
+## Icon-atlas column for a standing entity, or -1 (downed, dead or no icon).
+static func icon_for(e: Dictionary, map: EntityIcons) -> int:
+	if bool(e.get("dead", false)) or bool(e.get("down", false)):
+		return -1
+	return map.column_for_entity(e)
+
+
+## Dungeon-tileset column for an entity, or -1 when it is not drawn (a slain monster).
 static func tile_for(e: Dictionary) -> int:
 	var is_player := str(e.get("kind", "")) == ClientState.KIND_PLAYER
 	if bool(e.get("dead", false)):

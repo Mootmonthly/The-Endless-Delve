@@ -5,11 +5,10 @@ extends RefCounted
 ## AudioServer, InputMap and the window. No singleton: scenes/main.gd loads one
 ## at boot, applies it, and hands it to the SettingsMenu.
 ##
-## NOTE (M2): the InputMap actions below are defined in project.godot and
-## rebound here, but scenes/game/game_scene.gd still reads raw keys / ui_*
-## actions. The game scene adopts these actions (move_*, end_turn, action_*,
-## ...) in a later pass; until then only open_settings / cancel / confirm are
-## read (by Main and the SettingsMenu). Mouse input is not configurable.
+## The game scene and HUD read these InputMap actions (move_*, end_turn,
+## action_*, open_spells, open_features, toggle_inventory, descend, rest,
+## cancel); Main and the SettingsMenu read open_settings / cancel / confirm.
+## Mouse input is not configurable.
 ##
 ## settings.cfg format:
 ##   [audio]  master=80  music=80  sfx=80          ; ints 0-100 (clamped on load)

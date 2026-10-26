@@ -19,12 +19,53 @@ func _fighter_draft() -> CharacterDraft:
 	return d
 
 
-func test_wave_1_classes_in_order() -> void:
+func test_all_twelve_classes_in_menu_order() -> void:
 	var ids: Array[String] = []
-	for def in CharacterDraft.wave_1_classes(_classes):
+	for def in CharacterDraft.ordered_classes(_classes):
 		ids.append(def.id)
-	assert_eq(ids, ["fighter", "rogue", "cleric", "wizard"] as Array[String])
+	assert_eq(ids, CharacterDraft.CLASS_ORDER, "every SRD class, fighter first")
+	assert_eq(ids.size(), 12)
 	assert_eq(CharacterDraft.sorted_ancestries(_ancestries).size(), _ancestries.size())
+
+
+func test_every_class_builds_a_valid_preview() -> void:
+	for def in CharacterDraft.ordered_classes(_classes):
+		var d := CharacterDraft.new()
+		d.character_name = "Tester"
+		d.set_class(def)
+		d.set_ancestry(_ancestries["human"])
+		d.auto_assign()
+		for skill in def.skill_choices:
+			d.toggle_skill(skill, true)
+		assert_true(d.is_valid(), "%s: %s" % [def.id, str(d.problems())])
+		var p := d.preview()
+		assert_true(int(p["hp"]) > 0, def.id)
+		assert_true((p["attacks"] as Array).size() >= 1, "%s has an attack" % def.id)
+		assert_true((p["kit"] as Array).size() >= 1, "%s carries a kit" % def.id)
+		assert_eq(int(p["gold"]), 10, "%s starts with 10 gold" % def.id)
+
+
+func test_preview_shows_armor_ranges_spells_and_slots() -> void:
+	var d := _fighter_draft()
+	d.auto_assign()
+	var p := d.preview()
+	assert_has(str(p["armor"]), "Chain Mail")
+	var wiz := CharacterDraft.new()
+	wiz.character_name = "Ilsa"
+	wiz.set_class(_classes["wizard"])
+	wiz.set_ancestry(_ancestries["human"])
+	wiz.auto_assign()
+	var wp := wiz.preview()
+	assert_false((wp["spells"] as Array).is_empty(), "a wizard has prepared spells")
+	assert_has(str(wp["slots"]), "level 1")
+	var ranger := CharacterDraft.new()
+	ranger.set_class(_classes["ranger"])
+	ranger.auto_assign()
+	var ranged := false
+	for a: String in ranger.preview()["attacks"]:
+		if a.contains("ranged") and a.contains(" ft"):
+			ranged = true
+	assert_true(ranged, "the ranger preview lists a ranged attack with its range")
 
 
 func test_assign_swaps_to_keep_values_unique() -> void:

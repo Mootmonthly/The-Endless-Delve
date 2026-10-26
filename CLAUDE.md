@@ -130,3 +130,15 @@ Append one entry per working session (newest last).
   `tests/content`). Naive-bot curve over 20 seeds: dies on floors 1/2/3
   (9/4/7), never past floor 3 at level 1. Owner kept floor 1 at a two-rat pack:
   players are smarter than the bot. Suite: 304 tests green.
+- **2026-10-26 — Items, spells, twelve classes, level-up, settings (playtest
+  round 1).** Owner playtest: nothing broke, but no inventory/items, no Wizard
+  spells, under-levelled, no loot. Core: items/equipment/inventory, spell
+  slots and effects (spell_attack, auto_hit, save, heal, buff, multi-ray),
+  ranged/thrown attacks with LOS, class features for all twelve SRD classes,
+  loot tables, chests, `LevelUp.choices/apply` (gain_xp no longer
+  auto-levels). Content: 42 items, 31 spells, 8 new classes, chests by every
+  staircase plus hidden caches, floor-clear XP bonus (100), icon atlas; witch
+  bolt dropped (not SRD), hex is SRD 5.2 (attribution added). Server: item and
+  chest intents, drops, LEVEL_UP_AVAILABLE/level_up round trip. Client: Tab
+  inventory, Spells/Features/attack pickers with targeting, level-up screen,
+  settings menu with rebinding and volume, InputMap actions. Suite: 482 green.

@@ -522,3 +522,396 @@ func test_set_cleared_ends_the_run() -> void:
 	assert_eq(st.mode_text(), "Set cleared")
 	assert_false(st.can_use_stairs())
 	assert_eq(st.intent_for_click(Vector2i(2, 1)), {}, "no more walking")
+
+
+# --- items, chests, spells, features, level-ups (M2) --------------------------------
+
+## A level 1 fighter built from the real content (longsword, chain mail, shield, kit).
+func _fighter_sheet_dict(hp: int = 12) -> Dictionary:
+	var d := CharacterDraft.new()
+	d.character_name = "Tess"
+	var classes := ContentLoader.load_classes()
+	d.set_class(classes["fighter"])
+	d.auto_assign()
+	var s := d.build_sheet()
+	s.max_hp = hp
+	s.current_hp = hp
+	return s.to_dict()
+
+
+func _caster_sheet_dict(class_id: String) -> Dictionary:
+	var d := CharacterDraft.new()
+	d.character_name = "Ilsa"
+	var classes := ContentLoader.load_classes()
+	d.set_class(classes[class_id])
+	d.auto_assign()
+	return d.build_sheet().to_dict()
+
+
+func _loaded_with(sheet_dict: Dictionary, extra_floor: Dictionary = {}) -> ClientState:
+	var st := ClientState.new(PID)
+	var fields := {"floor": _floor_dict()}
+	fields.merge(extra_floor, true)
+	st.apply(Messages.make_result(Messages.FLOOR_LOADED, fields))
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": sheet_dict}))
+	st.apply(_explore([
+		_ent(PID, "player", [4, 3]),
+		{"id": GOBLIN, "kind": "monster", "position": [7, 3], "name": "Goblin", "monster_id": "goblin"},
+		{"id": RAT, "kind": "monster", "position": [8, 5], "name": "Giant Rat", "monster_id": "giant_rat"},
+	]))
+	return st
+
+
+func _combat_turn(st: ClientState) -> void:
+	st.apply(_events([
+		{"kind": "combatant_joined", "id": PID, "initiative": 18, "position": [4, 3]},
+		{"kind": "combatant_joined", "id": GOBLIN, "initiative": 15, "position": [7, 3]},
+		{"kind": "combatant_joined", "id": RAT, "initiative": 5, "position": [8, 5]},
+		{"kind": "encounter_started", "order": [PID, GOBLIN, RAT]},
+		{"kind": "round_started", "round": 1},
+		{"kind": "turn_started", "actor": PID, "round": 1},
+	]))
+
+
+func test_entities_carry_icon_ids() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	assert_eq(str(st.get_entity(GOBLIN).get("monster_id", "")), "goblin")
+	assert_eq(str(st.get_entity(PID).get("class_id", "")), "fighter")
+	var icons := EntityIcons.shared()
+	assert_eq(icons.column_for_entity(st.get_entity(PID)), 0, "fighter column")
+	assert_eq(icons.column_for_entity(st.get_entity(GOBLIN)), 13, "goblin column")
+	assert_eq(icons.column_for("consumable"), icons.column_for("potion"), "alias")
+	assert_eq(icons.column_for("nope"), -1)
+	assert_eq(EntityLayer.icon_for(st.get_entity(PID), icons), 0)
+	var down := st.get_entity(PID).duplicate()
+	down["down"] = true
+	assert_eq(EntityLayer.icon_for(down, icons), -1, "the downed use the unconscious tile")
+	assert_eq(EntityLayer.tile_for(down), FloorView.TILE_UNCONSCIOUS)
+
+
+func test_floor_loaded_chests_and_reveal() -> void:
+	var st := _loaded_with(_fighter_sheet_dict(), {"chests": [{"id": "c1", "position": [2, 2], "hidden": false, "opened": false}]})
+	assert_eq(st.chests.size(), 1)
+	assert_eq(st.chest_at(Vector2i(2, 2)), "c1")
+	assert_false(st.can_open_chest("c1"), "too far away")
+	st.apply(Messages.make_result(Messages.CHEST_REVEALED, {"chest": {"id": "c2", "position": [5, 3], "hidden": true, "opened": false}}))
+	assert_eq(st.visible_chests().size(), 2)
+	assert_has(st.log_lines, "You discover a hidden chest!")
+	assert_true(st.can_open_chest("c2"), "adjacent")
+	var open := st.intent_for_click(Vector2i(5, 3))
+	assert_eq(open.get("type"), Messages.OPEN_CHEST)
+	assert_eq(open.get("chest_id"), "c2")
+	assert_eq(Messages.validate_intent(open), "")
+	var walk := st.intent_for_click(Vector2i(2, 2))
+	assert_eq(walk.get("type"), Messages.EXPLORE_MOVE, "a far chest: walk onto it first")
+	st.apply(Messages.make_result(Messages.CHEST_OPENED, {"chest_id": "c2", "entity_id": PID}))
+	assert_true(bool(st.chests["c2"]["opened"]))
+	assert_false(st.can_open_chest("c2"), "already open")
+	assert_eq(st.intent_for_click(Vector2i(5, 3)).get("type"), Messages.EXPLORE_MOVE)
+	assert_eq(st.nearest_closed_chest(), "c1")
+
+
+func test_floor_without_chest_list_uses_visible_floor_chests() -> void:
+	var floor := _floor_dict()
+	floor["chests"] = [{"id": "a", "position": [2, 2], "table": "starter_gear"},
+		{"id": "b", "position": [3, 3], "table": "hidden_cache", "hidden": true}]
+	var st := ClientState.new(PID)
+	st.apply(Messages.make_result(Messages.FLOOR_LOADED, {"floor": floor}))
+	assert_true(st.chests.has("a"))
+	assert_false(st.chests.has("b"), "hidden chests wait for CHEST_REVEALED")
+
+
+func test_loot_gained_is_logged_for_this_player_only() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	st.drain_log()
+	st.apply(Messages.make_result(Messages.LOOT_GAINED, {"entity_id": PID, "source": "chest", "chest_id": "c1",
+		"items": [{"item": "potion_of_healing", "qty": 2}, {"item": "gold", "qty": 12}, {"item": "dagger", "qty": 1}]}))
+	assert_eq(st.drain_log(), ["Loot from the chest: Potion of Healing x2, 12 gold, Dagger."] as Array[String])
+	assert_eq(st.last_loot.size(), 3)
+	st.apply(Messages.make_result(Messages.LOOT_GAINED, {"entity_id": PID, "source": "chest", "items": []}))
+	assert_eq(st.drain_log(), ["Nothing of value from the chest."] as Array[String])
+	st.apply(Messages.make_result(Messages.LOOT_GAINED, {"entity_id": "p9", "source": "monster", "items": [{"item": "gold", "qty": 3}]}))
+	assert_eq(st.drain_log().size(), 0, "someone else's loot")
+	assert_eq(st.last_loot.size(), 0, "the empty chest's loot is still the latest")
+
+
+func test_character_state_extras_are_logged() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	st.drain_log()
+	var sheet := _fighter_sheet_dict()
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": sheet, "item_used": "potion_of_healing", "healed": 7}))
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": sheet, "equipped": {"item": "dagger", "slot": "main_hand"}}))
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": sheet, "unequipped": {"item": "shield", "slot": "off_hand"}}))
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": sheet, "dropped": {"item": "rations", "qty": 2}}))
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": sheet, "xp_gained": 100, "floor_clear_xp": 100, "levels_pending": 0}))
+	assert_eq(st.drain_log(), [
+		"Tess uses Potion of Healing.", "Tess regains 7 HP.", "Tess equips Dagger.", "Tess puts away Shield.",
+		"Tess drops Rations x2.", "Floor-clear bonus: gained 100 XP.",
+	] as Array[String])
+
+
+func test_inventory_rows_slots_and_ac_breakdown() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	assert_eq(st.ac_breakdown(), "AC 16: chain mail 16, DEX 0, shield +0")
+	assert_eq(st.gold(), 10)
+	var by_id := {}
+	for r in st.inventory_rows():
+		by_id[r["item"]] = r
+	assert_false(by_id.has("gold"), "gold has its own line")
+	var potion: Dictionary = by_id["potion_of_healing"]
+	assert_eq(int(potion["qty"]), 2)
+	assert_true(bool(potion["usable"]))
+	var sword: Dictionary = by_id["longsword"]
+	assert_eq(sword["equipped"], ["main_hand"] as Array[String])
+	assert_has(sword["equip_slots"], "main_hand")
+	assert_eq(st.equip_slots_for("shield"), ["off_hand"] as Array[String])
+	assert_eq(st.equip_slots_for("chain_mail"), ["armor"] as Array[String])
+	assert_has(st.equip_slots_for("dagger"), "off_hand", "a light weapon fits the off hand")
+	assert_true(st.carried_weight() > 0.0)
+	assert_true(st.can_manage_equipment())
+	assert_eq(st.use_item_error("potion_of_healing"), "", "potions work out of combat")
+	assert_eq(st.use_item_error("rations"), "cannot be used")
+	for intent: Dictionary in [st.equip_intent("dagger", "off_hand"), st.unequip_intent("armor"),
+			st.use_item_intent("potion_of_healing"), st.drop_item_intent("rations", 2)]:
+		assert_eq(Messages.validate_intent(intent), "", str(intent))
+	_combat_turn(st)
+	assert_false(st.can_manage_equipment(), "equipment is locked in combat")
+	assert_eq(st.use_item_error("potion_of_healing"), "", "on my turn with the action free")
+
+
+func test_combat_item_use_spends_the_action_and_the_potion() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	_combat_turn(st)
+	st.apply(_events([
+		{"kind": "item_used", "actor": PID, "item": "potion_of_healing", "target": PID},
+		{"kind": "heal", "source": PID, "target": PID, "amount": 3, "rolled": 7, "hp_after": 12, "revived": false},
+	]))
+	assert_true(st.action_used)
+	assert_eq(st.sheet.count_item("potion_of_healing"), 1)
+	assert_ne(st.use_item_error("potion_of_healing"), "", "action spent")
+	assert_has(st.log_lines, "Tess uses Potion of Healing.")
+	assert_has(st.log_lines, "Tess regains 3 HP (12 HP).")
+
+
+func test_attacks_selection_ranges_and_consumption() -> void:
+	var sheet := CharacterSheet.from_dict(_fighter_sheet_dict())
+	sheet.add_item("javelin", 2)
+	sheet.rebuild_attacks(ContentLoader.cache())
+	var st := _loaded_with(sheet.to_dict())
+	var attacks := st.available_attacks()
+	assert_eq(str(attacks[attacks.size() - 1]["name"]), "Unarmed Strike", "the unarmed strike is last, as on the server")
+	var javelin := -1
+	for i in range(attacks.size()):
+		if str(attacks[i].get("kind", "")) == "thrown" and str(attacks[i].get("item", "")) == "javelin":
+			javelin = i
+	assert_true(javelin >= 0, "carried javelins are a thrown attack")
+	_combat_turn(st)
+	assert_false(st.can_attack(), "melee: nothing adjacent")
+	st.select_attack(javelin)
+	assert_true(st.can_attack(), "the goblin is within javelin range")
+	var tiles := st.range_tiles()
+	assert_eq(int(tiles.get(Vector2i(7, 3), -1)), 0, "goblin in normal range")
+	var click := st.intent_for_click(Vector2i(7, 3))
+	assert_eq(click.get("type"), Messages.ATTACK)
+	assert_eq(int(click.get("attack_index")), javelin)
+	st.apply(_events([{"kind": "attack", "attacker": PID, "target": GOBLIN, "attack_name": "Javelin", "attack_kind": "thrown",
+		"natural": 15, "d20s": [15], "total": 20, "target_ac": 15, "hit": true, "critical": false, "fumble": false,
+		"advantage": "normal", "bonus": false, "consumed": "javelin"}]))
+	assert_true(st.action_used)
+	assert_true(st.attack_action_taken)
+	assert_eq(st.sheet.count_item("javelin"), 1, "one javelin thrown")
+	assert_eq(st.available_attacks().size(), attacks.size(), "combat indices stay those of the encounter start")
+
+
+func test_spells_targeting_slots_and_unsupported() -> void:
+	var st := _loaded_with(_caster_sheet_dict("wizard"))
+	var entries := st.spell_entries()
+	assert_false(entries.is_empty())
+	assert_eq(int(entries[0]["level"]), 0, "cantrips first")
+	assert_ne(st.cast_error("fire_bolt"), "", "not in combat")
+	assert_eq(st.slots_text(), "Slots: 1st 2/2")
+	_combat_turn(st)
+	var cantrip := ""
+	var leveled := ""
+	for e in entries:
+		var def := st.spell_def(str(e["id"]))
+		if def.is_harmful() and def.is_supported() and def.range_tiles() >= 3:
+			if def.level == 0 and cantrip.is_empty():
+				cantrip = def.id
+			elif def.level == 1 and leveled.is_empty():
+				leveled = def.id
+	assert_ne(cantrip, "", "a ranged attack cantrip is prepared")
+	assert_eq(st.begin_cast(cantrip), {}, "enters targeting mode")
+	assert_true(st.is_targeting())
+	assert_false(st.range_tiles().is_empty(), "spell range is tinted")
+	assert_eq(st.intent_for_click(Vector2i(4, 3)), {}, "a harmful spell cannot target yourself")
+	assert_has(st.hint, "hostile")
+	var cast := st.intent_for_click(Vector2i(7, 3))
+	assert_eq(cast.get("type"), Messages.CAST)
+	assert_eq(cast.get("spell"), cantrip)
+	assert_eq(cast.get("target"), GOBLIN)
+	assert_eq(int(cast.get("slot_level")), 0, "cantrips need no slot")
+	assert_eq(Messages.validate_intent(cast), "")
+	st.cancel_targeting()
+	assert_false(st.is_targeting())
+	if not leveled.is_empty():
+		st.begin_cast(leveled)
+		assert_eq(int(st.targeting["slot_level"]), 1, "lowest available slot by default")
+		st.cancel_targeting()
+	st.apply(_events([{"kind": "cast", "actor": PID, "spell": leveled if not leveled.is_empty() else cantrip,
+		"target": GOBLIN, "slot_level": 1 if not leveled.is_empty() else 0}]))
+	assert_true(st.action_used)
+	if not leveled.is_empty():
+		assert_eq(st.sheet.slots_left(1), 1, "a level 1 slot was spent")
+	assert_ne(st.cast_error(cantrip), "", "action used")
+	# An unsupported spell is listed but never castable.
+	st.sheet.spells_prepared.append("sleep")
+	var found := false
+	for e in st.spell_entries():
+		if str(e["id"]) == "sleep":
+			found = true
+			assert_false(bool(e["supported"]))
+			assert_eq(str(e["error"]), "not supported yet")
+	assert_true(found)
+
+
+func test_self_and_ally_spells() -> void:
+	var st := _loaded_with(_caster_sheet_dict("cleric"))
+	_combat_turn(st)
+	var heal := ""
+	for id in st.sheet.spells_prepared:
+		var def := st.spell_def(id)
+		if def != null and def.effect_type == SpellDefinition.EFFECT_HEAL:
+			heal = id
+	if heal.is_empty():
+		st.sheet.spells_prepared.append("cure_wounds")
+		heal = "cure_wounds"
+	st.begin_cast(heal)
+	assert_eq(st.intent_for_click(Vector2i(7, 3)), {}, "a heal needs an ally")
+	var intent := st.intent_for_click(Vector2i(4, 3))
+	assert_eq(intent.get("target"), PID, "heal yourself")
+
+
+func test_features_and_resources() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	assert_eq(st.resources_text(), "Second Wind 1/1")
+	var entries := st.feature_entries()
+	assert_eq(entries.size(), 1)
+	assert_ne(str(entries[0]["error"]), "", "combat only")
+	_combat_turn(st)
+	var intent := st.begin_feature("second_wind")
+	assert_eq(intent.get("type"), Messages.USE_FEATURE)
+	assert_eq(intent.get("feature"), "second_wind")
+	assert_eq(Messages.validate_intent(intent), "")
+	st.apply(_events([
+		{"kind": "feature_used", "actor": PID, "feature": "second_wind", "target": PID, "remaining": 0},
+		{"kind": "heal", "source": PID, "target": PID, "amount": 0, "rolled": 6, "hp_after": 12, "revived": false},
+	]))
+	assert_true(st.bonus_action_used)
+	assert_false(st.action_used, "a bonus action")
+	assert_eq(st.sheet.class_resource("second_wind"), 0)
+	assert_eq(st.resources_text(), "Second Wind 0/1")
+	assert_has(st.log_lines, "Tess uses Second Wind.")
+
+
+func test_lay_on_hands_and_bardic_inspiration_target() -> void:
+	var st := _loaded_with(_caster_sheet_dict("paladin"))
+	_combat_turn(st)
+	assert_eq(st.begin_feature("lay_on_hands", 3), {})
+	assert_eq(int(st.targeting["amount"]), 3)
+	var lay := st.intent_for_click(Vector2i(4, 3))
+	assert_eq(lay.get("feature"), "lay_on_hands")
+	assert_eq(int(lay.get("amount")), 3)
+	assert_eq(lay.get("target"), PID)
+	var bard := _loaded_with(_caster_sheet_dict("bard"))
+	_combat_turn(bard)
+	bard.begin_feature("bardic_inspiration")
+	assert_eq(bard.intent_for_click(Vector2i(4, 3)), {}, "not yourself")
+	assert_eq(bard.intent_for_click(Vector2i(7, 3)), {}, "not a monster")
+
+
+func test_status_tags_follow_effects() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	_combat_turn(st)
+	st.apply(_events([
+		{"kind": "dodge", "actor": PID},
+		{"kind": "effect_applied", "source": PID, "target": GOBLIN, "effect": "guiding_bolt_mark"},
+		{"kind": "effect_applied", "source": PID, "target": PID, "effect": "rage"},
+	]))
+	assert_has(st.status_tags(PID), "dodging")
+	assert_has(st.status_tags(PID), "raging")
+	assert_has(st.status_tags(GOBLIN), "marked")
+	assert_has(st.log_lines, "Goblin is now marked.")
+	st.apply(_events([
+		{"kind": "turn_ended", "actor": PID},
+		{"kind": "turn_started", "actor": GOBLIN, "round": 1},
+		{"kind": "attack", "attacker": RAT, "target": GOBLIN, "attack_name": "Bite", "attack_kind": "melee", "natural": 5,
+			"d20s": [5, 12], "total": 9, "target_ac": 15, "hit": false, "critical": false, "fumble": false, "advantage": "advantage"},
+		{"kind": "effect_ended", "target": PID, "effect": "rage"},
+	]))
+	assert_eq(st.status_tags(GOBLIN).size(), 0, "the mark is used up by the attack")
+	assert_has(st.status_tags(PID), "dodging", "dodge lasts until my next turn")
+	assert_false(st.status_tags(PID).has("raging"))
+	st.apply(_events([{"kind": "turn_ended", "actor": GOBLIN}, {"kind": "turn_started", "actor": PID, "round": 2}]))
+	assert_eq(st.status_tags(PID).size(), 0)
+
+
+func test_cast_save_and_temp_hp_log_lines() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	_combat_turn(st)
+	st.drain_log()
+	st.apply(_events([
+		{"kind": "cast", "actor": GOBLIN, "spell": "sacred_flame", "target": PID, "slot_level": 0},
+		{"kind": "save", "actor": GOBLIN, "target": PID, "ability": "DEX", "dc": 13, "natural": 9, "total": 9, "success": false},
+		{"kind": "temp_hp", "source": PID, "target": PID, "amount": 5, "temp_hp_after": 5},
+		{"kind": "inspiration_used", "actor": PID, "source": "p2", "die": 6, "roll": 4},
+	]))
+	assert_eq(st.drain_log(), [
+		"Goblin casts Sacred Flame at Tess.",
+		"Tess makes a DEX saving throw: 9 vs DC 13, fails.",
+		"Tess gains 5 temporary HP.",
+		"Tess adds a Bardic Inspiration die: d6 rolled 4.",
+	] as Array[String])
+	assert_eq(st.sheet.temp_hp, 5)
+
+
+func test_level_up_offer_is_tracked_until_answered() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	var s := CharacterSheet.from_dict(_fighter_sheet_dict())
+	s.xp = 300
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": s.to_dict(), "xp_gained": 50, "levels_pending": 1}))
+	var choices := LevelUp.choices(s)
+	st.apply(Messages.make_result(Messages.LEVEL_UP_AVAILABLE, {"entity_id": PID, "choices": choices}))
+	assert_true(st.has_level_up_offer())
+	assert_true(st.can_level_up())
+	assert_eq(st.level_up_serial, 1)
+	assert_has(st.log_lines, "Level 2 is available! Open the level-up screen to choose.")
+	st.apply(Messages.make_result(Messages.LEVEL_UP_AVAILABLE, {"entity_id": "p9", "choices": choices}))
+	assert_eq(st.level_up_serial, 1, "another player's offer")
+	var draft := LevelUpDraft.first_valid(st.level_up_offer, st.sheet)
+	assert_true(draft.is_valid(), str(draft.problems()))
+	var intent := st.level_up_intent(draft.to_choices())
+	assert_eq(intent.get("type"), Messages.LEVEL_UP)
+	assert_eq(intent["choices"]["hp"], "average")
+	assert_eq(Messages.validate_intent(intent), "")
+	_combat_turn(st)
+	assert_false(st.can_level_up(), "never in combat")
+	st.apply(_events([{"kind": "encounter_ended", "winning_team": 0}]))
+	assert_true(st.can_level_up())
+	assert_true(LevelUp.apply(s, draft.to_choices(), {}, null).is_empty())
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": s.to_dict(), "leveled_to": 2, "levels_pending": 0}))
+	assert_false(st.has_level_up_offer())
+	assert_eq(st.last_leveled_to, 2)
+	assert_has(st.log_lines, "Level up! Tess is now level 2.")
+
+
+func test_step_intent_ignores_targeting() -> void:
+	var st := _loaded_with(_fighter_sheet_dict())
+	var walk := st.step_intent(Vector2i.RIGHT)
+	assert_eq(walk.get("type"), Messages.EXPLORE_MOVE)
+	assert_eq(walk.get("target"), [5, 3])
+	_combat_turn(st)
+	st.begin_attack_targeting(0)
+	var step := st.step_intent(Vector2i.RIGHT)
+	assert_eq(step.get("type"), Messages.MOVE)
+	assert_eq(step.get("path"), [[5, 3]])

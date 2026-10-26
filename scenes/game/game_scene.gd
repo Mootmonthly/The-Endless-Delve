@@ -13,8 +13,15 @@ extends Node2D
 ## transport goes through ClientState; the views redraw from it. Input becomes
 ## intents (see ClientState.intent_for_click); the server validates them all.
 ##
-## Controls: left click = walk (exploring) / move or attack (your combat turn);
-## arrow keys = one step; Space = end turn; mouse wheel = zoom.
+## Controls (InputMap actions, rebindable in Settings): left click = walk /
+## open a chest within reach (exploring), move or attack with the selected
+## attack (your combat turn), or pick the target of a spell / feature in
+## targeting mode; right click or `cancel` (Escape) = leave targeting mode,
+## then close HUD panels (else Main opens the pause menu); move_* = one step;
+## end_turn; action_attack / action_dash / action_dodge / action_disengage;
+## open_spells; open_features; toggle_inventory; descend; rest; mouse wheel
+## = zoom. The LevelUpScreen opens by itself on a new LEVEL_UP_AVAILABLE when
+## out of combat; the HUD's "Level up available" button reopens it.
 
 ## Emitted when the player asks for a new character after the run ended.
 signal exit_requested
@@ -22,6 +29,14 @@ signal exit_requested
 const SET_PATH := "res://floors/set_01.json"
 const FLOOR_PATH := "res://floors/floor_001.json"
 const FLOOR_VIEW_SCENE := "res://scenes/floor/floor_view.tscn"
+const LEVEL_UP_SCENE := "res://scenes/ui/level_up_screen.tscn"
+const MOVE_ACTIONS: Dictionary[String, Vector2i] = {
+	"move_up": Vector2i.UP, "move_down": Vector2i.DOWN, "move_left": Vector2i.LEFT, "move_right": Vector2i.RIGHT,
+}
+const HUD_ACTIONS: Dictionary[String, String] = {
+	"action_attack": "attack", "action_dash": "dash", "action_dodge": "dodge",
+	"action_disengage": "disengage", "end_turn": "end_turn", "descend": "use_stairs", "rest": "short_rest",
+}
 const TICKS_PER_SECOND := 20
 const DEFAULT_ZOOM := 2
 const MIN_ZOOM := 1
@@ -37,6 +52,7 @@ var reach: ReachOverlay = null
 var entity_layer: EntityLayer = null
 var camera: Camera2D = null
 var hud: Hud = null
+var level_up_screen: LevelUpScreen = null
 
 var _sheet: CharacterSheet = null
 var _seed: int = 0
@@ -44,6 +60,7 @@ var _dirty: bool = true
 var _built_floor_serial: int = 0
 var _highlighted: Rect2i = Rect2i()
 var _zoom: int = DEFAULT_ZOOM
+var _seen_level_up_serial: int = 0
 
 
 ## Call before adding the scene to the tree. seed 0 = pick one from the clock.
@@ -82,7 +99,14 @@ func _ready() -> void:
 	hud.name = "Hud"
 	add_child(hud)
 	hud.action_requested.connect(_on_hud_action)
+	hud.intent_requested.connect(_send)
+	hud.state_changed.connect(func() -> void: _dirty = true)
 	hud.new_character_requested.connect(_on_new_character)
+	var level_packed: PackedScene = load(LEVEL_UP_SCENE)
+	level_up_screen = level_packed.instantiate() as LevelUpScreen
+	level_up_screen.name = "LevelUpScreen"
+	add_child(level_up_screen)
+	level_up_screen.confirmed.connect(_on_level_up_confirmed)
 
 	server = InstanceServer.new()
 	server.name = "InstanceServer"
@@ -115,7 +139,7 @@ func _configure_server() -> bool:
 static func default_sheet() -> CharacterSheet:
 	var draft := CharacterDraft.new()
 	draft.character_name = "Wanderer"
-	var classes := CharacterDraft.wave_1_classes(ContentLoader.load_classes())
+	var classes := CharacterDraft.ordered_classes(ContentLoader.load_classes())
 	if not classes.is_empty():
 		draft.set_class(classes[0])
 	var ancestries := ContentLoader.load_ancestries()
@@ -131,6 +155,8 @@ static func default_sheet() -> CharacterSheet:
 
 func _on_result(result: Dictionary) -> void:
 	state.apply(result)
+	if str(result.get("kind", "")) == Messages.ERROR and level_up_screen != null and level_up_screen.is_open():
+		level_up_screen.set_waiting(false, str(result.get("message", "")))
 	_dirty = true
 
 
@@ -164,6 +190,8 @@ func _refresh_view() -> void:
 		var t: Vector2i = key
 		tiles.append(t)
 	reach.set_tiles(tiles)
+	reach.set_range(state.range_tiles(), state.is_targeting())
+	_refresh_level_up()
 	if state.has_player_entity():
 		camera.position = FloorView.tile_to_world(state.player_position())
 		if new_floor:
@@ -172,6 +200,28 @@ func _refresh_view() -> void:
 		camera.position = FloorView.tile_to_world(state.floor_data.arrival)
 		camera.reset_smoothing()
 	hud.refresh(state)
+
+
+## Opens the level-up screen once per new offer (when it can be answered),
+## and closes it once the offer is answered (CHARACTER_STATE leveled_to).
+func _refresh_level_up() -> void:
+	if level_up_screen == null:
+		return
+	if level_up_screen.is_open() and not state.has_level_up_offer():
+		level_up_screen.close()
+	elif state.level_up_serial != _seen_level_up_serial and state.can_level_up():
+		_seen_level_up_serial = state.level_up_serial
+		open_level_up()
+
+
+func open_level_up() -> void:
+	if state.can_level_up() and level_up_screen != null:
+		hud.close_popups()
+		level_up_screen.open(state.level_up_offer, state.sheet, state.content)
+
+
+func _on_level_up_confirmed(choices: Dictionary) -> void:
+	_send(state.level_up_intent(choices))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -183,35 +233,57 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		match mb.button_index:
 			MOUSE_BUTTON_LEFT:
-				_send(state.intent_for_click(_mouse_tile()))
+				var targeting := state.is_targeting()
+				var intent := state.intent_for_click(_mouse_tile())
+				if targeting:
+					if not intent.is_empty():
+						state.cancel_targeting()
+					_dirty = true  # show the hint either way
+				_send(intent)
 				get_viewport().set_input_as_handled()
+			MOUSE_BUTTON_RIGHT:
+				if state.is_targeting():
+					state.cancel_targeting()
+					_dirty = true
+					get_viewport().set_input_as_handled()
 			MOUSE_BUTTON_WHEEL_UP:
 				_set_zoom(_zoom + 1)
 			MOUSE_BUTTON_WHEEL_DOWN:
 				_set_zoom(_zoom - 1)
-	elif event is InputEventMouseMotion:
+		return
+	if event is InputEventMouseMotion:
 		reach.set_hover(_mouse_tile())
-	elif event is InputEventKey:
-		var key: InputEventKey = event
-		if not key.pressed or key.echo:
-			return
-		if key.keycode == KEY_SPACE:
-			if state.is_my_turn():
-				_send(state.simple_intent(Messages.END_TURN))
+		return
+	if not event.is_pressed() or event.is_echo():
+		return
+	if event.is_action_pressed("cancel"):
+		# Escape closes what the game has open; with nothing open Main opens the pause menu.
+		if state.is_targeting():
+			state.cancel_targeting()
+			_dirty = true
+			get_viewport().set_input_as_handled()
+		elif hud.close_top():
+			get_viewport().set_input_as_handled()
+		return
+	for action: String in MOVE_ACTIONS.keys():
+		if event.is_action_pressed(action):
+			_send(state.step_intent(MOVE_ACTIONS[action]))
 			get_viewport().set_input_as_handled()
 			return
-		var dir := Vector2i.ZERO
-		if event.is_action("ui_left"):
-			dir = Vector2i.LEFT
-		elif event.is_action("ui_right"):
-			dir = Vector2i.RIGHT
-		elif event.is_action("ui_up"):
-			dir = Vector2i.UP
-		elif event.is_action("ui_down"):
-			dir = Vector2i.DOWN
-		if dir != Vector2i.ZERO and state.has_player_entity():
-			_send(state.intent_for_click(state.player_position() + dir))
+	for action: String in HUD_ACTIONS.keys():
+		if event.is_action_pressed(action):
+			_on_hud_action(HUD_ACTIONS[action])
 			get_viewport().set_input_as_handled()
+			return
+	if event.is_action_pressed("toggle_inventory"):
+		hud.toggle_inventory()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_spells"):
+		hud.toggle_spells()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_features"):
+		hud.toggle_features()
+		get_viewport().set_input_as_handled()
 
 
 func _mouse_tile() -> Vector2i:
@@ -231,11 +303,29 @@ func _send(intent: Dictionary) -> void:
 func _on_hud_action(action: String) -> void:
 	match action:
 		"attack":
-			_send(state.attack_intent())
-		"dash", "dodge", "disengage", "end_turn", "use_stairs":
-			_send(state.simple_intent(action))
+			# Melee: the first adjacent hostile. Ranged / thrown: the first hostile
+			# in range; with none, pick a target by clicking.
+			var intent := state.attack_intent()
+			if intent.is_empty() and state.can_take_action():
+				state.begin_attack_targeting()
+			_send(intent)
+		"dash", "dodge", "disengage":
+			if state.can_take_action():
+				state.cancel_targeting()
+				_send(state.simple_intent(action))
+		"end_turn":
+			if state.is_my_turn():
+				state.cancel_targeting()
+				_send(state.simple_intent(action))
+		"use_stairs":
+			if state.can_use_stairs():
+				_send(state.simple_intent(action))
 		"short_rest":
-			_send(state.short_rest_intent(1))
+			if state.can_short_rest():
+				_send(state.short_rest_intent(1))
+		"level_up":
+			open_level_up()
+	_dirty = true
 
 
 func _on_new_character() -> void:

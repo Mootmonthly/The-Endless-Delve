@@ -24,7 +24,28 @@ extends RefCounted
 ## Optional extra fields the server sends are used when present (FLOOR_LOADED /
 ## CHARACTER_STATE "entity_id", EXPLORE_STATE "name"/"hp"/"max_hp"/"dead",
 ## ENCOUNTER_EVENTS "encounter_id"/"zone_id", CHARACTER_STATE "healed",
-## "xp_gained", "levels_gained", "long_rest").
+## "xp_gained", "floor_clear_xp", "leveled_to", "levels_pending", "long_rest",
+## "item_used", "temp_hp", "equipped" / "unequipped" {item, slot}, "dropped"
+## {item, qty}; legacy "levels_gained"; EXPLORE_STATE "monster_id").
+## Entities also carry "monster_id" (monsters, from EXPLORE_STATE) and
+## "class_id" (this client's character, from its sheet) for the icon atlas.
+##
+## Items, spells and level-ups (M2):
+## - LOOT_GAINED / CHEST_OPENED / CHEST_REVEALED keep `chests` (only chests the
+##   server has shown: FLOOR_LOADED "chests", else the floor's non-hidden ones)
+##   and log the loot. The inventory itself only changes through CHARACTER_STATE
+##   (the server sends one after every loot) or combat events (item_used,
+##   attack "consumed", cast "slot_level", feature_used "remaining"), which
+##   predict the sheet until the next CHARACTER_STATE.
+## - LEVEL_UP_AVAILABLE stores `level_up_offer` (LevelUp.choices) and bumps
+##   level_up_serial; a CHARACTER_STATE with "leveled_to" (or no pending
+##   level left) clears it. Offers are answered only out of combat.
+## - Targeting: begin_cast / begin_feature / begin_attack_targeting put the
+##   next map click into `targeting` mode; intent_for_click then picks the
+##   target on the clicked tile. Ranged attacks need no mode: clicking a
+##   monster uses `selected_attack`.
+## - Combat attacks are indexed like the server's Combatant: the sheet's
+##   attacks at the start of the encounter plus the unarmed strike.
 
 enum Mode { LOADING, EXPLORING, COMBAT, GAME_OVER, FLOOR_CLEARED, SET_CLEARED }
 
@@ -33,6 +54,24 @@ const KIND_MONSTER := "monster"
 const PLAYER_ID_PREFIX := "p"
 const MAX_LOG_LINES := 200
 const TEAM_PLAYERS := 0
+const TARGET_CAST := "cast"
+const TARGET_FEATURE := "feature"
+const TARGET_ATTACK := "attack"
+const FEATURE_MARTIAL_ARTS_STRIKE := "martial_arts"
+## Bardic Inspiration reach (Encounter.BARDIC_INSPIRATION_RANGE_TILES).
+const BARDIC_INSPIRATION_RANGE := 12
+## Effect id -> the tag shown next to a combatant ("dodge" comes from the dodge event).
+const STATUS_TAGS: Dictionary[String, String] = {
+	"dodge": "dodging", "rage": "raging", "hex": "hexed", "guiding_bolt_mark": "marked",
+	"slow": "slowed", "mockery": "mocked", "bardic_inspiration": "inspired",
+	"mage_armor": "mage armor", "no_reactions": "no reactions",
+}
+const FEATURE_NAMES: Dictionary[String, String] = {
+	"second_wind": "Second Wind", "rage": "Rage", "lay_on_hands": "Lay on Hands",
+	"bardic_inspiration": "Bardic Inspiration", "martial_arts": "Martial Arts strike",
+}
+const SLOT_NAMES: Dictionary[String, String] = {"main_hand": "Main hand", "off_hand": "Off hand", "armor": "Armor"}
+const LOOT_SOURCES: Dictionary[String, String] = {"chest": "from the chest", "monster": "from the fallen", "floor": "found on the floor"}
 
 var player_id: String = ""
 var mode: Mode = Mode.LOADING
@@ -52,6 +91,31 @@ var current_actor: String = ""
 var movement_remaining: int = 0  # the player's, tracked from events
 var action_used: bool = false  # the player's, tracked from events
 var last_winning_team: int = -1
+var bonus_action_used: bool = false  # the player's, tracked from events
+var attack_action_taken: bool = false  # the player took the Attack action this turn (Martial Arts)
+## Combat effects per combatant id: Array[String] of effect ids (see STATUS_TAGS).
+var statuses: Dictionary = {}
+
+# --- items, chests, spells, level-ups ---
+## Content definitions ({} = ContentLoader.cache()).
+var content: Dictionary = {}
+## Chests the client knows about: id -> {"id", "position": Vector2i, "hidden": bool, "opened": bool}.
+var chests: Dictionary = {}
+## Latest LEVEL_UP_AVAILABLE choices for this character ({} = none pending).
+var level_up_offer: Dictionary = {}
+## Bumped by every LEVEL_UP_AVAILABLE for this character.
+var level_up_serial: int = 0
+## Level reached by the latest answered level-up (CHARACTER_STATE "leveled_to").
+var last_leveled_to: int = 0
+## Items of the latest LOOT_GAINED for this character.
+var last_loot: Array[Dictionary] = []
+## Index into available_attacks() used by clicks on monsters and the Attack button.
+var selected_attack: int = 0
+## {} or {"mode": TARGET_CAST, "spell", "slot_level"} / {"mode": TARGET_FEATURE,
+## "feature", "amount"} / {"mode": TARGET_ATTACK, "attack_index", "bonus"}.
+var targeting: Dictionary = {}
+## Why the last begin_* / targeted click did nothing ("" = fine).
+var hint: String = ""
 
 var last_error: String = ""
 var cleared_floor_id: String = ""
@@ -74,6 +138,7 @@ var revision: int = 0
 var _unread_log: Array[String] = []
 var _last_seen_order: Array[String] = []  # latest encounter_started order (any encounter)
 var _event_zone_id: String = ""  # "zone_id" of the ENCOUNTER_EVENTS being applied
+var _combat_attacks: Array[Dictionary] = []  # snapshot at the start of the encounter
 
 
 ## player_id is the entity id the server gives this client ("p<peer_id>").
@@ -100,28 +165,7 @@ func apply(result: Dictionary) -> void:
 		Messages.FLOOR_LOADED:
 			_apply_floor_loaded(result)
 		Messages.CHARACTER_STATE:
-			var sheet_dict: Dictionary = result["sheet"]
-			sheet = CharacterSheet.from_dict(sheet_dict)
-			_adopt_entity_id(result)
-			var healed := DictUtil.to_int(result.get("healed", 0), 0)
-			if healed > 0:
-				_log("%s regains %d HP." % [sheet.name, healed])
-			if result.has("xp_gained") or result.has("levels_gained"):
-				last_xp_gained = DictUtil.to_int(result.get("xp_gained", 0), 0)
-				last_levels_gained = DictUtil.to_int(result.get("levels_gained", 0), 0)
-				if last_xp_gained > 0:
-					_log("Gained %d XP." % last_xp_gained)
-				if last_levels_gained > 0:
-					_log("Level up! Now level %d." % sheet.level)
-			if DictUtil.to_bool(result.get("long_rest", false), false):
-				_log("You take a long rest in the safe zone: HP and Hit Dice restored.")
-			if entities.has(player_id):
-				var e: Dictionary = entities[player_id]
-				e["hp"] = sheet.current_hp
-				e["down"] = sheet.is_unconscious()
-				e["dead"] = sheet.dead
-				e["name"] = sheet.name
-				e["max_hp"] = sheet.max_hp
+			_apply_character_state(result)
 		Messages.EXPLORE_STATE:
 			_apply_explore_state(result)
 		Messages.ENCOUNTER_EVENTS:
@@ -152,7 +196,137 @@ func apply(result: Dictionary) -> void:
 			mode = Mode.SET_CLEARED
 			_leave_encounter()
 			_log("%s cleared! You reach the safe zone." % (set_name if not set_name.is_empty() else "The set"))
+		Messages.LOOT_GAINED:
+			_apply_loot(result)
+		Messages.CHEST_OPENED:
+			var chest_id := str(result["chest_id"])
+			if chests.has(chest_id):
+				var c: Dictionary = chests[chest_id]
+				c["opened"] = true
+			var opener := str(result.get("entity_id", player_id))
+			if opener == player_id:
+				_log("You open the chest.")
+		Messages.CHEST_REVEALED:
+			var raw: Dictionary = result["chest"]
+			var known := chests.has(str(raw["id"]))
+			_put_chest(raw)
+			if not known:
+				_log("You discover a hidden chest!")
+		Messages.LEVEL_UP_AVAILABLE:
+			if str(result["entity_id"]) == player_id:
+				var offered: Dictionary = result["choices"]
+				level_up_offer = offered.duplicate(true)
+				level_up_serial += 1
+				var lvl := DictUtil.to_int(level_up_offer.get("new_level", 0), 0)
+				_log("Level %d is available! Open the level-up screen to choose." % lvl)
 	revision += 1
+
+
+func _apply_character_state(result: Dictionary) -> void:
+	var sheet_dict: Dictionary = result["sheet"]
+	sheet = CharacterSheet.from_dict(sheet_dict)
+	_adopt_entity_id(result)
+	var who := sheet.name if not sheet.name.is_empty() else "You"
+	var used := _item_extra(result.get("item_used", null))
+	if not used.is_empty():
+		_log("%s uses %s." % [who, item_name(used)])
+	var healed := DictUtil.to_int(result.get("healed", 0), 0)
+	if healed > 0:
+		_log("%s regains %d HP." % [sheet.name, healed])
+	var temp := DictUtil.to_int(result.get("temp_hp", 0), 0)
+	if temp > 0:
+		_log("%s gains %d temporary HP." % [who, temp])
+	var equipped_id := _item_extra(result.get("equipped", null))
+	if not equipped_id.is_empty():
+		_log("%s equips %s." % [who, item_name(equipped_id)])
+	var unequipped_id := _item_extra(result.get("unequipped", null))
+	if not unequipped_id.is_empty():
+		_log("%s puts away %s." % [who, item_name(unequipped_id)])
+	var dropped_id := _item_extra(result.get("dropped", null))
+	if not dropped_id.is_empty():
+		var dropped_v: Variant = result["dropped"]
+		var dropped_qty := 1
+		if typeof(dropped_v) == TYPE_DICTIONARY:
+			var dd: Dictionary = dropped_v
+			dropped_qty = DictUtil.to_int(dd.get("qty", 1), 1)
+		_log("%s drops %s." % [who, ClientState.quantity_text(item_name(dropped_id), dropped_qty, dropped_id == CharacterSheet.GOLD_ITEM)])
+	var floor_xp := DictUtil.to_int(result.get("floor_clear_xp", 0), 0)
+	if result.has("xp_gained") or result.has("levels_gained") or floor_xp > 0:
+		last_xp_gained = DictUtil.to_int(result.get("xp_gained", floor_xp), floor_xp)
+		last_levels_gained = DictUtil.to_int(result.get("levels_gained", 0), 0)
+		if floor_xp > 0:
+			_log("Floor-clear bonus: gained %d XP." % maxi(floor_xp, last_xp_gained))
+		elif last_xp_gained > 0:
+			_log("Gained %d XP." % last_xp_gained)
+		if last_levels_gained > 0:
+			_log("Level up! Now level %d." % sheet.level)
+	if result.has("leveled_to"):
+		last_leveled_to = DictUtil.to_int(result["leveled_to"], sheet.level)
+		level_up_offer = {}
+		_log("Level up! %s is now level %d." % [who, last_leveled_to])
+	if not level_up_offer.is_empty() and sheet.pending_levels() <= 0:
+		level_up_offer = {}  # stale: nothing left to choose
+	if DictUtil.to_bool(result.get("long_rest", false), false):
+		_log("You take a long rest in the safe zone: HP and Hit Dice restored.")
+	if entities.has(player_id):
+		var e: Dictionary = entities[player_id]
+		e["hp"] = sheet.current_hp
+		e["down"] = sheet.is_unconscious()
+		e["dead"] = sheet.dead
+		e["name"] = sheet.name
+		e["max_hp"] = sheet.max_hp
+		e["class_id"] = sheet.class_id
+	if selected_attack >= available_attacks().size():
+		selected_attack = 0
+
+
+## An item id from a CHARACTER_STATE extra: "id", {"item": id} or true/other ("").
+func _item_extra(v: Variant) -> String:
+	if typeof(v) == TYPE_STRING:
+		return str(v)
+	if typeof(v) == TYPE_DICTIONARY:
+		var d: Dictionary = v
+		return str(d.get("item", ""))
+	return ""
+
+
+func _apply_loot(result: Dictionary) -> void:
+	if str(result["entity_id"]) != player_id:
+		return
+	var items: Array = result["items"]
+	last_loot.clear()
+	var parts: PackedStringArray = []
+	for it_v: Variant in items:
+		var it: Dictionary = it_v
+		var id := str(it.get("item", ""))
+		var qty := DictUtil.to_int(it.get("qty", 1), 1)
+		last_loot.append({"item": id, "qty": qty})
+		parts.append(ClientState.quantity_text(item_name(id), qty, id == CharacterSheet.GOLD_ITEM))
+	var source := str(result.get("source", ""))
+	var where: String = LOOT_SOURCES.get(source, "")
+	if parts.is_empty():
+		_log("Nothing of value %s." % (where if not where.is_empty() else "here"))
+	else:
+		_log("Loot%s: %s." % [(" " + where) if not where.is_empty() else "", ", ".join(parts)])
+
+
+## "Potion of Healing x2", "12 gold", "Longsword".
+static func quantity_text(item_display: String, qty: int, is_gold: bool = false) -> String:
+	if is_gold:
+		return "%d gold" % qty
+	return item_display if qty == 1 else "%s x%d" % [item_display, qty]
+
+
+func _put_chest(raw: Dictionary) -> void:
+	var id := str(raw.get("id", ""))
+	if id.is_empty() or not Messages.is_position(raw.get("position")):
+		return
+	chests[id] = {
+		"id": id,
+		"position": Messages.to_position(raw["position"]),
+		"hidden": DictUtil.to_bool(raw.get("hidden", false), false),
+		"opened": DictUtil.to_bool(raw.get("opened", false), false),
+	}
 
 
 ## A (new) floor: replaces the old one and everything that lived on it.
@@ -174,6 +348,17 @@ func _apply_floor_loaded(result: Dictionary) -> void:
 		entities.clear()
 	if mode == Mode.LOADING or mode == Mode.FLOOR_CLEARED or mode == Mode.COMBAT:
 		mode = Mode.EXPLORING
+	chests.clear()
+	targeting = {}
+	if typeof(result.get("chests")) == TYPE_ARRAY:
+		var listed: Array = result["chests"]
+		for c_v: Variant in listed:
+			if typeof(c_v) == TYPE_DICTIONARY:
+				_put_chest(c_v)
+	else:
+		for c in floor_data.chests:
+			if not c.hidden:
+				chests[c.id] = {"id": c.id, "position": c.position, "hidden": false, "opened": false}
 	_log("You arrive on %s." % floor_label())
 
 
@@ -206,6 +391,13 @@ func _apply_explore_state(result: Dictionary) -> void:
 			e["max_hp"] = DictUtil.to_int(raw["max_hp"], -1)
 		if typeof(raw.get("dead")) == TYPE_BOOL:
 			e["dead"] = bool(raw["dead"])
+		var monster_id := str(raw.get("monster_id", ""))
+		if not monster_id.is_empty():
+			e["monster_id"] = monster_id
+		if typeof(raw.get("class_id")) == TYPE_STRING and not str(raw["class_id"]).is_empty():
+			e["class_id"] = str(raw["class_id"])
+		if id == player_id and sheet != null:
+			e["class_id"] = sheet.class_id
 		if id == player_id and sheet != null and not DictUtil.is_number(raw.get("hp")):
 			e["hp"] = sheet.current_hp
 			e["max_hp"] = sheet.max_hp
@@ -226,7 +418,7 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 	var kind := str(ev.get("kind", ""))
 	if in_encounter and not encounter_id.is_empty() and not enc_id.is_empty() and enc_id != encounter_id:
 		# Another encounter's events: keep positions and health current, nothing else.
-		if kind == "moved" or kind == "damage" or kind == "combatant_joined":
+		if kind == "moved" or kind == "damage" or kind == "combatant_joined" or kind == "heal":
 			_apply_world_effect(ev)
 		return
 	match kind:
@@ -260,12 +452,15 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 				_log("-- Round %d --" % round_number)
 		"turn_started":
 			var actor := str(ev.get("actor", ""))
+			_remove_status(actor, "dodge")  # Dodge lasts until the dodger's next turn
 			if in_encounter and order.has(actor):
 				current_actor = actor
 				round_number = DictUtil.to_int(ev.get("round", round_number), round_number)
 				if actor == player_id:
 					movement_remaining = speed_tiles()
 					action_used = false
+					bonus_action_used = false
+					attack_action_taken = false
 					_log("Your turn.")
 		"turn_ended":
 			if in_encounter and str(ev.get("actor", "")) == current_actor:
@@ -284,6 +479,7 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 			var actor := str(ev.get("actor", ""))
 			if actor == player_id:
 				action_used = true
+			_add_status(actor, "dodge")
 			_log("%s takes the Dodge action." % display_name(actor))
 		"disengage":
 			var actor := str(ev.get("actor", ""))
@@ -294,14 +490,82 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 			_log("%s makes an opportunity attack on %s!" % [display_name(str(ev.get("attacker", ""))), display_name(str(ev.get("target", "")))])
 		"attack":
 			var attacker := str(ev.get("attacker", ""))
+			var attack_kind := str(ev.get("attack_kind", "melee"))
 			if attacker == player_id and current_actor == player_id:
-				action_used = true
+				if DictUtil.to_bool(ev.get("bonus", false), false):
+					bonus_action_used = true
+				elif attack_kind != "spell":
+					action_used = true
+					attack_action_taken = true
+			var consumed := str(ev.get("consumed", ""))
+			if attacker == player_id and sheet != null and not consumed.is_empty():
+				sheet.remove_item(consumed, 1, _content())
+			# The attack used up the guiding bolt mark on the target and the attacker's mockery.
+			_remove_status(str(ev.get("target", "")), "guiding_bolt_mark")
+			_remove_status(attacker, "mockery")
 			_log(_attack_line(ev))
 		"damage":
 			_apply_world_effect(ev)
 			_log(_damage_line(ev))
 		"death_save":
 			_apply_death_save(ev)
+		"cast":
+			_apply_cast(ev)
+		"save":
+			_log(_save_line(ev))
+		"heal":
+			_apply_world_effect(ev)
+			_log(_heal_line(ev))
+		"temp_hp":
+			var target := str(ev.get("target", ""))
+			var after := DictUtil.to_int(ev.get("temp_hp_after", 0), 0)
+			if target == player_id and sheet != null:
+				sheet.temp_hp = after
+			_log("%s gains %d temporary HP." % [display_name(target), DictUtil.to_int(ev.get("amount", 0), 0)])
+		"item_used":
+			var actor := str(ev.get("actor", ""))
+			var item := str(ev.get("item", ""))
+			if actor == player_id:
+				var def := item_def(item)
+				if current_actor == player_id:
+					if def != null and def.use_action == "bonus_action":
+						bonus_action_used = true
+					else:
+						action_used = true
+				if sheet != null:
+					sheet.remove_item(item, 1, _content())
+			_log("%s uses %s." % [display_name(actor), item_name(item)])
+		"feature_used":
+			var actor := str(ev.get("actor", ""))
+			var feature := str(ev.get("feature", ""))
+			if actor == player_id:
+				if current_actor == player_id:
+					if feature == ClassDefinition.FEATURE_LAY_ON_HANDS:
+						action_used = true
+					else:
+						bonus_action_used = true
+				if sheet != null and ev.has("remaining"):
+					sheet.class_resources[feature] = DictUtil.to_int(ev["remaining"], 0)
+			var target := str(ev.get("target", actor))
+			var line := "%s uses %s" % [display_name(actor), ClientState.feature_name(feature)]
+			if not target.is_empty() and target != actor:
+				line += " on %s" % display_name(target)
+			_log(line + ".")
+		"inspiration_used":
+			var actor := str(ev.get("actor", ""))
+			_remove_status(actor, "bardic_inspiration")
+			_log("%s adds a Bardic Inspiration die: d%d rolled %d." % [display_name(actor),
+				DictUtil.to_int(ev.get("die", 0), 0), DictUtil.to_int(ev.get("roll", 0), 0)])
+		"effect_applied":
+			var target := str(ev.get("target", ""))
+			var effect := str(ev.get("effect", ""))
+			_add_status(target, effect)
+			_log(_effect_line(target, effect, true))
+		"effect_ended":
+			var target := str(ev.get("target", ""))
+			var effect := str(ev.get("effect", ""))
+			_remove_status(target, effect)
+			_log(_effect_line(target, effect, false))
 		"combatant_removed":
 			var id := str(ev.get("id", ""))
 			order.erase(id)
@@ -344,9 +608,22 @@ func _apply_world_effect(ev: Dictionary) -> void:
 			e["down"] = hp == 0 and not died
 			if target == player_id and sheet != null:
 				sheet.current_hp = hp
+				if typeof(ev.get("temp_hp_after")) != TYPE_NIL:
+					sheet.temp_hp = DictUtil.to_int(ev["temp_hp_after"], sheet.temp_hp)
 				if died:
 					sheet.dead = true
 				elif hp == 0 and DictUtil.to_bool(ev.get("dropped", false), false):
+					sheet.reset_death_saves()
+		"heal":
+			var target := str(ev.get("target", ""))
+			var e := _entity_or_new(target)
+			var hp := DictUtil.to_int(ev.get("hp_after", 0), 0)
+			e["hp"] = hp
+			if hp > 0:
+				e["down"] = false
+			if target == player_id and sheet != null:
+				sheet.current_hp = hp
+				if DictUtil.to_bool(ev.get("revived", false), false) or hp > 0:
 					sheet.reset_death_saves()
 
 
@@ -395,6 +672,11 @@ func _enter_encounter(new_order: Array[String], enc_id: String) -> void:
 	round_number = 0
 	movement_remaining = 0
 	action_used = false
+	bonus_action_used = false
+	attack_action_taken = false
+	statuses.clear()
+	targeting = {}
+	_combat_attacks = _attacks_from_sheet()
 	region = Rect2i()
 	if floor_data != null:
 		var zone := floor_data.get_zone(_event_zone_id) if not _event_zone_id.is_empty() else null
@@ -412,6 +694,11 @@ func _leave_encounter() -> void:
 	round_number = 0
 	movement_remaining = 0
 	action_used = false
+	bonus_action_used = false
+	attack_action_taken = false
+	statuses.clear()
+	targeting = {}
+	_combat_attacks.clear()
 	region = Rect2i()
 	if mode == Mode.COMBAT:
 		mode = Mode.EXPLORING
@@ -501,6 +788,73 @@ func _damage_line(ev: Dictionary) -> String:
 	elif DictUtil.to_bool(ev.get("dropped", false), false):
 		line += " %s falls unconscious!" % target
 	return line.replace("  ", " ")
+
+
+func _apply_cast(ev: Dictionary) -> void:
+	var actor := str(ev.get("actor", ""))
+	var spell_id := str(ev.get("spell", ""))
+	var spell := spell_def(spell_id)
+	var slot := DictUtil.to_int(ev.get("slot_level", 0), 0)
+	if actor == player_id:
+		if current_actor == player_id:
+			if spell != null and spell.uses_bonus_action():
+				bonus_action_used = true
+			else:
+				action_used = true
+		if sheet != null and slot >= 1 and slot <= sheet.spell_slots.size():
+			sheet.spell_slots[slot - 1] = maxi(0, sheet.spell_slots[slot - 1] - 1)
+	var target := str(ev.get("target", actor))
+	var line := "%s casts %s" % [display_name(actor), spell.display_name if spell != null else spell_id.capitalize()]
+	if not target.is_empty() and target != actor:
+		line += " at %s" % display_name(target)
+	if slot > 0:
+		line += " (level %d slot)" % slot
+	_log(line + ".")
+
+
+func _save_line(ev: Dictionary) -> String:
+	var target := display_name(str(ev.get("target", "")))
+	var natural := DictUtil.to_int(ev.get("natural", 0), 0)
+	var total := DictUtil.to_int(ev.get("total", 0), 0)
+	var dc := DictUtil.to_int(ev.get("dc", 0), 0)
+	var ability := str(ev.get("ability", ""))
+	var outcome := "succeeds" if DictUtil.to_bool(ev.get("success", false), false) else "fails"
+	if natural == 0:
+		return "%s automatically fails the %s saving throw (DC %d)." % [target, ability, dc]
+	return "%s makes a %s saving throw: %d vs DC %d, %s." % [target, ability, total, dc, outcome]
+
+
+func _heal_line(ev: Dictionary) -> String:
+	var target := display_name(str(ev.get("target", "")))
+	var amount := DictUtil.to_int(ev.get("amount", 0), 0)
+	var line := "%s regains %d HP (%d HP)." % [target, amount, DictUtil.to_int(ev.get("hp_after", 0), 0)]
+	if DictUtil.to_bool(ev.get("revived", false), false):
+		line += " %s is back on their feet!" % target
+	return line
+
+
+func _effect_line(target: String, effect: String, applied: bool) -> String:
+	var who := display_name(target)
+	var tag: String = STATUS_TAGS.get(effect, effect.replace("_", " "))
+	if applied:
+		return "%s is now %s." % [who, tag]
+	return "%s is no longer %s." % [who, tag]
+
+
+func _add_status(id: String, effect: String) -> void:
+	if id.is_empty() or effect.is_empty():
+		return
+	if not statuses.has(id):
+		statuses[id] = [] as Array[String]
+	var list: Array[String] = statuses[id]
+	if not list.has(effect):
+		list.append(effect)
+
+
+func _remove_status(id: String, effect: String) -> void:
+	if statuses.has(id):
+		var list: Array[String] = statuses[id]
+		list.erase(effect)
 
 
 func _names(ids: Array[String]) -> PackedStringArray:
@@ -632,8 +986,13 @@ func can_take_action() -> bool:
 	return is_my_turn() and not action_used
 
 
+func can_take_bonus_action() -> bool:
+	return is_my_turn() and not bonus_action_used
+
+
+## True when the selected attack can hit some hostile right now.
 func can_attack() -> bool:
-	return can_take_action() and not adjacent_hostiles().is_empty()
+	return can_take_action() and not attack_targets().is_empty()
 
 
 func on_stairs() -> bool:
@@ -718,20 +1077,30 @@ func mode_text() -> String:
 # --- intents ------------------------------------------------------------------
 
 ## The intent a left click on tile means right now, or {} for none.
-## Exploring: walk there. Player's combat turn: attack an adjacent hostile on
-## the tile (if the action is free), else move there if reachable.
+## Exploring: open a chest within reach on the tile, else walk there.
+## Targeting mode: the cast / feature / attack on the creature on the tile.
+## Player's combat turn: attack a hostile on the tile with the selected attack
+## (adjacent for melee, in range for ranged / thrown) if the action is free,
+## else move there if reachable.
 func intent_for_click(tile: Vector2i) -> Dictionary:
 	if floor_data == null or not has_player_entity():
 		return {}
 	if mode == Mode.EXPLORING and not in_encounter:
-		if not floor_data.walk_map.is_walkable(tile) or tile == player_position() or not is_player_conscious():
+		if not is_player_conscious():
+			return {}
+		var chest_id := chest_at(tile)
+		if not chest_id.is_empty() and can_open_chest(chest_id):
+			return open_chest_intent(chest_id)
+		if not floor_data.walk_map.is_walkable(tile) or tile == player_position():
 			return {}
 		return Messages.make_intent(Messages.EXPLORE_MOVE, {"actor": player_id, "target": GridMath.vec_to_arr(tile)})
 	if not is_my_turn():
 		return {}
+	if is_targeting():
+		return _targeted_intent(tile)
 	var target := hostile_at(tile)
 	if not target.is_empty():
-		if GridMath.is_adjacent(player_position(), tile) and not action_used and order.has(target):
+		if order.has(target) and attack_error(target, selected_attack).is_empty():
 			return attack_intent(target)
 		return {}
 	var path := move_path_to(tile)
@@ -740,15 +1109,35 @@ func intent_for_click(tile: Vector2i) -> Dictionary:
 	return Messages.make_intent(Messages.MOVE, {"actor": player_id, "path": GridMath.vec_list_to_arr(path)})
 
 
-## Attack with the first (weapon) attack; target "" = first adjacent hostile.
-func attack_intent(target: String = "") -> Dictionary:
+## One step in a direction (arrow keys / WASD): walk or move, never a target pick.
+func step_intent(dir: Vector2i) -> Dictionary:
+	if floor_data == null or not has_player_entity() or dir == Vector2i.ZERO:
+		return {}
+	var tile := player_position() + dir
+	if mode == Mode.EXPLORING and not in_encounter:
+		if not is_player_conscious() or not floor_data.walk_map.is_walkable(tile):
+			return {}
+		return Messages.make_intent(Messages.EXPLORE_MOVE, {"actor": player_id, "target": GridMath.vec_to_arr(tile)})
+	var path := move_path_to(tile)
+	if path.is_empty():
+		return {}
+	return Messages.make_intent(Messages.MOVE, {"actor": player_id, "path": GridMath.vec_list_to_arr(path)})
+
+
+## Attack with attack_index (-1 = selected_attack). target "" = the first
+## hostile the attack can reach (adjacent for melee), in initiative order.
+func attack_intent(target: String = "", attack_index: int = -1, bonus: bool = false) -> Dictionary:
+	var index := selected_attack if attack_index < 0 else attack_index
 	var t := target
 	if t.is_empty():
-		var near := adjacent_hostiles()
+		var near := attack_targets(index)
 		if near.is_empty():
 			return {}
 		t = near[0]
-	return Messages.make_intent(Messages.ATTACK, {"actor": player_id, "target": t, "attack_index": 0})
+	var fields := {"actor": player_id, "target": t, "attack_index": index}
+	if bonus:
+		fields["bonus"] = true
+	return Messages.make_intent(Messages.ATTACK, fields)
 
 
 ## dash / dodge / disengage / end_turn / use_stairs: intents with no extra fields.
@@ -758,3 +1147,706 @@ func simple_intent(type: String) -> Dictionary:
 
 func short_rest_intent(hit_dice: int = 1) -> Dictionary:
 	return Messages.make_intent(Messages.SHORT_REST, {"actor": player_id, "hit_dice": hit_dice})
+
+
+func cast_intent(spell_id: String, target: String = "", slot_level: int = 0) -> Dictionary:
+	return Messages.make_intent(Messages.CAST, {"actor": player_id, "spell": spell_id,
+		"target": target if not target.is_empty() else player_id, "slot_level": slot_level})
+
+
+## use_feature; target "" = self, amount only for lay_on_hands.
+func feature_intent(feature: String, target: String = "", amount: int = 0) -> Dictionary:
+	var fields := {"actor": player_id, "feature": feature, "target": target if not target.is_empty() else player_id}
+	if amount > 0:
+		fields["amount"] = amount
+	return Messages.make_intent(Messages.USE_FEATURE, fields)
+
+
+## use_item on yourself: the combat intent on your turn, the exploration one otherwise (same shape).
+func use_item_intent(item: String) -> Dictionary:
+	return Messages.make_intent(Messages.USE_ITEM, {"actor": player_id, "item": item})
+
+
+func equip_intent(item: String, slot: String) -> Dictionary:
+	return Messages.make_intent(Messages.EQUIP, {"actor": player_id, "item": item, "slot": slot})
+
+
+func unequip_intent(slot: String) -> Dictionary:
+	return Messages.make_intent(Messages.UNEQUIP, {"actor": player_id, "slot": slot})
+
+
+func drop_item_intent(item: String, qty: int = 1) -> Dictionary:
+	return Messages.make_intent(Messages.DROP_ITEM, {"actor": player_id, "item": item, "qty": maxi(1, qty)})
+
+
+func open_chest_intent(chest_id: String) -> Dictionary:
+	return Messages.make_intent(Messages.OPEN_CHEST, {"actor": player_id, "chest_id": chest_id})
+
+
+## Answers the pending level-up offer (see LevelUpDraft.to_choices()).
+func level_up_intent(choices: Dictionary) -> Dictionary:
+	return Messages.make_intent(Messages.LEVEL_UP, {"actor": player_id, "choices": choices.duplicate(true)})
+
+
+# --- content lookups ------------------------------------------------------------
+
+func _content() -> Dictionary:
+	return ContentLoader.resolve(content)
+
+
+func item_def(item_id: String) -> ItemDefinition:
+	return CharacterSheet.item_def(item_id, _content())
+
+
+func spell_def(spell_id: String) -> SpellDefinition:
+	var spells: Dictionary = _content()["spells"]
+	if not spells.has(spell_id):
+		return null
+	var s: SpellDefinition = spells[spell_id]
+	return s
+
+
+func item_name(item_id: String) -> String:
+	var def := item_def(item_id)
+	return def.display_name if def != null else item_id.replace("_", " ").capitalize()
+
+
+func spell_name(spell_id: String) -> String:
+	var def := spell_def(spell_id)
+	return def.display_name if def != null else spell_id.replace("_", " ").capitalize()
+
+
+static func feature_name(feature: String) -> String:
+	return FEATURE_NAMES.get(feature, feature.replace("_", " ").capitalize())
+
+
+## "1st", "2nd", "3rd", "4th"...
+static func ordinal(n: int) -> String:
+	match n:
+		1:
+			return "1st"
+		2:
+			return "2nd"
+		3:
+			return "3rd"
+	return "%dth" % n
+
+
+# --- attacks ------------------------------------------------------------------------
+
+func _attacks_from_sheet() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if sheet == null:
+		return out
+	for a in sheet.attacks:
+		out.append(a.duplicate(true))
+	out.append(sheet.unarmed_strike())
+	return out
+
+
+## The attacks an attack_index refers to: in combat the server's list (the
+## sheet's attacks when the encounter started + the unarmed strike), else the
+## sheet's current ones + the unarmed strike.
+func available_attacks() -> Array[Dictionary]:
+	if in_encounter and not _combat_attacks.is_empty():
+		return _combat_attacks
+	return _attacks_from_sheet()
+
+
+func get_attack(index: int) -> Dictionary:
+	var list := available_attacks()
+	if index < 0 or index >= list.size():
+		return {}
+	return list[index]
+
+
+func select_attack(index: int) -> void:
+	if index >= 0 and index < available_attacks().size():
+		selected_attack = index
+		revision += 1
+
+
+static func is_ranged_attack(attack: Dictionary) -> bool:
+	return Encounter.is_ranged_attack(attack)
+
+
+## "" when the attack's item and ammunition are still carried, else why not.
+func attack_supply_error(attack: Dictionary) -> String:
+	if sheet == null:
+		return "no character"
+	var item := str(attack.get("item", ""))
+	if not item.is_empty() and not sheet.has_item(item):
+		return "no %s left" % item_name(item)
+	var consumes := str(attack.get("consumes", ""))
+	if not consumes.is_empty() and not sheet.has_item(consumes):
+		return "out of %s" % item_name(consumes)
+	return ""
+
+
+## "Longsword (melee) +5, 1d8+3 slashing"; ranged ones add "range 16/64" and the count left.
+func attack_label(attack: Dictionary) -> String:
+	var kind := str(attack.get("kind", "melee"))
+	var text := "%s (%s) %+d, %s %s" % [str(attack.get("name", "?")), kind,
+		DictUtil.to_int(attack.get("to_hit", 0), 0), str(attack.get("damage", "")), str(attack.get("damage_type", ""))]
+	if ClientState.is_ranged_attack(attack):
+		var r := Encounter.attack_range_tiles(attack)
+		text += ", range %d/%d" % [r[0], r[1]]
+		var consumes := str(attack.get("consumes", ""))
+		if not consumes.is_empty() and sheet != null:
+			text += ", %d left" % sheet.count_item(consumes)
+	return text.strip_edges()
+
+
+## "" when the player may attack target with attacks[attack_index] now, else why not.
+func attack_error(target: String, attack_index: int = -1, bonus: bool = false) -> String:
+	var index := selected_attack if attack_index < 0 else attack_index
+	if not is_my_turn():
+		return "not your turn"
+	if bonus:
+		if not can_take_bonus_action():
+			return "bonus action already used"
+	elif action_used:
+		return "action already used"
+	var attack := get_attack(index)
+	if attack.is_empty():
+		return "no such attack"
+	var supply := attack_supply_error(attack)
+	if not supply.is_empty():
+		return supply
+	var e := get_entity(target)
+	if e.is_empty() or str(e["kind"]) != KIND_MONSTER or bool(e["dead"]) or not order.has(target):
+		return "not a hostile in this fight"
+	var to: Vector2i = e["position"]
+	var dist := GridMath.distance_tiles(player_position(), to)
+	var r := Encounter.attack_range_tiles(attack)
+	if not ClientState.is_ranged_attack(attack):
+		return "" if dist >= 1 and dist <= maxi(1, r[1]) else "out of reach"
+	if dist > r[1]:
+		return "out of range (%d tiles, long range %d)" % [dist, r[1]]
+	if floor_data != null and not floor_data.walk_map.has_line_of_sight(player_position(), to):
+		return "no line of sight"
+	return ""
+
+
+## Hostiles of the player's encounter the attack can hit now, in initiative order.
+func attack_targets(attack_index: int = -1, bonus: bool = false) -> Array[String]:
+	var out: Array[String] = []
+	if not in_encounter:
+		return out
+	for id in order:
+		if attack_error(id, attack_index, bonus).is_empty():
+			out.append(id)
+	return out
+
+
+## Tiles to tint for the current choice: Vector2i -> 0 (normal range) or 1
+## (long range, disadvantage). A selected ranged attack (action free) or a
+## targeting mode, inside the encounter region, with line of sight. {} otherwise.
+func range_tiles() -> Dictionary:
+	var out := {}
+	if not is_my_turn() or floor_data == null:
+		return out
+	var normal := 0
+	var long := 0
+	if targeting.get("mode", "") == TARGET_CAST:
+		var spell := spell_def(str(targeting["spell"]))
+		if spell == null:
+			return out
+		normal = maxi(1, spell.range_tiles()) if spell.range_ft > 0 else 0
+		long = normal
+	elif targeting.get("mode", "") == TARGET_FEATURE:
+		normal = BARDIC_INSPIRATION_RANGE if str(targeting["feature"]) == ClassDefinition.FEATURE_BARDIC_INSPIRATION else 1
+		long = normal
+	else:
+		var attack := get_attack(int(targeting.get("attack_index", selected_attack)))
+		if attack.is_empty() or (targeting.is_empty() and (action_used or not ClientState.is_ranged_attack(attack))):
+			return out
+		var r := Encounter.attack_range_tiles(attack)
+		normal = r[0]
+		long = r[1]
+	if long <= 0:
+		return out
+	var me := player_position()
+	var area := region if region.has_area() else Rect2i(me - Vector2i(long, long), Vector2i(long * 2 + 1, long * 2 + 1))
+	var wm := floor_data.walk_map
+	for y in range(area.position.y, area.end.y):
+		for x in range(area.position.x, area.end.x):
+			var t := Vector2i(x, y)
+			var dist := GridMath.distance_tiles(me, t)
+			if dist == 0 or dist > long or not wm.is_walkable(t):
+				continue
+			if not wm.has_line_of_sight(me, t):
+				continue
+			out[t] = 0 if dist <= normal else 1
+	return out
+
+
+# --- spells -------------------------------------------------------------------------
+
+## The prepared spells for the Spells list, cantrips first, each
+## {"id", "name", "level", "supported", "bonus", "target", "range_tiles",
+##  "slots": Array[int] (slot levels with a slot left, >= the spell's level),
+##  "error": "" when castable right now}.
+func spell_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if sheet == null:
+		return out
+	for id in sheet.spells_prepared:
+		var def := spell_def(id)
+		if def == null:
+			continue
+		out.append({
+			"id": id, "name": def.display_name, "level": def.level, "supported": def.is_supported(),
+			"bonus": def.uses_bonus_action(), "target": def.target, "range_tiles": def.range_tiles(),
+			"slots": cast_slot_options(id), "error": cast_error(id),
+		})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a["level"]) != int(b["level"]):
+			return int(a["level"]) < int(b["level"])
+		return str(a["name"]) < str(b["name"]))
+	return out
+
+
+## Slot levels a leveled spell may use now (lowest first); [] for cantrips.
+func cast_slot_options(spell_id: String) -> Array[int]:
+	var out: Array[int] = []
+	var def := spell_def(spell_id)
+	if def == null or def.level == 0 or sheet == null:
+		return out
+	for lvl in range(def.level, sheet.spell_slots_max.size() + 1):
+		if sheet.slots_left(lvl) > 0:
+			out.append(lvl)
+	return out
+
+
+## "" when spell_id can be cast now (slot_level 0 = cantrip / lowest free slot).
+func cast_error(spell_id: String, slot_level: int = 0) -> String:
+	var def := spell_def(spell_id)
+	if def == null or sheet == null:
+		return "unknown spell"
+	if not def.is_supported():
+		return "not supported yet"
+	if not sheet.is_spell_prepared(spell_id):
+		return "not prepared"
+	if not is_my_turn():
+		return "only on your turn in combat"
+	if def.uses_bonus_action():
+		if bonus_action_used:
+			return "bonus action already used"
+	elif action_used:
+		return "action already used"
+	if def.level > 0:
+		var slot := slot_level if slot_level > 0 else sheet.lowest_available_slot(def.level)
+		if slot == 0 or slot < def.level or sheet.slots_left(slot) <= 0:
+			return "no spell slot left"
+	return ""
+
+
+## "" when target is a valid target for spell_id from where the player stands.
+func cast_target_error(spell_id: String, target: String) -> String:
+	var def := spell_def(spell_id)
+	if def == null:
+		return "unknown spell"
+	var e := get_entity(target)
+	if e.is_empty() or bool(e["dead"]):
+		return "no creature there"
+	if def.target == SpellDefinition.TARGET_SELF and target != player_id:
+		return "%s targets only yourself" % def.display_name
+	var hostile := str(e["kind"]) == KIND_MONSTER
+	if def.is_harmful():
+		if not hostile or not order.has(target):
+			return "%s needs a hostile target" % def.display_name
+	elif hostile:
+		return "%s needs an ally" % def.display_name
+	if target != player_id:
+		var reach := maxi(1, def.range_tiles()) if def.range_ft > 0 else 0
+		var to: Vector2i = e["position"]
+		if GridMath.distance_tiles(player_position(), to) > reach:
+			return "out of range"
+		if floor_data != null and not floor_data.walk_map.has_line_of_sight(player_position(), to):
+			return "no line of sight"
+	return ""
+
+
+## Starts casting: a self-only spell returns its intent at once; others enter
+## targeting mode and return {}. {} with `hint` set when it cannot be cast.
+func begin_cast(spell_id: String, slot_level: int = 0) -> Dictionary:
+	hint = cast_error(spell_id, slot_level)
+	if not hint.is_empty():
+		return {}
+	var def := spell_def(spell_id)
+	var slot := 0 if def.level == 0 else (slot_level if slot_level > 0 else sheet.lowest_available_slot(def.level))
+	if def.target == SpellDefinition.TARGET_SELF:
+		targeting = {}
+		return cast_intent(spell_id, player_id, slot)
+	targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot}
+	hint = "%s: click a target%s." % [def.display_name, "" if def.is_harmful() else " (yourself or an ally)"]
+	revision += 1
+	return {}
+
+
+# --- features -----------------------------------------------------------------------
+
+## Class features usable in combat: {"id", "name", "remaining", "max", "error"}.
+func feature_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if sheet == null:
+		return out
+	for f in CharacterSheet.RESOURCE_FEATURES:
+		if sheet.has_feature(f):
+			out.append({"id": f, "name": ClientState.feature_name(f), "remaining": sheet.class_resource(f),
+				"max": sheet.resource_max(f), "error": feature_error(f)})
+	if sheet.has_feature(ClassDefinition.FEATURE_MARTIAL_ARTS):
+		out.append({"id": FEATURE_MARTIAL_ARTS_STRIKE, "name": ClientState.feature_name(FEATURE_MARTIAL_ARTS_STRIKE),
+			"remaining": -1, "max": -1, "error": feature_error(FEATURE_MARTIAL_ARTS_STRIKE)})
+	return out
+
+
+func feature_error(feature: String) -> String:
+	if sheet == null:
+		return "no character"
+	if not is_my_turn():
+		return "only on your turn in combat"
+	if feature == FEATURE_MARTIAL_ARTS_STRIKE:
+		if not attack_action_taken:
+			return "take the Attack action first"
+		if bonus_action_used:
+			return "bonus action already used"
+		return ""
+	if not sheet.has_feature(feature):
+		return "you lack %s" % ClientState.feature_name(feature)
+	if sheet.class_resource(feature) <= 0:
+		return "no uses left"
+	if feature == ClassDefinition.FEATURE_LAY_ON_HANDS:
+		return "action already used" if action_used else ""
+	if bonus_action_used:
+		return "bonus action already used"
+	if feature == ClassDefinition.FEATURE_RAGE and status_tags(player_id).has("raging"):
+		return "already raging"
+	return ""
+
+
+## Starts a feature: second_wind / rage return their intent; lay_on_hands
+## (amount from the pool) and bardic_inspiration enter targeting mode; the
+## Martial Arts strike targets like an attack with the unarmed strike.
+func begin_feature(feature: String, amount: int = 0) -> Dictionary:
+	hint = feature_error(feature)
+	if not hint.is_empty():
+		return {}
+	match feature:
+		ClassDefinition.FEATURE_LAY_ON_HANDS:
+			var pool := sheet.class_resource(feature)
+			targeting = {"mode": TARGET_FEATURE, "feature": feature, "amount": clampi(amount if amount > 0 else pool, 1, pool)}
+			hint = "Lay on Hands (%d HP): click yourself or an adjacent ally." % int(targeting["amount"])
+		ClassDefinition.FEATURE_BARDIC_INSPIRATION:
+			targeting = {"mode": TARGET_FEATURE, "feature": feature, "amount": 0}
+			hint = "Bardic Inspiration: click an ally within %d tiles." % BARDIC_INSPIRATION_RANGE
+		FEATURE_MARTIAL_ARTS_STRIKE:
+			targeting = {"mode": TARGET_ATTACK, "attack_index": available_attacks().size() - 1, "bonus": true}
+			hint = "Martial Arts: click an adjacent hostile."
+		_:
+			targeting = {}
+			return feature_intent(feature)
+	revision += 1
+	return {}
+
+
+## Ranged / thrown attack (or any attack) via an explicit target pick.
+func begin_attack_targeting(attack_index: int = -1) -> void:
+	var index := selected_attack if attack_index < 0 else attack_index
+	targeting = {"mode": TARGET_ATTACK, "attack_index": index, "bonus": false}
+	hint = "Click a hostile to attack with %s." % str(get_attack(index).get("name", "the attack"))
+	revision += 1
+
+
+func is_targeting() -> bool:
+	return not targeting.is_empty()
+
+
+func cancel_targeting() -> void:
+	if not targeting.is_empty():
+		targeting = {}
+		hint = ""
+		revision += 1
+
+
+## Id of a living creature (any kind) on tile, or "".
+func creature_at(tile: Vector2i) -> String:
+	if has_player_entity() and player_position() == tile and not bool(get_entity(player_id)["dead"]):
+		return player_id
+	for id: String in entities.keys():
+		var e: Dictionary = entities[id]
+		var p: Vector2i = e["position"]
+		if p == tile and not bool(e["dead"]):
+			return id
+	return ""
+
+
+func _targeted_intent(tile: Vector2i) -> Dictionary:
+	var target := creature_at(tile)
+	if target.is_empty():
+		hint = "No creature there."
+		return {}
+	match str(targeting.get("mode", "")):
+		TARGET_CAST:
+			var spell_id := str(targeting["spell"])
+			hint = cast_target_error(spell_id, target)
+			if hint.is_empty():
+				return cast_intent(spell_id, target, int(targeting.get("slot_level", 0)))
+		TARGET_FEATURE:
+			var feature := str(targeting["feature"])
+			hint = feature_target_error(feature, target)
+			if hint.is_empty():
+				return feature_intent(feature, target, int(targeting.get("amount", 0)))
+		TARGET_ATTACK:
+			var index := int(targeting.get("attack_index", selected_attack))
+			var bonus := bool(targeting.get("bonus", false))
+			hint = attack_error(target, index, bonus)
+			if hint.is_empty():
+				return attack_intent(target, index, bonus)
+	return {}
+
+
+func feature_target_error(feature: String, target: String) -> String:
+	var e := get_entity(target)
+	if e.is_empty() or bool(e["dead"]):
+		return "no creature there"
+	if str(e["kind"]) == KIND_MONSTER:
+		return "%s needs an ally" % ClientState.feature_name(feature)
+	var to: Vector2i = e["position"]
+	var dist := GridMath.distance_tiles(player_position(), to)
+	if feature == ClassDefinition.FEATURE_BARDIC_INSPIRATION:
+		if target == player_id:
+			return "inspire someone else"
+		if dist > BARDIC_INSPIRATION_RANGE:
+			return "out of range"
+		if bool(e.get("down", false)):
+			return "%s cannot hear you" % display_name(target)
+	elif feature == ClassDefinition.FEATURE_LAY_ON_HANDS and target != player_id and dist > 1:
+		return "touch range: stand next to them"
+	return ""
+
+
+# --- inventory ----------------------------------------------------------------------
+
+## Inventory rows (gold excluded, see gold()): {"item", "name", "kind", "qty",
+## "weight" (total), "equipped": Array[String] slots holding it,
+## "equip_slots": Array[String] slots it fits, "usable": bool}.
+func inventory_rows() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if sheet == null:
+		return out
+	for entry in sheet.inventory:
+		var id := str(entry.get("item", ""))
+		if id == CharacterSheet.GOLD_ITEM:
+			continue
+		var qty := DictUtil.to_int(entry.get("qty", 1), 1)
+		var def := item_def(id)
+		var slots_held: Array[String] = []
+		for slot in CharacterSheet.SLOTS:
+			if sheet.equipped_item(slot) == id:
+				slots_held.append(slot)
+		out.append({
+			"item": id, "name": def.display_name if def != null else item_name(id),
+			"kind": def.kind if def != null else ItemDefinition.KIND_MISC, "qty": qty,
+			"weight": (def.weight * qty) if def != null else 0.0, "equipped": slots_held,
+			"equip_slots": equip_slots_for(id), "usable": def != null and def.has_implemented_use(),
+		})
+	return out
+
+
+## Equipment slots an item can go into (main hand for weapons, off hand for
+## shields and light weapons, armor for armor).
+func equip_slots_for(item_id: String) -> Array[String]:
+	var out: Array[String] = []
+	var def := item_def(item_id)
+	if def == null:
+		return out
+	match def.kind:
+		ItemDefinition.KIND_WEAPON:
+			out.append(CharacterSheet.SLOT_MAIN_HAND)
+			var w := CharacterSheet.weapon_for_item(item_id, _content())
+			if w != null and w.has_property("light"):
+				out.append(CharacterSheet.SLOT_OFF_HAND)
+		ItemDefinition.KIND_SHIELD:
+			out.append(CharacterSheet.SLOT_OFF_HAND)
+		ItemDefinition.KIND_ARMOR:
+			out.append(CharacterSheet.SLOT_ARMOR)
+	return out
+
+
+func gold() -> int:
+	return sheet.gold() if sheet != null else 0
+
+
+func carried_weight() -> float:
+	var total := 0.0
+	if sheet == null:
+		return total
+	for entry in sheet.inventory:
+		var def := item_def(str(entry.get("item", "")))
+		if def != null:
+			total += def.weight * DictUtil.to_int(entry.get("qty", 1), 1)
+	return total
+
+
+## Equipment changes (equip / unequip / drop) happen out of combat only.
+func can_manage_equipment() -> bool:
+	return mode == Mode.EXPLORING and not in_encounter and is_player_conscious()
+
+
+## "" when the item can be used now (out of combat, or on your combat turn
+## with the action / bonus action it needs).
+func use_item_error(item_id: String) -> String:
+	var def := item_def(item_id)
+	if def == null or sheet == null or not sheet.has_item(item_id):
+		return "not carried"
+	if not def.has_implemented_use():
+		return "cannot be used"
+	if mode == Mode.EXPLORING and not in_encounter:
+		return "" if is_player_conscious() else "you are down"
+	if not is_my_turn():
+		return "wait for your turn"
+	if def.use_action == "bonus_action":
+		return "bonus action already used" if bonus_action_used else ""
+	return "action already used" if action_used else ""
+
+
+## "AC 16: chain mail 16, DEX 0, shield +2" (how armor_class() adds up).
+func ac_breakdown() -> String:
+	if sheet == null:
+		return ""
+	var ac := sheet.armor_class()
+	var raw_dex := sheet.ability_modifier(Ability.Type.DEX)
+	var parts: PackedStringArray = []
+	var armor_id := sheet.equipped_item(CharacterSheet.SLOT_ARMOR)
+	if sheet.armor_base > 0:
+		var dex := raw_dex
+		if sheet.armor_max_dex == 0:
+			dex = 0
+		elif sheet.armor_max_dex > 0:
+			dex = mini(dex, sheet.armor_max_dex)
+		var armor_label := item_name(armor_id).to_lower() if not armor_id.is_empty() else "armor"
+		parts.append("%s %d" % [armor_label, sheet.armor_base])
+		parts.append("DEX %s" % ClientState._signed_or_zero(dex))
+	else:
+		var base := 10
+		var label := "unarmored"
+		var extra := ""
+		if sheet.active_buffs.has(CharacterSheet.BUFF_MAGE_ARMOR) and CharacterSheet.MAGE_ARMOR_BASE + raw_dex + sheet.shield_bonus >= ac:
+			base = CharacterSheet.MAGE_ARMOR_BASE
+			label = "mage armor"
+		elif sheet.has_feature("unarmored_defense_con") and 10 + raw_dex + sheet.ability_modifier(Ability.Type.CON) + sheet.shield_bonus == ac:
+			label = "unarmored defense"
+			extra = "CON %s" % ClientState._signed_or_zero(sheet.ability_modifier(Ability.Type.CON))
+		elif sheet.has_feature("unarmored_defense_wis") and sheet.shield_bonus == 0 and 10 + raw_dex + sheet.ability_modifier(Ability.Type.WIS) == ac:
+			label = "unarmored defense"
+			extra = "WIS %s" % ClientState._signed_or_zero(sheet.ability_modifier(Ability.Type.WIS))
+		parts.append("%s %d" % [label, base])
+		parts.append("DEX %s" % ClientState._signed_or_zero(raw_dex))
+		if not extra.is_empty():
+			parts.append(extra)
+	parts.append("shield %+d" % sheet.shield_bonus)
+	return "AC %d: %s" % [ac, ", ".join(parts)]
+
+
+static func _signed_or_zero(v: int) -> String:
+	return "0" if v == 0 else "%+d" % v
+
+
+## "Slots: 1st 2/2  2nd 0/1" ("" for non-casters). Pact magic adds "(short rest)".
+func slots_text() -> String:
+	if sheet == null or sheet.spell_slots_max.is_empty():
+		return ""
+	var parts: PackedStringArray = []
+	for i in range(sheet.spell_slots_max.size()):
+		if sheet.spell_slots_max[i] > 0:
+			var left := sheet.spell_slots[i] if i < sheet.spell_slots.size() else 0
+			parts.append("%s %d/%d" % [ClientState.ordinal(i + 1), left, sheet.spell_slots_max[i]])
+	if parts.is_empty():
+		return ""
+	var text := "Slots: " + "  ".join(parts)
+	if sheet.slot_recovery == ClassDefinition.SLOT_RECOVERY_SHORT:
+		text += " (short rest)"
+	return text
+
+
+## "Second Wind 1/1  Rage 2/2" ("" without resource features).
+func resources_text() -> String:
+	if sheet == null:
+		return ""
+	var parts: PackedStringArray = []
+	for f in CharacterSheet.RESOURCE_FEATURES:
+		if sheet.has_feature(f):
+			parts.append("%s %d/%d" % [ClientState.feature_name(f), sheet.class_resource(f), sheet.resource_max(f)])
+	return "  ".join(parts)
+
+
+## Status tags of a combatant ("dodging", "raging", "marked", ...).
+func status_tags(id: String) -> PackedStringArray:
+	var out: PackedStringArray = []
+	if not statuses.has(id):
+		return out
+	var list: Array[String] = statuses[id]
+	for effect in list:
+		out.append(STATUS_TAGS.get(effect, effect.replace("_", " ")))
+	return out
+
+
+# --- chests -------------------------------------------------------------------------
+
+## Chests to draw: every known chest (hidden ones only once revealed).
+func visible_chests() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for id: String in chests.keys():
+		var c: Dictionary = chests[id]
+		out.append(c)
+	return out
+
+
+## Id of a known chest on tile, or "".
+func chest_at(tile: Vector2i) -> String:
+	for id: String in chests.keys():
+		var c: Dictionary = chests[id]
+		var p: Vector2i = c["position"]
+		if p == tile:
+			return id
+	return ""
+
+
+## Unopened, known, and the player stands on it or next to it, out of combat.
+func can_open_chest(chest_id: String) -> bool:
+	if not chests.has(chest_id) or not has_player_entity() or in_encounter or mode != Mode.EXPLORING:
+		return false
+	var c: Dictionary = chests[chest_id]
+	var p: Vector2i = c["position"]
+	return not bool(c["opened"]) and GridMath.distance_tiles(player_position(), p) <= 1
+
+
+## The nearest known unopened chest ("" if none).
+func nearest_closed_chest() -> String:
+	var best := ""
+	var best_d := 1 << 30
+	for id: String in chests.keys():
+		var c: Dictionary = chests[id]
+		if bool(c["opened"]):
+			continue
+		var p: Vector2i = c["position"]
+		var d := GridMath.distance_tiles(player_position(), p)
+		if d < best_d:
+			best_d = d
+			best = id
+	return best
+
+
+# --- level-ups ----------------------------------------------------------------------
+
+func has_level_up_offer() -> bool:
+	return not level_up_offer.is_empty()
+
+
+## A pending offer can be answered now: out of combat and alive (the server
+## also accepts it after the floor / set is cleared).
+func can_level_up() -> bool:
+	return has_level_up_offer() and not in_encounter and sheet != null and not sheet.dead \
+		and mode in [Mode.EXPLORING, Mode.FLOOR_CLEARED, Mode.SET_CLEARED]
