@@ -23,6 +23,23 @@ var bonus_action_used: bool = false
 var reaction_used: bool = false
 var dodging: bool = false
 var disengaging: bool = false
+var attack_action_taken: bool = false  # took the Attack action this turn (Martial Arts bonus strike)
+
+## Encounter-scoped effects (not part of the setup snapshot; a new encounter
+## starts without them).
+var raging: bool = false
+var rage_started_round: int = 0
+var inspiration_die: int = 0  # Bardic Inspiration die added to the next attack roll (0 = none)
+var inspiration_source: String = ""
+var mocked: bool = false  # Vicious Mockery: disadvantage on the next attack roll, until its turn ends
+var mocked_by: String = ""
+var slowed_tiles: int = 0  # Ray of Frost: movement lost at the start of its next turn
+var guided_by: String = ""  # Guiding Bolt: next attack roll against it has advantage
+var guided_turns_left: int = 0  # turn ends of guided_by before the mark fades
+## Hex and similar marks: caster id -> {"effect", "dice", "type"}; the caster's
+## attack hits on this combatant add the dice.
+var marks: Dictionary = {}
+var sneak_attack_turn: int = -1  # encounter turn counter when Sneak Attack was last used
 
 
 ## Player character: the sheet's weapon attacks, then an unarmed strike fallback.
@@ -119,12 +136,39 @@ func speed_tiles() -> int:
 	return GridMath.feet_to_tiles(sheet.speed) if sheet != null else 0
 
 
-## Start-of-turn reset: full movement, fresh action/bonus action/reaction,
-## Dodge and Disengage end.
+## Start-of-turn reset: full movement (minus any slow), fresh action/bonus
+## action/reaction, Dodge and Disengage end.
 func reset_turn() -> void:
-	movement_remaining = speed_tiles()
+	movement_remaining = maxi(0, speed_tiles() - slowed_tiles)
+	slowed_tiles = 0
 	action_used = false
 	bonus_action_used = false
 	reaction_used = false
 	dodging = false
 	disengaging = false
+	attack_action_taken = false
+
+
+## Damage after the sheet's immunities / resistances / vulnerabilities, with
+## Rage's resistance to bludgeoning, piercing and slashing while raging.
+func adjust_damage(amount: int, damage_type: String) -> int:
+	var extra: Array[String] = []
+	if raging:
+		extra = ["bludgeoning", "piercing", "slashing"]
+	return sheet.adjust_damage_for_type(amount, damage_type, extra) if sheet != null else amount
+
+
+## Index of the first melee attack (opportunity attacks), or -1.
+func first_melee_attack() -> int:
+	for i in range(attacks.size()):
+		if str(attacks[i].get("kind", "melee")) == "melee":
+			return i
+	return -1
+
+
+## Index of the first ranged or thrown attack, or -1.
+func first_ranged_attack() -> int:
+	for i in range(attacks.size()):
+		if str(attacks[i].get("kind", "melee")) in ["ranged", "thrown"]:
+			return i
+	return -1

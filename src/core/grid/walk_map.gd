@@ -174,3 +174,44 @@ static func _unwind(parent: Dictionary, start: Vector2i, end: Vector2i) -> Array
 		cell = prev
 	path.reverse()
 	return path
+
+
+## True when the straight line between the centres of a and b crosses only
+## walkable tiles (Bresenham; the end tiles themselves are not checked, and
+## creatures never block sight). Symmetric: the line is always drawn from the
+## smaller tile (by x, then y), so has_line_of_sight(a, b) == (b, a).
+func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
+	if not in_bounds(a) or not in_bounds(b):
+		return false
+	var from := a
+	var to := b
+	if b.x < a.x or (b.x == a.x and b.y < a.y):
+		from = b
+		to = a
+	for cell in WalkMap.line_cells(from, to):
+		if cell != from and cell != to and not is_walkable(cell):
+			return false
+	return true
+
+
+## Bresenham line from a to b, both ends included.
+static func line_cells(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var dx := absi(b.x - a.x)
+	var dy := -absi(b.y - a.y)
+	var sx := 1 if a.x < b.x else -1
+	var sy := 1 if a.y < b.y else -1
+	var err := dx + dy
+	var p := a
+	while true:
+		out.append(p)
+		if p == b:
+			break
+		var e2 := 2 * err
+		if e2 >= dy:
+			err += dy
+			p.x += sx
+		if e2 <= dx:
+			err += dx
+			p.y += sy
+	return out

@@ -2,6 +2,16 @@ class_name ContentLoader
 extends RefCounted
 ## Loads data/*.json into typed definition objects. Invalid files are skipped
 ## with push_error so one bad file never takes down the whole content set.
+##
+## cache() loads everything under res://data once and returns the shared
+## content dictionary {"classes", "ancestries", "weapons", "items", "spells",
+## "loot_tables", "monsters"} (each id -> definition). Rules code that needs
+## definitions takes such a dictionary (tests pass hand-built ones).
+
+const DATA_ROOT := "res://data"
+const CONTENT_KEYS: Array[String] = ["classes", "ancestries", "weapons", "items", "spells", "loot_tables", "monsters"]
+
+static var _cache: Dictionary = {}
 
 
 ## Returns the parsed top-level object, or {} (with push_error) on failure.
@@ -100,6 +110,154 @@ static func load_monsters(dir_path: String = "res://data/monsters") -> Dictionar
 			continue
 		result[def.id] = def
 	return result
+
+
+## id -> ItemDefinition for every *.json file in dir_path.
+static func load_items(dir_path: String = "res://data/items") -> Dictionary:
+	var result := {}
+	for path in ContentLoader.json_files(dir_path):
+		var data := ContentLoader.load_json(path)
+		if data.is_empty():
+			continue
+		var def := ItemDefinition.from_dict(data)
+		if def == null:
+			push_error("ContentLoader: skipping invalid item file %s" % path)
+			continue
+		if result.has(def.id):
+			push_error("ContentLoader: duplicate item id '%s' in %s" % [def.id, path])
+			continue
+		result[def.id] = def
+	return result
+
+
+## id -> SpellDefinition for every *.json file in dir_path.
+static func load_spells(dir_path: String = "res://data/spells") -> Dictionary:
+	var result := {}
+	for path in ContentLoader.json_files(dir_path):
+		var data := ContentLoader.load_json(path)
+		if data.is_empty():
+			continue
+		var def := SpellDefinition.from_dict(data)
+		if def == null:
+			push_error("ContentLoader: skipping invalid spell file %s" % path)
+			continue
+		if result.has(def.id):
+			push_error("ContentLoader: duplicate spell id '%s' in %s" % [def.id, path])
+			continue
+		result[def.id] = def
+	return result
+
+
+## id -> LootTable for every *.json file in dir_path.
+static func load_loot_tables(dir_path: String = "res://data/loot") -> Dictionary:
+	var result := {}
+	for path in ContentLoader.json_files(dir_path):
+		var data := ContentLoader.load_json(path)
+		if data.is_empty():
+			continue
+		var def := LootTable.from_dict(data)
+		if def == null:
+			push_error("ContentLoader: skipping invalid loot table file %s" % path)
+			continue
+		if result.has(def.id):
+			push_error("ContentLoader: duplicate loot table id '%s' in %s" % [def.id, path])
+			continue
+		result[def.id] = def
+	return result
+
+
+## Loads every content folder under root (a missing folder gives an empty
+## dictionary without an error). Shape: see cache().
+static func load_all(root: String = DATA_ROOT) -> Dictionary:
+	var out := {}
+	for key in CONTENT_KEYS:
+		out[key] = {}
+	var weapons_dir := root.path_join("weapons")
+	if DirAccess.dir_exists_absolute(weapons_dir):
+		out["weapons"] = ContentLoader.load_weapons(weapons_dir)
+	if DirAccess.dir_exists_absolute(root.path_join("classes")):
+		out["classes"] = ContentLoader.load_classes(root.path_join("classes"), weapons_dir)
+	if DirAccess.dir_exists_absolute(root.path_join("ancestries")):
+		out["ancestries"] = ContentLoader.load_ancestries(root.path_join("ancestries"))
+	if DirAccess.dir_exists_absolute(root.path_join("items")):
+		out["items"] = ContentLoader.load_items(root.path_join("items"))
+	if DirAccess.dir_exists_absolute(root.path_join("spells")):
+		out["spells"] = ContentLoader.load_spells(root.path_join("spells"))
+	if DirAccess.dir_exists_absolute(root.path_join("loot")):
+		out["loot_tables"] = ContentLoader.load_loot_tables(root.path_join("loot"))
+	if DirAccess.dir_exists_absolute(root.path_join("monsters")):
+		out["monsters"] = ContentLoader.load_monsters(root.path_join("monsters"))
+	return out
+
+
+## The shared content set from res://data, loaded on first use.
+static func cache() -> Dictionary:
+	if _cache.is_empty():
+		_cache = ContentLoader.load_all(DATA_ROOT)
+	return _cache
+
+
+## Forgets the cached content (the next cache() reloads res://data).
+static func clear_cache() -> void:
+	_cache = {}
+
+
+## A content dictionary with every CONTENT_KEYS entry present: missing keys
+## are filled with {}. Pass {} to get cache().
+static func resolve(content: Dictionary) -> Dictionary:
+	if content.is_empty():
+		return ContentLoader.cache()
+	for key in CONTENT_KEYS:
+		if not content.has(key):
+			content[key] = {}
+	return content
+
+
+## Cross-references between content files: weapon items -> weapons, ammo ids,
+## class kits / prepared spells / spell lists, monster loot tables, loot
+## table items. Returns one line per problem (empty = consistent).
+static func validate_references(content: Dictionary) -> Array[String]:
+	var c := ContentLoader.resolve(content)
+	var problems: Array[String] = []
+	var weapons: Dictionary = c["weapons"]
+	var items: Dictionary = c["items"]
+	var spells: Dictionary = c["spells"]
+	var loot: Dictionary = c["loot_tables"]
+	var classes: Dictionary = c["classes"]
+	var monsters: Dictionary = c["monsters"]
+	for item_v: Variant in items.values():
+		var it: ItemDefinition = item_v
+		if it.kind == ItemDefinition.KIND_WEAPON and not weapons.has(it.weapon_id):
+			problems.append("item '%s': unknown weapon_id '%s'" % [it.id, it.weapon_id])
+		if not it.ammo_id.is_empty() and not items.has(it.ammo_id):
+			problems.append("item '%s': unknown ammo_id '%s'" % [it.id, it.ammo_id])
+	for weapon_v: Variant in weapons.values():
+		var w: WeaponDefinition = weapon_v
+		if not w.ammo_id.is_empty() and not items.is_empty() and not items.has(w.ammo_id):
+			problems.append("weapon '%s': unknown ammo_id '%s'" % [w.id, w.ammo_id])
+	for cls_v: Variant in classes.values():
+		var cls: ClassDefinition = cls_v
+		for entry in cls.starting_kit:
+			if not items.has(str(entry["item"])):
+				problems.append("class '%s': unknown kit item '%s'" % [cls.id, str(entry["item"])])
+		var class_spells: Array[String] = cls.spells_prepared.duplicate()
+		class_spells.append_array(cls.spell_list)
+		for spell_id in class_spells:
+			if not spells.has(spell_id):
+				problems.append("class '%s': unknown spell '%s'" % [cls.id, spell_id])
+		if not cls.starting_armor_item.is_empty() and not items.has(cls.starting_armor_item):
+			problems.append("class '%s': unknown starting armor item '%s'" % [cls.id, cls.starting_armor_item])
+	for mon_v: Variant in monsters.values():
+		var m: MonsterDefinition = mon_v
+		if not m.loot_table.is_empty() and not loot.has(m.loot_table):
+			problems.append("monster '%s': unknown loot_table '%s'" % [m.id, m.loot_table])
+	for table_v: Variant in loot.values():
+		var t: LootTable = table_v
+		for item_id in t.item_ids():
+			if not items.has(item_id):
+				problems.append("loot table '%s': unknown item '%s'" % [t.id, item_id])
+	problems.sort()
+	return problems
 
 
 ## Sorted list of *.json paths directly inside dir_path.

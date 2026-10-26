@@ -683,7 +683,8 @@ func _finish_session(session: EncounterSession) -> void:
 			else:
 				_kill(e.sheet)  # M1: the monsters finish off the fallen
 		if players_won and e.is_alive():
-			var levels := e.sheet.gain_xp(xp_share)
+			e.sheet.gain_xp(xp_share)
+			var levels := _apply_pending_levels_default(e.sheet)
 			_send_character_state(e, {"xp_gained": xp_share, "levels_gained": levels})
 		else:
 			_send_character_state(e)
@@ -714,6 +715,36 @@ func _xp_share(session: EncounterSession) -> int:
 
 func _kill(sheet: CharacterSheet) -> void:
 	sheet.kill()
+
+
+## INTERIM (replaced by the interactive LEVEL_UP_AVAILABLE / level_up flow):
+## applies every pending level with default choices (average HP, first
+## available spells, no ASI unless offered: then +2 to the primary ability).
+func _apply_pending_levels_default(sheet: CharacterSheet) -> int:
+	var applied := 0
+	while sheet.pending_levels() > 0 and applied < 20:
+		var offer := LevelUp.choices(sheet)
+		var made := {"hp": "average"}
+		var cantrips: Array = offer.get("spell_options", []).filter(func(id: String) -> bool:
+			var sp: Variant = ContentLoader.cache().get("spells", {}).get(id)
+			return sp != null and int(sp.level) == 0)
+		var leveled: Array = offer.get("spell_options", []).filter(func(id: String) -> bool:
+			var sp: Variant = ContentLoader.cache().get("spells", {}).get(id)
+			return sp != null and int(sp.level) > 0)
+		made["learn_cantrips"] = cantrips.slice(0, int(offer.get("cantrips_to_learn", 0)))
+		made["learn_spells"] = leveled.slice(0, int(offer.get("spells_to_learn", 0)))
+		if bool(offer.get("asi", false)):
+			var primary := "STR"
+			var cls := sheet.class_definition()
+			if cls != null and not cls.primary_abilities.is_empty():
+				primary = Ability.abbreviation(cls.primary_abilities[0])
+			made["asi"] = {primary: 2}
+		var err := LevelUp.apply(sheet, made, {}, _rest_rng)
+		if not err.is_empty():
+			push_error("InstanceServer: default level-up failed: %s" % err)
+			break
+		applied += 1
+	return applied
 
 
 func _check_game_over() -> void:

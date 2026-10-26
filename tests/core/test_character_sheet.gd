@@ -191,7 +191,12 @@ func test_dead_cannot_be_healed() -> void:
 func test_gain_xp_levels_up() -> void:
 	var s := _hero()
 	assert_eq(s.gain_xp(299), 0)
-	assert_eq(s.gain_xp(700), 2, "999 xp is level 3")
+	assert_eq(s.gain_xp(700), 2, "999 xp is level 3: two levels pending")
+	assert_eq(s.level, 1, "gain_xp no longer applies levels (LevelUp does)")
+	assert_eq(s.pending_levels(), 2)
+	s.level_up()
+	s.level_up()
+	assert_eq(s.pending_levels(), 0)
 	assert_eq(s.level, 3)
 	assert_eq(s.max_hp, 11 + 2 * (6 + 1), "average d10 (6) + CON 1 per level")
 	assert_eq(s.hit_dice_total, 3)

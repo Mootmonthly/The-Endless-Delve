@@ -18,13 +18,15 @@ var speed: int = 30
 var abilities: AbilityScores = AbilityScores.new()
 var challenge_rating: float = 0.0
 var xp: int = 0
-## Each: {"name", "kind", "to_hit": int, "damage": dice expr, "damage_type"}.
+## Each: {"name", "kind", "to_hit": int, "damage": dice expr, "damage_type"};
+## ranged attacks also get "range_tiles": [normal, long] from "range_ft".
 var attacks: Array[Dictionary] = []
 var damage_resistances: Array[String] = []
 var damage_immunities: Array[String] = []
 var damage_vulnerabilities: Array[String] = []
 var condition_immunities: Array[String] = []
 var traits: Array[Dictionary] = []  # {"name", "description"}; descriptive only for now
+var loot_table: String = ""  # LootTable id rolled when it dies ("" = no drops)
 
 
 ## Returns null (and push_error) when a field is missing or invalid.
@@ -70,6 +72,11 @@ static func from_dict(d: Dictionary) -> MonsterDefinition:
 		attack["to_hit"] = DictUtil.to_int(raw["to_hit"], 0)
 		attack["damage"] = str(raw["damage"])
 		attack["damage_type"] = str(raw["damage_type"]).to_lower()
+		if attack.has("range_ft"):
+			var ft := DictUtil.to_int_array(attack["range_ft"])
+			if ft.size() == 2:
+				attack["range_ft"] = ft
+				attack["range_tiles"] = [GridMath.feet_to_tiles(ft[0]), GridMath.feet_to_tiles(ft[1])]
 		if not DiceExpr.parse(str(attack["damage"])).valid:
 			push_error("%s: attack '%s' has invalid damage '%s'" % [ctx, attack["name"], attack["damage"]])
 			return null
@@ -82,6 +89,7 @@ static func from_dict(d: Dictionary) -> MonsterDefinition:
 	m.damage_vulnerabilities = DictUtil.to_string_array(d.get("damage_vulnerabilities", []))
 	m.condition_immunities = DictUtil.to_string_array(d.get("condition_immunities", []))
 	m.traits = DictUtil.to_dict_array(d.get("traits", []))
+	m.loot_table = "" if d.get("loot_table") == null else str(d.get("loot_table", ""))
 	return m
 
 

@@ -108,7 +108,8 @@ func test_optional_set_fields_default_and_round_trip() -> void:
 	f.encounter_zones[0].kind = EncounterZoneData.KIND_BOSS
 	var d := f.to_dict()
 	d["budget"] = {"level": 2, "min": "medium", "max": "hard"}  # content-only key: ignored
-	var copy := FloorData.from_dict(JSON.parse_string(JSON.stringify(d)))
+	var parsed: Dictionary = JSON.parse_string(JSON.stringify(d))
+	var copy := FloorData.from_dict(parsed)
 	assert_eq(copy.floor_number, 3)
 	assert_eq(copy.theme, "sunken crypts")
 	assert_true(copy.encounter_zones[0].boss)

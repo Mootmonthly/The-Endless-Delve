@@ -20,8 +20,8 @@ func _mon(monster_id: String) -> MonsterDefinition:
 
 
 func test_loads_four_classes() -> void:
-	assert_eq(classes.size(), 4)
-	for class_id: String in ["fighter", "rogue", "cleric", "wizard"]:
+	assert_eq(classes.size(), 12, "all twelve SRD classes")
+	for class_id: String in ["fighter", "rogue", "cleric", "wizard", "barbarian", "bard", "druid", "monk", "paladin", "ranger", "sorcerer", "warlock"]:
 		assert_has(classes, class_id)
 
 

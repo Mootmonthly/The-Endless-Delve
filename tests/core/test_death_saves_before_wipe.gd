@@ -32,7 +32,7 @@ func _fight(specs: Array, first_id: String) -> Encounter:
 		var e := Encounter.new("t", Rng.new(s), map, Rect2i(0, 0, 12, 12))
 		for spec: Array in specs:
 			var pos: Vector2i = spec[2]
-			assert_true(e.add_combatant(_make(str(spec[0]), int(spec[1]), pos)))
+			assert_true(e.add_combatant(_make(str(spec[0]), DictUtil.to_int(spec[1]), pos)))
 		e.start()
 		if e.current_actor() != null and e.current_actor().id == first_id:
 			return e
@@ -101,17 +101,18 @@ func test_downed_solo_player_rolls_death_saves_while_the_monster_closes_in() -> 
 	_down(hero)
 	var plan := MonsterBrain.decide(e, "m")
 	assert_eq(plan[0]["type"], "move", "the monster heads for the dying player")
-	assert_eq((plan[0]["path"] as Array).size(), 6)
-	for intent in plan.slice(0, plan.size() - 1):
-		assert_true(e.submit(intent)["ok"])
+	var first_path: Array = plan[0]["path"]
+	assert_eq(first_path.size(), 6)
+	for intent: Dictionary in plan.slice(0, plan.size() - 1):
+		assert_true(DictUtil.to_bool(e.submit(intent)["ok"]))
 	# The hero's first death save will be a plain success (no natural 20).
 	e.rng = Rng.new(seed_where(func(r: Rng) -> bool:
 		var n := D20.roll(r).natural
 		return n >= 10 and n < 20))
-	assert_true(e.submit(plan[plan.size() - 1])["ok"])
+	assert_true(DictUtil.to_bool(e.submit(plan[plan.size() - 1])["ok"]))
 	var saves := _events_of(e, "death_save", "actor", "hero")
 	assert_eq(saves.size(), 1, "the dying hero rolled at its turn start")
-	assert_eq(int(saves[0]["successes"]), 1)
+	assert_eq(DictUtil.to_int(saves[0]["successes"]), 1)
 	assert_eq(e.state, Encounter.State.ACTIVE, "the fight goes on")
 	assert_eq(e.current_actor().id, "m", "back to the monster")
 	_run_monsters(e)
@@ -121,7 +122,7 @@ func test_downed_solo_player_rolls_death_saves_while_the_monster_closes_in() -> 
 	assert_eq(str(attacks[0]["target"]), "hero")
 	assert_eq(str(attacks[0]["advantage"]), "advantage", "advantage against an unconscious target")
 	if attacks[0]["hit"] == true:
-		assert_true(attacks[0]["critical"] == true, "a hit within 5 ft is a critical hit")
+		assert_true(DictUtil.to_bool(attacks[0]["critical"]), "a hit within 5 ft is a critical hit")
 	assert_eq(e.winning_team, Combatant.TEAM_MONSTERS)
 	assert_true(hero.sheet.is_dead() or hero.sheet.stable, "the fight ends only once the hero died or is stable")
 	assert_eq(_events_of(e, "encounter_ended").size(), 1)
@@ -132,16 +133,16 @@ func test_natural_20_brings_the_solo_player_back_and_the_fight_continues() -> vo
 	var hero := e.get_combatant("hero")
 	_down(hero)
 	e.rng = Rng.new(seed_where(func(r: Rng) -> bool: return D20.roll(r).natural == 20))
-	assert_true(e.submit(_end_turn("m"))["ok"], "the monster passes")
+	assert_true(DictUtil.to_bool(e.submit(_end_turn("m"))["ok"]), "the monster passes")
 	var saves := _events_of(e, "death_save", "actor", "hero")
 	assert_eq(saves.size(), 1)
-	assert_eq(int(saves[0]["natural"]), 20)
-	assert_true(saves[0]["regained"] == true)
+	assert_eq(DictUtil.to_int(saves[0]["natural"]), 20)
+	assert_true(DictUtil.to_bool(saves[0]["regained"]))
 	assert_eq(hero.sheet.current_hp, 1, "a natural 20 restores 1 hp")
 	assert_eq(e.state, Encounter.State.ACTIVE)
 	assert_eq(e.current_actor(), hero, "the hero acts this very turn")
 	var res := e.submit({"v": 1, "type": "attack", "actor": "hero", "target": "m", "attack_index": 0})
-	assert_true(res["ok"], "and may fight on")
+	assert_true(DictUtil.to_bool(res["ok"]), "and may fight on")
 
 
 func test_all_stable_means_the_monsters_win() -> void:
@@ -161,7 +162,7 @@ func test_all_stable_means_the_monsters_win() -> void:
 	assert_eq(e.winning_team, Combatant.TEAM_MONSTERS)
 	var ended := _events_of(e, "encounter_ended")
 	assert_eq(ended.size(), 1)
-	assert_eq(int(ended[0]["winning_team"]), Combatant.TEAM_MONSTERS)
+	assert_eq(DictUtil.to_int(ended[0]["winning_team"]), Combatant.TEAM_MONSTERS)
 
 
 func test_party_of_two_stays_in_the_fight_while_one_is_dying() -> void:

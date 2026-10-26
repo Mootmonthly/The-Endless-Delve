@@ -57,7 +57,9 @@ func test_loads_four_ancestries() -> void:
 
 
 func test_loads_six_weapons() -> void:
-	assert_eq(weapons.size(), 6)
+	assert_true(weapons.size() >= 6, "the six M1 weapons plus the M2 additions")
+	for wid: String in ["dagger", "handaxe", "longsword", "mace", "quarterstaff", "shortsword"]:
+		assert_true(weapons.has(wid), wid)
 	var ls := _wpn("longsword")
 	assert_eq(ls.damage, "1d8")
 	assert_eq(ls.damage_type, "slashing")
@@ -95,7 +97,10 @@ func test_human_fighter_longsword() -> void:
 	assert_eq(s.speed, 30)
 	assert_eq(s.max_hp, 12, "d10 + CON 15 (+2)")
 	assert_eq(s.armor_class(), 16, "chain mail ignores DEX")
-	assert_eq(s.attacks.size(), 1)
+	assert_eq(s.attacks.size(), 2, "longsword, then the kit's handaxes thrown")
+	assert_eq(s.attacks[1]["name"], "Handaxe (thrown)")
+	assert_eq(s.attacks[1]["kind"], "thrown")
+	assert_eq(s.attacks[1]["consumes"], "handaxe")
 	var atk := s.attacks[0]
 	assert_eq(atk["name"], "Longsword")
 	assert_eq(atk["to_hit"], 5, "STR +3, proficiency +2")
@@ -103,9 +108,9 @@ func test_human_fighter_longsword() -> void:
 	assert_eq(atk["damage_type"], "slashing")
 	assert_eq(atk["weapon_id"], "longsword")
 	var c := Combatant.from_sheet("pc", s)
-	assert_eq(c.attacks.size(), 2, "weapon then unarmed strike")
+	assert_eq(c.attacks.size(), 3, "weapon attacks then unarmed strike")
 	assert_eq(c.attacks[0]["damage"], "1d8+3")
-	assert_eq(c.attacks[1]["name"], "Unarmed Strike")
+	assert_eq(c.attacks[2]["name"], "Unarmed Strike")
 	assert_eq(c.speed_tiles(), 6)
 
 

@@ -6,10 +6,15 @@ extends RefCounted
 
 ## Spends up to `hit_dice_to_spend` hit dice. Each die heals hit_die roll + CON
 ## modifier (min 0), capped at max hp. Stops early once at full hp so dice are
-## not wasted. Returns hit points healed.
+## not wasted. Returns hit points healed. Also refills short-rest class
+## resources (Second Wind) and, for pact magic (slot_recovery "short_rest"),
+## every spell slot.
 static func short_rest(sheet: CharacterSheet, hit_dice_to_spend: int, rng: Rng) -> int:
 	if sheet == null or sheet.is_dead():
 		return 0
+	sheet.restore_class_resources(true)
+	if sheet.slot_recovery == ClassDefinition.SLOT_RECOVERY_SHORT:
+		sheet.restore_spell_slots()
 	var con_mod := sheet.abilities.get_modifier(Ability.Type.CON)
 	var healed := 0
 	var to_spend := mini(hit_dice_to_spend, sheet.hit_dice_remaining)
@@ -23,7 +28,8 @@ static func short_rest(sheet: CharacterSheet, hit_dice_to_spend: int, rng: Rng) 
 
 
 ## Full hp, temp hp cleared, regain half of total hit dice (round down, min 1),
-## death saves and stability reset, all conditions cleared.
+## death saves and stability reset, all conditions cleared, every spell slot
+## and class resource restored, lasting buffs (Mage Armor) end.
 ## TODO: exhaustion should only drop by one level once it is implemented.
 static func long_rest(sheet: CharacterSheet) -> void:
 	if sheet == null or sheet.is_dead():
@@ -34,3 +40,6 @@ static func long_rest(sheet: CharacterSheet) -> void:
 	sheet.hit_dice_remaining = mini(sheet.hit_dice_total, sheet.hit_dice_remaining + regain)
 	sheet.reset_death_saves()
 	sheet.conditions.clear()
+	sheet.restore_spell_slots()
+	sheet.restore_class_resources()
+	sheet.active_buffs.clear()

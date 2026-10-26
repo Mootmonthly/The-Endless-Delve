@@ -5,7 +5,8 @@ extends RefCounted
 ## Dictionary form (also the floor file format):
 ## {"schema_version": 1, "id", "display_name", "rows": ["####", "#..#", ...],
 ##  "arrival": [x, y], "stairs": [x, y], "encounter_zones": [EncounterZoneData...],
-##  "floor_number": int (optional, default 0 = unnumbered), "theme": String (optional, default "")}
+##  "floor_number": int (optional, default 0 = unnumbered), "theme": String (optional, default ""),
+##  "chests": [ChestData...] (optional: {"id", "position": [x, y], "table", "hidden"})}
 ## In rows '#' is a wall and every other character ('.', 'A', 'S', ...) is walkable.
 ## Other keys (e.g. a content "budget") are ignored by the rules.
 
@@ -21,6 +22,14 @@ var walk_map: WalkMap = WalkMap.new()
 var arrival: Vector2i = Vector2i.ZERO
 var stairs: Vector2i = Vector2i.ZERO
 var encounter_zones: Array[EncounterZoneData] = []
+var chests: Array[ChestData] = []
+
+
+func get_chest(chest_id: String) -> ChestData:
+	for c in chests:
+		if c.id == chest_id:
+			return c
+	return null
 
 
 func get_zone(zone_id: String) -> EncounterZoneData:
@@ -38,8 +47,9 @@ func zone_at(p: Vector2i) -> EncounterZoneData:
 	return null
 
 
-## Lists every authoring problem; empty means the floor is playable.
-func validate() -> Array[String]:
+## Lists every authoring problem; empty means the floor is playable. When
+## loot_tables (id -> LootTable) is given, chest tables must exist in it.
+func validate(loot_tables: Dictionary = {}) -> Array[String]:
 	var problems: Array[String] = []
 	if id.is_empty():
 		problems.append("floor id is empty")
@@ -77,6 +87,20 @@ func validate() -> Array[String]:
 			if seen_points.has(p):
 				problems.append("%s spawn point %s is listed twice" % [ctx, str(p)])
 			seen_points[p] = true
+	var seen_chests := {}
+	for c in chests:
+		var cctx := "chest '%s'" % c.id
+		if c.id.is_empty():
+			problems.append("a chest has an empty id")
+		elif seen_chests.has(c.id):
+			problems.append("duplicate chest id '%s'" % c.id)
+		seen_chests[c.id] = true
+		if not walk_map.is_walkable(c.position):
+			problems.append("%s position %s is not walkable" % [cctx, str(c.position)])
+		if c.table_id.is_empty():
+			problems.append("%s has no loot table" % cctx)
+		elif not loot_tables.is_empty() and not loot_tables.has(c.table_id):
+			problems.append("%s uses unknown loot table '%s'" % [cctx, c.table_id])
 	if walk_map.is_walkable(arrival) and walk_map.is_walkable(stairs) and arrival != stairs:
 		if walk_map.path_to(arrival, stairs, {}).is_empty():
 			problems.append("stairs %s are not reachable from arrival %s" % [str(stairs), str(arrival)])
@@ -87,6 +111,9 @@ func to_dict() -> Dictionary:
 	var zones: Array = []
 	for z in encounter_zones:
 		zones.append(z.to_dict())
+	var chest_list: Array = []
+	for c in chests:
+		chest_list.append(c.to_dict())
 	return {
 		"schema_version": SCHEMA_VERSION,
 		"id": id,
@@ -97,6 +124,7 @@ func to_dict() -> Dictionary:
 		"arrival": GridMath.vec_to_arr(arrival),
 		"stairs": GridMath.vec_to_arr(stairs),
 		"encounter_zones": zones,
+		"chests": chest_list,
 	}
 
 
@@ -119,6 +147,8 @@ static func from_dict(d: Dictionary) -> FloorData:
 	f.stairs = GridMath.arr_to_vec(d.get("stairs", [0, 0]))
 	for zd in DictUtil.to_dict_array(d.get("encounter_zones", [])):
 		f.encounter_zones.append(EncounterZoneData.from_dict(zd))
+	for cd in DictUtil.to_dict_array(d.get("chests", [])):
+		f.chests.append(ChestData.from_dict(cd))
 	return f
 
 

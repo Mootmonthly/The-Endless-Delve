@@ -8,12 +8,14 @@ extends RefCounted
 ## Targets: conscious hostiles; only when none is left, dying hostiles
 ## (unconscious, not dead, not stable: still rolling death saves). Stable and
 ## dead combatants are never targeted.
-## Plan: if adjacent to a target, attack (attack_index 0) the adjacent one
-## with the lowest hp (ties: id). Otherwise walk toward the nearest target
-## (Chebyshev distance, ties: id) along WalkMap.path_to, truncated to the
-## remaining movement, and attack if that ends adjacent. (Attacks on a dying
-## target have advantage and crit within 5 ft: Encounter rules.) Always
-## finish with end_turn.
+## Plan: if adjacent to a target, attack the adjacent one with the lowest hp
+## (ties: id) using its first melee attack. Otherwise walk toward the nearest
+## target (Chebyshev distance, ties: id) along WalkMap.path_to, truncated to
+## the remaining movement, and attack if that ends adjacent. If it still is
+## not adjacent and has a ranged attack (goblin / skeleton shortbow), shoot
+## the nearest target (ties: id) within long range and line of sight from
+## where it stopped. (Attacks on a dying target have advantage and crit
+## within 5 ft: Encounter rules.) Always finish with end_turn.
 
 
 static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
@@ -23,6 +25,8 @@ static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
 		return out
 	var hostiles := MonsterBrain._targets(enc, me)
 	if not hostiles.is_empty() and not me.attacks.is_empty() and not me.action_used:
+		var melee := me.first_melee_attack()
+		var ranged := me.first_ranged_attack()
 		var pos := me.position
 		var target := MonsterBrain._weakest_adjacent(pos, hostiles)
 		if target == null and me.movement_remaining > 0:
@@ -31,8 +35,12 @@ static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
 				out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.MOVE, "actor": actor_id, "path": GridMath.vec_list_to_arr(path)})
 				pos = path[path.size() - 1]
 				target = MonsterBrain._weakest_adjacent(pos, hostiles)
-		if target != null:
-			out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.ATTACK, "actor": actor_id, "target": target.id, "attack_index": 0})
+		var index := melee if melee >= 0 else ranged
+		if target == null and ranged >= 0:
+			target = MonsterBrain._nearest_in_range(enc, pos, me.attacks[ranged], hostiles)
+			index = ranged
+		if target != null and index >= 0:
+			out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.ATTACK, "actor": actor_id, "target": target.id, "attack_index": index})
 	out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.END_TURN, "actor": actor_id})
 	return out
 
@@ -58,6 +66,20 @@ static func _weakest_adjacent(pos: Vector2i, hostiles: Array[Combatant]) -> Comb
 		if best == null or h.sheet.current_hp < best.sheet.current_hp \
 				or (h.sheet.current_hp == best.sheet.current_hp and h.id < best.id):
 			best = h
+	return best
+
+
+## Nearest hostile (ties: id) the attack reaches from pos (range and line of sight).
+static func _nearest_in_range(enc: Encounter, pos: Vector2i, attack: Dictionary, hostiles: Array[Combatant]) -> Combatant:
+	var best: Combatant = null
+	var best_dist := 0
+	for h in hostiles:
+		if not enc.attack_reach_error(pos, h.position, attack).is_empty():
+			continue
+		var d := GridMath.distance_tiles(pos, h.position)
+		if best == null or d < best_dist or (d == best_dist and h.id < best.id):
+			best = h
+			best_dist = d
 	return best
 
 
