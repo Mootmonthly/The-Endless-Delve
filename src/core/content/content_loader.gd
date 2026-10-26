@@ -22,8 +22,10 @@ static func load_json(path: String) -> Dictionary:
 	return result
 
 
-## id -> ClassDefinition for every *.json file in dir_path.
-static func load_classes(dir_path: String = "res://data/classes") -> Dictionary:
+## id -> ClassDefinition for every *.json file in dir_path. Each class's
+## starting_weapon id is resolved against the weapons in weapons_dir.
+static func load_classes(dir_path: String = "res://data/classes", weapons_dir: String = "res://data/weapons") -> Dictionary:
+	var weapons := ContentLoader.load_weapons(weapons_dir)
 	var result := {}
 	for path in ContentLoader.json_files(dir_path):
 		var data := ContentLoader.load_json(path)
@@ -35,6 +37,48 @@ static func load_classes(dir_path: String = "res://data/classes") -> Dictionary:
 			continue
 		if result.has(def.id):
 			push_error("ContentLoader: duplicate class id '%s' in %s" % [def.id, path])
+			continue
+		if not def.starting_weapon.is_empty():
+			if weapons.has(def.starting_weapon):
+				var weapon: WeaponDefinition = weapons[def.starting_weapon]
+				def.starting_weapon_def = weapon
+			else:
+				push_error("ContentLoader: class '%s' starting weapon '%s' not found" % [def.id, def.starting_weapon])
+		result[def.id] = def
+	return result
+
+
+## id -> AncestryDefinition for every *.json file in dir_path.
+static func load_ancestries(dir_path: String = "res://data/ancestries") -> Dictionary:
+	var result := {}
+	for path in ContentLoader.json_files(dir_path):
+		var data := ContentLoader.load_json(path)
+		if data.is_empty():
+			continue
+		var def := AncestryDefinition.from_dict(data)
+		if def == null:
+			push_error("ContentLoader: skipping invalid ancestry file %s" % path)
+			continue
+		if result.has(def.id):
+			push_error("ContentLoader: duplicate ancestry id '%s' in %s" % [def.id, path])
+			continue
+		result[def.id] = def
+	return result
+
+
+## id -> WeaponDefinition for every *.json file in dir_path.
+static func load_weapons(dir_path: String = "res://data/weapons") -> Dictionary:
+	var result := {}
+	for path in ContentLoader.json_files(dir_path):
+		var data := ContentLoader.load_json(path)
+		if data.is_empty():
+			continue
+		var def := WeaponDefinition.from_dict(data)
+		if def == null:
+			push_error("ContentLoader: skipping invalid weapon file %s" % path)
+			continue
+		if result.has(def.id):
+			push_error("ContentLoader: duplicate weapon id '%s' in %s" % [def.id, path])
 			continue
 		result[def.id] = def
 	return result

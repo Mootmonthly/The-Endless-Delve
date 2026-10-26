@@ -98,7 +98,10 @@ func to_sheet(rng: Rng = null, roll_hp: bool = false) -> CharacterSheet:
 		hp = maxi(1, dice.roll(rng).total)
 	sheet.max_hp = hp
 	sheet.current_hp = hp
-	sheet.armor_bonus = armor_class - 10 - sheet.abilities.get_modifier(Ability.Type.DEX)
+	# Stat-block AC already includes DEX: store it as armor whose base cancels DEX out.
+	sheet.armor_base = armor_class - sheet.abilities.get_modifier(Ability.Type.DEX)
+	sheet.armor_max_dex = -1
+	sheet.shield_bonus = 0
 	sheet.speed = speed
 	sheet.uses_death_saves = false
 	sheet.hit_die = dice.sides if dice.valid and dice.sides > 0 else 8

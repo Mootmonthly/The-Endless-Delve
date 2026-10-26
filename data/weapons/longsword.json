@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "longsword",
+	"display_name": "Longsword",
+	"category": "martial",
+	"damage": "1d8",
+	"damage_type": "slashing",
+	"properties": ["versatile"],
+	"versatile_damage": "1d10"
+}

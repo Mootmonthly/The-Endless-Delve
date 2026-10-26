@@ -1,0 +1,15 @@
+{
+	"schema_version": 1,
+	"id": "high_elf",
+	"display_name": "High Elf",
+	"description": "Graceful and keen-minded, with a knack for arcane study.",
+	"size": "medium",
+	"speed": 30,
+	"ability_bonuses": { "DEX": 2, "INT": 1 },
+	"traits": [
+		{ "name": "Darkvision", "description": "Sees in dim light within 60 feet as if it were bright light." },
+		{ "name": "Keen Senses", "description": "Proficiency in the Perception skill." },
+		{ "name": "Fey Ancestry", "description": "Advantage on saving throws against being charmed; magic can't put you to sleep." },
+		{ "name": "Trance", "description": "Meditates for 4 hours instead of sleeping." }
+	]
+}

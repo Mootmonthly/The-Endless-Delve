@@ -18,7 +18,7 @@ func _hero() -> CharacterSheet:
 	var scores := AbilityScores.new()
 	scores.set_all(AbilityScores.standard_array())
 	var skills: Array[int] = [Skill.Type.ATHLETICS, Skill.Type.PERCEPTION]
-	return CharacterBuilder.create("Hero", fighter, scores, skills)
+	return CharacterBuilder.create("Hero", fighter, null, scores, skills)
 
 
 ## Next three d20s are all 10..19 (successes, no natural 20).
@@ -59,7 +59,7 @@ func test_builder_hp_minimum_one() -> void:
 	var empty: Array[int] = []
 	var weak := fighter
 	weak.hit_die = 6
-	assert_eq(CharacterBuilder.create("Frail", weak, scores, empty).max_hp, 1)
+	assert_eq(CharacterBuilder.create("Frail", weak, null, scores, empty).max_hp, 1)
 
 
 func test_builder_saves_and_skills() -> void:
@@ -73,16 +73,23 @@ func test_builder_saves_and_skills() -> void:
 
 func test_builder_rejects_invalid_and_extra_skills() -> void:
 	var skills: Array[int] = [Skill.Type.ARCANA, Skill.Type.ATHLETICS, Skill.Type.PERCEPTION, Skill.Type.SURVIVAL]
-	var s := CharacterBuilder.create("Greedy", fighter, AbilityScores.new(), skills)
+	var s := CharacterBuilder.create("Greedy", fighter, null, AbilityScores.new(), skills)
 	assert_eq(s.proficient_skills, [Skill.Type.ATHLETICS, Skill.Type.PERCEPTION])
 
 
 func test_armor_class_and_initiative() -> void:
 	var s := _hero()
 	assert_eq(s.armor_class(), 12, "10 + DEX 2")
-	s.armor_bonus = 4
-	assert_eq(s.armor_class(), 16)
-	assert_eq(s.initiative_modifier(), 2)
+	s.shield_bonus = 2
+	assert_eq(s.armor_class(), 14, "shield")
+	s.armor_base = 14
+	s.armor_max_dex = 1
+	assert_eq(s.armor_class(), 17, "scale mail caps DEX at +1 here, plus shield")
+	s.armor_max_dex = 0
+	s.shield_bonus = 0
+	s.abilities.set_score(Ability.Type.DEX, 6)
+	assert_eq(s.armor_class(), 14, "heavy armor ignores a DEX penalty")
+	assert_eq(s.initiative_modifier(), -2)
 
 
 func test_temp_hp_absorbs_first() -> void:

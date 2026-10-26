@@ -7,7 +7,9 @@ extends RefCounted
 ## Natural 1 always misses. Natural 20 always hits and is a critical hit (damage
 ## dice are rolled twice, the flat modifier is added once). Otherwise the attack
 ## hits when d20 + to_hit >= target AC. Damage is applied to target.sheet.
-static func resolve_attack(attacker: Combatant, target: Combatant, attack: Dictionary, rng: Rng, mode: D20.RollMode = D20.RollMode.NORMAL) -> AttackResult:
+## auto_crit: any hit is a critical hit (SRD: melee hit within 5 ft of an
+## unconscious creature).
+static func resolve_attack(attacker: Combatant, target: Combatant, attack: Dictionary, rng: Rng, mode: D20.RollMode = D20.RollMode.NORMAL, auto_crit: bool = false) -> AttackResult:
 	var result := AttackResult.new()
 	result.attacker_name = attacker.display_name
 	result.target_name = target.display_name
@@ -25,6 +27,7 @@ static func resolve_attack(attacker: Combatant, target: Combatant, attack: Dicti
 		result.critical = true
 	else:
 		result.hit = result.attack_total >= result.target_ac
+		result.critical = result.hit and auto_crit
 	if not result.hit:
 		result.target_hp_after = target.sheet.current_hp
 		return result

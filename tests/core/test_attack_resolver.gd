@@ -4,7 +4,7 @@ extends TestCase
 func _c(combatant_id: String, armor_bonus: int = 0, hp: int = 30, team: int = 0) -> Combatant:
 	var s := CharacterSheet.new()
 	s.name = combatant_id
-	s.armor_bonus = armor_bonus
+	s.shield_bonus = armor_bonus  # AC = 10 + DEX 0 + bonus
 	s.max_hp = hp
 	s.current_hp = hp
 	return Combatant.from_sheet(combatant_id, s, team)

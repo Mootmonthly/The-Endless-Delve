@@ -1,0 +1,70 @@
+class_name MonsterBrain
+extends RefCounted
+## Simple, deterministic melee monster AI. decide() only reads the encounter;
+## the server feeds each returned intent through Encounter.submit() in order
+## (after a rejection, e.g. the monster was dropped by an opportunity attack
+## and its turn already ended, the remaining intents can be discarded).
+##
+## Plan: if adjacent to a conscious hostile, attack (attack_index 0) the
+## adjacent one with the lowest hp (ties: id). Otherwise walk toward the
+## nearest conscious hostile (Chebyshev distance, ties: id) along
+## WalkMap.path_to, truncated to the remaining movement, and attack if that
+## ends adjacent. Always finish with end_turn.
+
+
+static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var me := enc.get_combatant(actor_id)
+	if me == null or not me.is_conscious():
+		return out
+	var hostiles: Array[Combatant] = []
+	for h in enc.hostiles_of(me):
+		if h.is_conscious():
+			hostiles.append(h)
+	if not hostiles.is_empty() and not me.attacks.is_empty() and not me.action_used:
+		var pos := me.position
+		var target := MonsterBrain._weakest_adjacent(pos, hostiles)
+		if target == null and me.movement_remaining > 0:
+			var path := MonsterBrain._path_toward_nearest(enc, me, hostiles)
+			if not path.is_empty():
+				out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.MOVE, "actor": actor_id, "path": GridMath.vec_list_to_arr(path)})
+				pos = path[path.size() - 1]
+				target = MonsterBrain._weakest_adjacent(pos, hostiles)
+		if target != null:
+			out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.ATTACK, "actor": actor_id, "target": target.id, "attack_index": 0})
+	out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.END_TURN, "actor": actor_id})
+	return out
+
+
+## Lowest current hp among hostiles adjacent to pos; ties broken by id.
+static func _weakest_adjacent(pos: Vector2i, hostiles: Array[Combatant]) -> Combatant:
+	var best: Combatant = null
+	for h in hostiles:
+		if not GridMath.is_adjacent(pos, h.position):
+			continue
+		if best == null or h.sheet.current_hp < best.sheet.current_hp \
+				or (h.sheet.current_hp == best.sheet.current_hp and h.id < best.id):
+			best = h
+	return best
+
+
+## Path (truncated to movement_remaining) toward the nearest hostile that can
+## be reached at all; empty if none can.
+static func _path_toward_nearest(enc: Encounter, me: Combatant, hostiles: Array[Combatant]) -> Array[Vector2i]:
+	var sorted := hostiles.duplicate()
+	sorted.sort_custom(func(a: Combatant, b: Combatant) -> bool:
+		var da := GridMath.distance_tiles(me.position, a.position)
+		var db := GridMath.distance_tiles(me.position, b.position)
+		if da != db:
+			return da < db
+		return a.id < b.id)
+	var occupied := enc.occupied_cells(me.id)
+	for h: Combatant in sorted:
+		var path := enc.walk_map.path_to(me.position, h.position, occupied)
+		if path.is_empty():
+			continue
+		if path.size() > me.movement_remaining:
+			path.resize(me.movement_remaining)
+		return path
+	var none: Array[Vector2i] = []
+	return none

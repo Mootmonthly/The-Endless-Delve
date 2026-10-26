@@ -104,7 +104,7 @@ func test_invalid_input_is_rejected() -> void:
 
 func test_build_character_from_loaded_class() -> void:
 	var skills: Array[int] = [Skill.Type.STEALTH, Skill.Type.ACROBATICS, Skill.Type.DECEPTION, Skill.Type.INSIGHT]
-	var sheet := CharacterBuilder.create("Shade", _cls("rogue"), AbilityScores.new(), skills)
+	var sheet := CharacterBuilder.create("Shade", _cls("rogue"), null, AbilityScores.new(), skills)
 	assert_eq(sheet.max_hp, 8)
 	assert_eq(sheet.proficient_skills.size(), 4)
 	assert_eq(sheet.class_id, "rogue")

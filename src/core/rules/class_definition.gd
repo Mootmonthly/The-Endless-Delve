@@ -22,6 +22,13 @@ var skill_choices: Array[int] = []  # Skill.Type values
 var skill_choice_count: int = 0
 var spellcasting_ability: int = -1  # Ability.Type, or -1 for none
 var description: String = ""
+## Starting equipment (all optional in JSON).
+var starting_weapon: String = ""  # weapon id, "" = none
+var starting_armor_base: int = 0  # 0 = no armor
+var starting_armor_max_dex: int = -1  # -1 = no DEX cap
+var starting_shield: bool = false
+## Resolved by ContentLoader.load_classes() from starting_weapon (null if unknown).
+var starting_weapon_def: WeaponDefinition = null
 
 
 ## Returns null (and push_error) when a field is missing or invalid.
@@ -67,7 +74,25 @@ static func from_dict(d: Dictionary) -> ClassDefinition:
 		if def.spellcasting_ability == -1:
 			push_error("%s: unknown spellcasting_ability '%s'" % [ctx, str(spell)])
 			return null
+	var weapon: Variant = d.get("starting_weapon", null)
+	def.starting_weapon = "" if weapon == null else str(weapon)
+	var armor: Variant = d.get("starting_armor", null)
+	if typeof(armor) == TYPE_DICTIONARY:
+		var armor_dict: Dictionary = armor
+		def.starting_armor_base = DictUtil.to_int(armor_dict.get("base", 0), 0)
+		def.starting_armor_max_dex = DictUtil.to_int(armor_dict.get("max_dex", -1), -1)
+		if def.starting_armor_base < 0 or def.starting_armor_max_dex < -1:
+			push_error("%s: invalid starting_armor %s" % [ctx, str(armor_dict)])
+			return null
+	elif armor != null:
+		push_error("%s: starting_armor must be an object or null" % ctx)
+		return null
+	def.starting_shield = DictUtil.to_bool(d.get("starting_shield", false), false)
 	return def
+
+
+func is_proficient_with(weapon: WeaponDefinition) -> bool:
+	return weapon != null and (weapon_proficiencies.has(weapon.category) or weapon_proficiencies.has(weapon.id))
 
 
 func is_spellcaster() -> bool:

@@ -1,0 +1,117 @@
+class_name FloorData
+extends RefCounted
+## One handcrafted floor: walkable tiles, arrival and stairs tiles, encounter zones.
+##
+## Dictionary form (also the floor file format):
+## {"schema_version": 1, "id", "display_name", "rows": ["####", "#..#", ...],
+##  "arrival": [x, y], "stairs": [x, y], "encounter_zones": [EncounterZoneData...]}
+## In rows '#' is a wall and every other character ('.', 'A', 'S', ...) is walkable.
+
+const SCHEMA_VERSION := 1
+
+var id: String = ""
+var display_name: String = ""
+var walk_map: WalkMap = WalkMap.new()
+var arrival: Vector2i = Vector2i.ZERO
+var stairs: Vector2i = Vector2i.ZERO
+var encounter_zones: Array[EncounterZoneData] = []
+
+
+func get_zone(zone_id: String) -> EncounterZoneData:
+	for z in encounter_zones:
+		if z.id == zone_id:
+			return z
+	return null
+
+
+## The zone whose rect contains p, or null.
+func zone_at(p: Vector2i) -> EncounterZoneData:
+	for z in encounter_zones:
+		if z.rect.has_point(p):
+			return z
+	return null
+
+
+## Lists every authoring problem; empty means the floor is playable.
+func validate() -> Array[String]:
+	var problems: Array[String] = []
+	if id.is_empty():
+		problems.append("floor id is empty")
+	if walk_map == null or walk_map.width == 0 or walk_map.height == 0:
+		problems.append("walk map is empty")
+		return problems
+	_check_tile(problems, "arrival", arrival)
+	_check_tile(problems, "stairs", stairs)
+	if arrival == stairs:
+		problems.append("arrival and stairs are the same tile %s" % str(arrival))
+	var seen_ids := {}
+	for z in encounter_zones:
+		var ctx := "zone '%s'" % z.id
+		if z.id.is_empty():
+			problems.append("an encounter zone has an empty id")
+		elif seen_ids.has(z.id):
+			problems.append("duplicate zone id '%s'" % z.id)
+		seen_ids[z.id] = true
+		if z.rect.size.x <= 0 or z.rect.size.y <= 0:
+			problems.append("%s has an empty rect" % ctx)
+		elif not walk_map.bounds().encloses(z.rect):
+			problems.append("%s rect %s is out of bounds" % [ctx, str(z.rect)])
+		if z.monster_ids.is_empty():
+			problems.append("%s has no monsters" % ctx)
+		if z.spawn_points.size() < z.monster_ids.size():
+			problems.append("%s has %d monsters but only %d spawn points" % [ctx, z.monster_ids.size(), z.spawn_points.size()])
+		var seen_points := {}
+		for p in z.spawn_points:
+			if not z.rect.has_point(p):
+				problems.append("%s spawn point %s is outside its rect" % [ctx, str(p)])
+			if not walk_map.is_walkable(p):
+				problems.append("%s spawn point %s is not walkable" % [ctx, str(p)])
+			if seen_points.has(p):
+				problems.append("%s spawn point %s is listed twice" % [ctx, str(p)])
+			seen_points[p] = true
+	if walk_map.is_walkable(arrival) and walk_map.is_walkable(stairs) and arrival != stairs:
+		if walk_map.path_to(arrival, stairs, {}).is_empty():
+			problems.append("stairs %s are not reachable from arrival %s" % [str(stairs), str(arrival)])
+	return problems
+
+
+func to_dict() -> Dictionary:
+	var zones: Array = []
+	for z in encounter_zones:
+		zones.append(z.to_dict())
+	return {
+		"schema_version": SCHEMA_VERSION,
+		"id": id,
+		"display_name": display_name,
+		"rows": walk_map.to_rows() if walk_map != null else [],
+		"arrival": GridMath.vec_to_arr(arrival),
+		"stairs": GridMath.vec_to_arr(stairs),
+		"encounter_zones": zones,
+	}
+
+
+## Never returns null; call validate() on the result. Accepts "rows" (floor
+## file format) or a nested "walk_map" dictionary.
+static func from_dict(d: Dictionary) -> FloorData:
+	var f := FloorData.new()
+	if d.has("schema_version") and DictUtil.to_int(d["schema_version"], -1) != SCHEMA_VERSION:
+		push_error("FloorData: unsupported schema_version %s" % str(d["schema_version"]))
+	f.id = str(d.get("id", ""))
+	f.display_name = str(d.get("display_name", f.id))
+	if d.has("rows"):
+		f.walk_map = WalkMap.from_rows(DictUtil.to_string_array(d["rows"]))
+	elif typeof(d.get("walk_map")) == TYPE_DICTIONARY:
+		var wm: Dictionary = d["walk_map"]
+		f.walk_map = WalkMap.from_dict(wm)
+	f.arrival = GridMath.arr_to_vec(d.get("arrival", [0, 0]))
+	f.stairs = GridMath.arr_to_vec(d.get("stairs", [0, 0]))
+	for zd in DictUtil.to_dict_array(d.get("encounter_zones", [])):
+		f.encounter_zones.append(EncounterZoneData.from_dict(zd))
+	return f
+
+
+func _check_tile(problems: Array[String], label: String, p: Vector2i) -> void:
+	if not walk_map.in_bounds(p):
+		problems.append("%s %s is out of bounds" % [label, str(p)])
+	elif not walk_map.is_walkable(p):
+		problems.append("%s %s is not walkable" % [label, str(p)])

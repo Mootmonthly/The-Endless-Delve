@@ -1,0 +1,15 @@
+{
+	"schema_version": 1,
+	"id": "hill_dwarf",
+	"display_name": "Hill Dwarf",
+	"description": "Bold and hardy, with keen senses and deep intuition.",
+	"size": "medium",
+	"speed": 25,
+	"ability_bonuses": { "CON": 2, "WIS": 1 },
+	"traits": [
+		{ "name": "Darkvision", "description": "Sees in dim light within 60 feet as if it were bright light." },
+		{ "name": "Dwarven Resilience", "description": "Advantage on saving throws against poison, and resistance against poison damage." },
+		{ "name": "Dwarven Toughness", "description": "Hit point maximum increases by 1, and by 1 every time a level is gained." },
+		{ "name": "Speed", "description": "Speed is not reduced by wearing heavy armor." }
+	]
+}

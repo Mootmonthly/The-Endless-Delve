@@ -1,0 +1,15 @@
+{
+	"schema_version": 1,
+	"id": "lightfoot_halfling",
+	"display_name": "Lightfoot Halfling",
+	"description": "Small, nimble and easy to overlook.",
+	"size": "small",
+	"speed": 25,
+	"ability_bonuses": { "DEX": 2, "CHA": 1 },
+	"traits": [
+		{ "name": "Lucky", "description": "When rolling a 1 on an attack roll, ability check or saving throw, reroll the die and use the new roll." },
+		{ "name": "Brave", "description": "Advantage on saving throws against being frightened." },
+		{ "name": "Halfling Nimbleness", "description": "Can move through the space of any creature that is of a size larger than yours." },
+		{ "name": "Naturally Stealthy", "description": "Can attempt to hide when obscured only by a creature at least one size larger." }
+	]
+}

@@ -9,13 +9,16 @@ const DEATH_SAVES_NEEDED := 3
 
 var name: String = ""
 var class_id: String = ""
+var ancestry_id: String = ""  # empty for monsters / legacy sheets
 var level: int = 1
 var xp: int = 0
 var abilities: AbilityScores = AbilityScores.new()
 var max_hp: int = 1
 var current_hp: int = 1
 var temp_hp: int = 0
-var armor_bonus: int = 0  # added to 10 + DEX modifier (armor, shield, natural armor)
+var armor_base: int = 0  # worn armor's base AC; 0 = unarmored (10)
+var armor_max_dex: int = -1  # cap on the DEX bonus from armor; -1 = no cap, 0 = heavy (DEX ignored)
+var shield_bonus: int = 0  # shield (+2) or any other flat AC bonus
 var speed: int = 30
 var hit_die: int = 8
 var hit_dice_total: int = 1  # equals level for characters
@@ -32,14 +35,25 @@ var damage_resistances: Array[String] = []
 var damage_immunities: Array[String] = []
 var damage_vulnerabilities: Array[String] = []
 var deepest_floor: int = 0
+## Weapon attacks, each {"name", "kind", "to_hit": int, "damage": dice expr,
+## "damage_type", "weapon_id"}. Built by CharacterBuilder; empty = unarmed only.
+var attacks: Array[Dictionary] = []
 
 
 func proficiency_bonus() -> int:
 	return Proficiency.bonus_for_level(level)
 
 
+## (armor_base, or 10 unarmored) + DEX modifier (capped by armor_max_dex) + shield_bonus.
+## SRD heavy armor (armor_max_dex 0) ignores DEX entirely, even a penalty.
 func armor_class() -> int:
-	return 10 + abilities.get_modifier(Ability.Type.DEX) + armor_bonus
+	var base := armor_base if armor_base > 0 else 10
+	var dex := abilities.get_modifier(Ability.Type.DEX)
+	if armor_max_dex == 0:
+		dex = 0
+	elif armor_max_dex > 0:
+		dex = mini(dex, armor_max_dex)
+	return base + dex + shield_bonus
 
 
 func ability_modifier(ability: int) -> int:
@@ -260,13 +274,16 @@ func to_dict() -> Dictionary:
 		"schema_version": SCHEMA_VERSION,
 		"name": name,
 		"class_id": class_id,
+		"ancestry_id": ancestry_id,
 		"level": level,
 		"xp": xp,
 		"abilities": abilities.to_dict(),
 		"max_hp": max_hp,
 		"current_hp": current_hp,
 		"temp_hp": temp_hp,
-		"armor_bonus": armor_bonus,
+		"armor_base": armor_base,
+		"armor_max_dex": armor_max_dex,
+		"shield_bonus": shield_bonus,
 		"speed": speed,
 		"hit_die": hit_die,
 		"hit_dice_total": hit_dice_total,
@@ -283,6 +300,7 @@ func to_dict() -> Dictionary:
 		"damage_immunities": damage_immunities.duplicate(),
 		"damage_vulnerabilities": damage_vulnerabilities.duplicate(),
 		"deepest_floor": deepest_floor,
+		"attacks": attacks.duplicate(true),
 	}
 
 
@@ -290,6 +308,7 @@ static func from_dict(d: Dictionary) -> CharacterSheet:
 	var s := CharacterSheet.new()
 	s.name = str(d.get("name", ""))
 	s.class_id = str(d.get("class_id", ""))
+	s.ancestry_id = str(d.get("ancestry_id", ""))
 	s.level = clampi(DictUtil.to_int(d.get("level", 1), 1), 1, MAX_LEVEL)
 	s.xp = DictUtil.to_int(d.get("xp", 0), 0)
 	var ab: Variant = d.get("abilities", {})
@@ -299,7 +318,13 @@ static func from_dict(d: Dictionary) -> CharacterSheet:
 	s.max_hp = maxi(1, DictUtil.to_int(d.get("max_hp", 1), 1))
 	s.current_hp = clampi(DictUtil.to_int(d.get("current_hp", s.max_hp), s.max_hp), 0, s.max_hp)
 	s.temp_hp = maxi(0, DictUtil.to_int(d.get("temp_hp", 0), 0))
-	s.armor_bonus = DictUtil.to_int(d.get("armor_bonus", 0), 0)
+	if d.has("armor_base") or not d.has("armor_bonus"):
+		s.armor_base = maxi(0, DictUtil.to_int(d.get("armor_base", 0), 0))
+		s.armor_max_dex = DictUtil.to_int(d.get("armor_max_dex", -1), -1)
+		s.shield_bonus = DictUtil.to_int(d.get("shield_bonus", 0), 0)
+	else:
+		# Legacy (M0) sheets: AC = 10 + DEX + armor_bonus.
+		s.shield_bonus = DictUtil.to_int(d.get("armor_bonus", 0), 0)
 	s.speed = DictUtil.to_int(d.get("speed", 30), 30)
 	s.hit_die = DictUtil.to_int(d.get("hit_die", 8), 8)
 	s.hit_dice_total = DictUtil.to_int(d.get("hit_dice_total", s.level), s.level)
@@ -320,4 +345,17 @@ static func from_dict(d: Dictionary) -> CharacterSheet:
 	s.damage_immunities = DictUtil.to_string_array(d.get("damage_immunities", []))
 	s.damage_vulnerabilities = DictUtil.to_string_array(d.get("damage_vulnerabilities", []))
 	s.deepest_floor = DictUtil.to_int(d.get("deepest_floor", 0), 0)
+	for raw in DictUtil.to_dict_array(d.get("attacks", [])):
+		s.attacks.append(CharacterSheet.normalize_attack(raw))
 	return s
+
+
+## Copies an attack dictionary with JSON-safe, typed values (to_hit as int).
+static func normalize_attack(raw: Dictionary) -> Dictionary:
+	var attack: Dictionary = raw.duplicate(true)
+	attack["name"] = str(raw.get("name", "Attack"))
+	attack["kind"] = str(raw.get("kind", "melee"))
+	attack["to_hit"] = DictUtil.to_int(raw.get("to_hit", 0), 0)
+	attack["damage"] = str(raw.get("damage", "0"))
+	attack["damage_type"] = str(raw.get("damage_type", "")).to_lower()
+	return attack

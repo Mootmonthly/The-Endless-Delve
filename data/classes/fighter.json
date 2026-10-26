@@ -11,5 +11,8 @@
 	"tool_proficiencies": [],
 	"skill_choices": ["ACROBATICS", "ANIMAL_HANDLING", "ATHLETICS", "HISTORY", "INSIGHT", "INTIMIDATION", "PERCEPTION", "SURVIVAL"],
 	"skill_choice_count": 2,
-	"spellcasting_ability": null
+	"spellcasting_ability": null,
+	"starting_weapon": "longsword",
+	"starting_armor": { "base": 16, "max_dex": 0 },
+	"starting_shield": false
 }

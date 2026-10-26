@@ -11,5 +11,8 @@
 	"tool_proficiencies": [],
 	"skill_choices": ["ARCANA", "HISTORY", "INSIGHT", "INVESTIGATION", "MEDICINE", "RELIGION"],
 	"skill_choice_count": 2,
-	"spellcasting_ability": "INT"
+	"spellcasting_ability": "INT",
+	"starting_weapon": "quarterstaff",
+	"starting_armor": null,
+	"starting_shield": false
 }

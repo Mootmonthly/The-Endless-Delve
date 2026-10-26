@@ -1,0 +1,9 @@
+{
+	"schema_version": 1,
+	"id": "mace",
+	"display_name": "Mace",
+	"category": "simple",
+	"damage": "1d6",
+	"damage_type": "bludgeoning",
+	"properties": []
+}

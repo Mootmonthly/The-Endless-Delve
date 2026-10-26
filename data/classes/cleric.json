@@ -11,5 +11,8 @@
 	"tool_proficiencies": [],
 	"skill_choices": ["HISTORY", "INSIGHT", "MEDICINE", "PERSUASION", "RELIGION"],
 	"skill_choice_count": 2,
-	"spellcasting_ability": "WIS"
+	"spellcasting_ability": "WIS",
+	"starting_weapon": "mace",
+	"starting_armor": { "base": 14, "max_dex": 2 },
+	"starting_shield": true
 }
