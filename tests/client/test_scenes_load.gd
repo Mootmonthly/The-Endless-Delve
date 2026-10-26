@@ -6,6 +6,7 @@ const SCENES: Array[String] = [
 	"res://scenes/main.tscn",
 	"res://scenes/ui/character_creator.tscn",
 	"res://scenes/game/game_scene.tscn",
+	"res://scenes/ui/settings_menu.tscn",
 ]
 
 
@@ -29,6 +30,8 @@ func test_client_scripts_compile() -> void:
 		"res://scenes/game/reach_overlay.gd",
 		"res://src/client/client_state.gd",
 		"res://src/client/character_draft.gd",
+		"res://src/client/game_settings.gd",
+		"res://scenes/ui/settings_menu.gd",
 	]:
 		var script := load(path) as GDScript
 		assert_not_null(script, path)

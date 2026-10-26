@@ -9,6 +9,8 @@ extends Control
 ## with the keyboard (Tab / arrows / Enter), no mouse needed.
 
 signal character_created(sheet: CharacterSheet)
+## The Settings button was pressed (Main opens the SettingsMenu).
+signal settings_requested
 
 const UNASSIGNED_LABEL := "--"
 
@@ -148,6 +150,10 @@ func _build_ui() -> void:
 	_start_button.text = "Start the delve"
 	_start_button.pressed.connect(_on_start_pressed)
 	right.add_child(_start_button)
+	var settings_button := Button.new()
+	settings_button.text = "Settings"
+	settings_button.pressed.connect(settings_requested.emit)
+	right.add_child(settings_button)
 
 
 ## Score menu item index -> standard-array value (index 0 is unassigned).
