@@ -3,7 +3,7 @@ extends CanvasLayer
 ## Modal overlay with two pages:
 ## - Pause (Escape in the game): Resume / Settings / Quit to character creator.
 ##   The offline InstanceServer keeps ticking while it is open (M2: there is no
-##   pause in an MMO instance; offline pause is a later decision).
+##   pause in an MMO instance; an offline game is paused by Main while open).
 ## - Settings (from Pause, or the creator's Settings button): tabs Audio
 ##   (Master / Music / SFX sliders, previewed live), Controls (two key slots per
 ##   action; click a slot, press a key; Escape cancels; shared keys are
@@ -39,6 +39,8 @@ var page: Page = Page.NONE
 
 var _blocker: ColorRect
 var _pause_panel: PanelContainer
+var _pause_title: Label
+var _pause_note: Label
 var _settings_panel: PanelContainer
 var _resume_button: Button
 var _settings_button: Button
@@ -84,9 +86,15 @@ func is_capturing() -> bool:
 # --- Pages ----------------------------------------------------------------------
 
 ## Pause page; `allow_quit` shows "Quit to character creator".
-func open_pause(allow_quit: bool = true) -> void:
+func open_pause(allow_quit: bool = true, simulation_paused: bool = false) -> void:
 	_build_ui()
 	_quit_button.visible = allow_quit
+	_pause_title.text = "Paused" if simulation_paused else "Menu"
+	_pause_note.text = (
+		"Offline game: the dungeon waits while this menu is open."
+		if simulation_paused
+		else "Online instance: the dungeon does not wait. The world keeps moving while this menu is open."
+	)
 	_show_page(Page.PAUSE)
 	_focus_later(_resume_button)
 
@@ -302,13 +310,15 @@ func _build_pause_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
 	var box := _panel_box(panel)
 	box.custom_minimum_size = Vector2(320, 0)
-	box.add_child(_title("Paused"))
+	_pause_title = _title("Menu")
+	box.add_child(_pause_title)
 	var note := Label.new()
-	note.text = "The dungeon does not wait: the world keeps moving while this menu is open."
+	note.text = "Online instance: the dungeon does not wait. The world keeps moving while this menu is open."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size = Vector2(320, 0)
 	note.modulate = Color(0.8, 0.8, 0.85)
 	box.add_child(note)
+	_pause_note = note
 	_resume_button = _button("Resume", close)
 	box.add_child(_resume_button)
 	_settings_button = _button("Settings", open_settings.bind(true))

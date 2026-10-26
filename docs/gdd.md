@@ -75,6 +75,10 @@ Server type is chosen at character creation and is permanent for that character.
 | PVE server | No | One party per instance ("the entire instance to themselves") | Same floors, same monsters, same death rules. |
 | Offline | No | One local party | Whole game solo. Characters cannot move to online servers. |
 
+**Pausing (owner decision, 2026-10-26):** the game cannot be paused on PVP or PVE servers; the Escape
+menu there is just a menu and the dungeon keeps moving behind it (the note on the menu says so). In Offline
+mode the same menu pauses the simulation outright, since nothing else depends on the clock.
+
 **Proposal (needs owner sign-off):** in Offline mode the player may control a party of up to 5
 characters (a classic tabletop-style party) rather than a single hero, because the floors are tuned for
 parties. A single hero remains possible for challenge runs.

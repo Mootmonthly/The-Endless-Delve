@@ -40,7 +40,13 @@ func load_settings() -> void:
 		_menu.setup(settings)
 
 
+func _on_menu_closed() -> void:
+	if _current is GameScene:
+		(_current as GameScene).set_simulation_paused(false)
+
+
 func show_creator() -> void:
+	get_tree().paused = false
 	var packed: PackedScene = load(CREATOR_SCENE)
 	var creator := packed.instantiate() as CharacterCreator
 	creator.character_created.connect(_on_character_created)
@@ -60,7 +66,9 @@ func start_game(sheet: CharacterSheet) -> void:
 func open_pause_menu() -> void:
 	var menu := _ensure_menu()
 	if _current is GameScene:
-		menu.open_pause(true)
+		var game := _current as GameScene
+		var paused := game.set_simulation_paused(true)
+		menu.open_pause(true, paused)
 	else:
 		menu.open_settings(false)
 
@@ -85,6 +93,7 @@ func _ensure_menu() -> SettingsMenu:
 		_menu = packed.instantiate() as SettingsMenu
 		_menu.setup(settings if settings != null else GameSettings.new(settings_path))
 		_menu.quit_requested.connect(show_creator)
+		_menu.closed.connect(_on_menu_closed)
 		add_child(_menu)
 	return _menu
 

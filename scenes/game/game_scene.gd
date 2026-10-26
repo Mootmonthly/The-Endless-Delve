@@ -44,6 +44,9 @@ const MAX_ZOOM := 4
 ## Ticks between a monster's turn_started and its actions, so turns are readable.
 const MONSTER_TURN_DELAY_TICKS := 8
 
+## True while the simulation runs in-process (offline mode). Only an offline
+## game may be paused; an MMO instance keeps moving while any menu is open.
+var offline: bool = true
 var transport: LocalTransport = null
 var server: InstanceServer = null
 var state: ClientState = null
@@ -330,3 +333,12 @@ func _on_hud_action(action: String) -> void:
 
 func _on_new_character() -> void:
 	exit_requested.emit()
+
+
+## Pauses or resumes the in-process simulation. No-op online: the server is
+## authoritative and never waits for a client menu. Returns whether it paused.
+func set_simulation_paused(paused: bool) -> bool:
+	if not offline:
+		return false
+	get_tree().paused = paused
+	return paused
