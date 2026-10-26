@@ -3,6 +3,10 @@ extends Node2D
 ## Offline play: runs the authoritative InstanceServer in-process over a
 ## LocalTransport and presents what it sends.
 ##
+## Plays the first five-floor set (floors/set_01.json) when it exists, else
+## the single floor floors/floor_001.json. Every FLOOR_LOADED (a new floor
+## after the stairs) rebuilds the floor view, entities and camera.
+##
 ## Children (built in _ready): FloorView (from FLOOR_LOADED), ReachOverlay
 ## (tiles reachable this turn), EntityLayer, Camera2D following the player at
 ## an integer zoom, Hud, and the InstanceServer node. Every result from the
@@ -15,6 +19,7 @@ extends Node2D
 ## Emitted when the player asks for a new character after the run ended.
 signal exit_requested
 
+const SET_PATH := "res://floors/set_01.json"
 const FLOOR_PATH := "res://floors/floor_001.json"
 const FLOOR_VIEW_SCENE := "res://scenes/floor/floor_view.tscn"
 const TICKS_PER_SECOND := 20
@@ -36,7 +41,7 @@ var hud: Hud = null
 var _sheet: CharacterSheet = null
 var _seed: int = 0
 var _dirty: bool = true
-var _built_floor_id: String = ""
+var _built_floor_serial: int = 0
 var _highlighted: Rect2i = Rect2i()
 var _zoom: int = DEFAULT_ZOOM
 
@@ -79,20 +84,31 @@ func _ready() -> void:
 	hud.action_requested.connect(_on_hud_action)
 	hud.new_character_requested.connect(_on_new_character)
 
-	var floor_data := FloorFile.load(FLOOR_PATH)
-	if floor_data == null:
-		hud.show_end("Error", "Could not load %s." % FLOOR_PATH)
-		return
 	server = InstanceServer.new()
 	server.name = "InstanceServer"
 	server.monster_turn_delay_ticks = MONSTER_TURN_DELAY_TICKS
 	add_child(server)
-	server.configure(transport, floor_data, _seed)
+	if not _configure_server():
+		return
 	# The server keeps its own copy of the sheet, as it would over the network.
 	var entity_id := server.add_player(transport.local_peer_id(), _sheet)
 	if not entity_id.is_empty():
 		state.player_id = entity_id
 	_refresh_view()
+
+
+## The set if its manifest exists and loads, else the single first floor.
+func _configure_server() -> bool:
+	if FileAccess.file_exists(SET_PATH):
+		var manifest := FloorFile.load_set(SET_PATH)
+		if not manifest.is_empty() and server.configure_set(transport, manifest, _seed):
+			return true
+	var floor_data := FloorFile.load(FLOOR_PATH)
+	if floor_data == null:
+		hud.show_end("Error", "Could not load %s." % FLOOR_PATH)
+		return false
+	server.configure(transport, floor_data, _seed)
+	return true
 
 
 ## A ready-to-play level 1 Human Fighter (used when the scene runs on its own).
@@ -130,9 +146,10 @@ func _refresh_view() -> void:
 	var lines := state.drain_log()
 	if not lines.is_empty():
 		hud.append_log(lines)
-	if state.floor_data != null and state.floor_data.id != _built_floor_id:
+	var new_floor := state.floor_data != null and state.floor_serial != _built_floor_serial
+	if new_floor:
 		floor_view.build(state.floor_data)
-		_built_floor_id = state.floor_data.id
+		_built_floor_serial = state.floor_serial
 		_highlighted = Rect2i()
 	var want := state.region if state.in_encounter else Rect2i()
 	if want != _highlighted:
@@ -149,6 +166,11 @@ func _refresh_view() -> void:
 	reach.set_tiles(tiles)
 	if state.has_player_entity():
 		camera.position = FloorView.tile_to_world(state.player_position())
+		if new_floor:
+			camera.reset_smoothing()  # jump to the new arrival, no pan across floors
+	elif new_floor and state.floor_data != null:
+		camera.position = FloorView.tile_to_world(state.floor_data.arrival)
+		camera.reset_smoothing()
 	hud.refresh(state)
 
 

@@ -4,13 +4,19 @@ extends RefCounted
 ##
 ## Dictionary form (also the floor file format):
 ## {"schema_version": 1, "id", "display_name", "rows": ["####", "#..#", ...],
-##  "arrival": [x, y], "stairs": [x, y], "encounter_zones": [EncounterZoneData...]}
+##  "arrival": [x, y], "stairs": [x, y], "encounter_zones": [EncounterZoneData...],
+##  "floor_number": int (optional, default 0 = unnumbered), "theme": String (optional, default "")}
 ## In rows '#' is a wall and every other character ('.', 'A', 'S', ...) is walkable.
+## Other keys (e.g. a content "budget") are ignored by the rules.
 
 const SCHEMA_VERSION := 1
 
 var id: String = ""
 var display_name: String = ""
+## 1-based depth in the dungeon (0 = not numbered, e.g. a test floor).
+var floor_number: int = 0
+## Theme shared by every floor of a five-floor set ("" = none).
+var theme: String = ""
 var walk_map: WalkMap = WalkMap.new()
 var arrival: Vector2i = Vector2i.ZERO
 var stairs: Vector2i = Vector2i.ZERO
@@ -37,6 +43,8 @@ func validate() -> Array[String]:
 	var problems: Array[String] = []
 	if id.is_empty():
 		problems.append("floor id is empty")
+	if floor_number < 0:
+		problems.append("floor_number %d is negative" % floor_number)
 	if walk_map == null or walk_map.width == 0 or walk_map.height == 0:
 		problems.append("walk map is empty")
 		return problems
@@ -83,6 +91,8 @@ func to_dict() -> Dictionary:
 		"schema_version": SCHEMA_VERSION,
 		"id": id,
 		"display_name": display_name,
+		"floor_number": floor_number,
+		"theme": theme,
 		"rows": walk_map.to_rows() if walk_map != null else [],
 		"arrival": GridMath.vec_to_arr(arrival),
 		"stairs": GridMath.vec_to_arr(stairs),
@@ -98,6 +108,8 @@ static func from_dict(d: Dictionary) -> FloorData:
 		push_error("FloorData: unsupported schema_version %s" % str(d["schema_version"]))
 	f.id = str(d.get("id", ""))
 	f.display_name = str(d.get("display_name", f.id))
+	f.floor_number = DictUtil.to_int(d.get("floor_number", 0), 0)
+	f.theme = str(d.get("theme", ""))
 	if d.has("rows"):
 		f.walk_map = WalkMap.from_rows(DictUtil.to_string_array(d["rows"]))
 	elif typeof(d.get("walk_map")) == TYPE_DICTIONARY:

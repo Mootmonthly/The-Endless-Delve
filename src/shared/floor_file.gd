@@ -8,7 +8,9 @@ extends RefCounted
 ##    "rows": ["#####", "#A.S#", ...],      one string per tile row, all equal width
 ##    "arrival": [x, y], "stairs": [x, y],
 ##    "encounter_zones": [{"id": "z1", "rect": [x, y, w, h],
-##                         "monster_ids": ["goblin", ...], "spawn_points": [[x, y], ...]}]}
+##                         "monster_ids": ["goblin", ...], "spawn_points": [[x, y], ...],
+##                         "boss": false, "kind": "pack"}],         zone boss / kind optional
+##    "floor_number": 1, "theme": "...", "budget": {...}}           optional (budget: content tests only)
 ## Row legend: '#' wall, '.' floor, 'A' arrival (floor), 'S' stairs (floor).
 ## 'A' / 'S' are optional in the rows; when present they must match
 ## "arrival" / "stairs". Coordinates are tiles, x right and y down.
@@ -18,6 +20,12 @@ extends RefCounted
 ## FloorData.from_dict, which reads the same layout. Structural problems are
 ## reported with push_error and yield null; game rules about the floor
 ## (reachability, spawn points etc.) are FloorData.validate()'s job.
+##
+## Set manifest (floors/set_NN.json, schema_version 1): one five-floor set
+## sharing a theme, floors listed in descent order:
+##   {"schema_version": 1, "id": "set_01", "display_name": "...", "theme": "...",
+##    "floors": ["floor_001", ..., "floor_005"]}
+## Each floor id resolves to floor_path(id) = "res://floors/<id>.json".
 
 const SCHEMA_VERSION := 1
 const WALL := "#"
@@ -25,22 +33,63 @@ const FLOOR := "."
 const ARRIVAL := "A"
 const STAIRS := "S"
 const LEGEND := "#.AS"
+const FLOORS_DIR := "res://floors/"
+
+
+## Where a floor (or set manifest) with this id lives: res://floors/<id>.json.
+static func floor_path(floor_id: String) -> String:
+	return "%s%s.json" % [FLOORS_DIR, floor_id]
+
+
+## Loads a set manifest and checks its shape; returns the parsed dictionary,
+## or {} (with push_error) on any problem.
+static func load_set(path: String) -> Dictionary:
+	var d := FloorFile._read_json_object(path)
+	if d.is_empty():
+		return {}
+	var problems := FloorFile.set_problems(d)
+	if not problems.is_empty():
+		for p in problems:
+			push_error("FloorFile: %s: %s" % [path, p])
+		return {}
+	return d
+
+
+## Shape problems with a set manifest dictionary ([] when well formed).
+static func set_problems(d: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	if DictUtil.to_int(d.get("schema_version"), -1) != SCHEMA_VERSION:
+		out.append("set: schema_version must be %d" % SCHEMA_VERSION)
+	if typeof(d.get("id")) != TYPE_STRING or str(d.get("id")).is_empty():
+		out.append("set: missing or empty 'id'")
+	for key: String in ["display_name", "theme"]:
+		if d.has(key) and typeof(d[key]) != TYPE_STRING:
+			out.append("set: '%s' must be a string" % key)
+	var floors_v: Variant = d.get("floors")
+	if typeof(floors_v) != TYPE_ARRAY or (floors_v as Array).is_empty():
+		out.append("set: 'floors' must be a non-empty array of floor ids")
+		return out
+	var seen: Array[String] = []
+	for f: Variant in (floors_v as Array):
+		if typeof(f) != TYPE_STRING or str(f).is_empty():
+			out.append("set: floor id %s is not a non-empty string" % str(f))
+			continue
+		if seen.has(str(f)):
+			out.append("set: floor '%s' is listed twice" % str(f))
+		seen.append(str(f))
+	return out
+
+
+## The floor ids of a (valid) set manifest, in descent order.
+static func set_floor_ids(set_manifest: Dictionary) -> Array[String]:
+	return DictUtil.to_string_array(set_manifest.get("floors", []))
 
 
 ## Loads and parses a floor file; null (with push_error) on any problem.
 static func load(path: String) -> FloorData:
-	if not FileAccess.file_exists(path):
-		push_error("FloorFile: file not found: %s" % path)
+	var d := FloorFile._read_json_object(path)
+	if d.is_empty():
 		return null
-	var text := FileAccess.get_file_as_string(path)
-	var parser := JSON.new()
-	if parser.parse(text) != OK:
-		push_error("FloorFile: %s line %d: %s" % [path, parser.get_error_line(), parser.get_error_message()])
-		return null
-	if typeof(parser.data) != TYPE_DICTIONARY:
-		push_error("FloorFile: %s: top level must be an object" % path)
-		return null
-	var d: Dictionary = parser.data
 	var floor_data := FloorFile.from_dict(d)
 	if floor_data == null:
 		push_error("FloorFile: %s is not a valid floor file" % path)
@@ -102,6 +151,10 @@ static func structural_problems(d: Dictionary) -> Array[String]:
 			out.append("'A' in rows at %s does not match arrival %s" % [marker_a, FloorFile._vec(d["arrival"])])
 		if marker_s.x >= 0 and marker_s != FloorFile._vec(d["stairs"]):
 			out.append("'S' in rows at %s does not match stairs %s" % [marker_s, FloorFile._vec(d["stairs"])])
+	if d.has("floor_number") and (not DictUtil.is_number(d["floor_number"]) or DictUtil.to_int(d["floor_number"], -1) < 0):
+		out.append("'floor_number' must be an int >= 0")
+	if d.has("theme") and typeof(d["theme"]) != TYPE_STRING:
+		out.append("'theme' must be a string")
 	var zones_v: Variant = d.get("encounter_zones", [])
 	if typeof(zones_v) != TYPE_ARRAY:
 		out.append("'encounter_zones' must be an array")
@@ -125,6 +178,10 @@ static func structural_problems(d: Dictionary) -> Array[String]:
 			out.append("encounter zone '%s': 'rect' must be [x, y, w, h]" % zid)
 		if typeof(z.get("monster_ids", [])) != TYPE_ARRAY:
 			out.append("encounter zone '%s': 'monster_ids' must be an array" % zid)
+		if z.has("boss") and typeof(z["boss"]) != TYPE_BOOL:
+			out.append("encounter zone '%s': 'boss' must be true or false" % zid)
+		if z.has("kind") and not EncounterZoneData.KINDS.has(str(z["kind"])):
+			out.append("encounter zone '%s': 'kind' must be one of %s" % [zid, str(EncounterZoneData.KINDS)])
 		var spawns_v: Variant = z.get("spawn_points", [])
 		if typeof(spawns_v) != TYPE_ARRAY:
 			out.append("encounter zone '%s': 'spawn_points' must be an array" % zid)
@@ -133,6 +190,23 @@ static func structural_problems(d: Dictionary) -> Array[String]:
 				if not FloorFile._is_pair(sp):
 					out.append("encounter zone '%s': spawn point %s is not [x, y]" % [zid, str(sp)])
 	return out
+
+
+## Parsed top-level JSON object of a file, or {} (with push_error).
+static func _read_json_object(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		push_error("FloorFile: file not found: %s" % path)
+		return {}
+	var text := FileAccess.get_file_as_string(path)
+	var parser := JSON.new()
+	if parser.parse(text) != OK:
+		push_error("FloorFile: %s line %d: %s" % [path, parser.get_error_line(), parser.get_error_message()])
+		return {}
+	if typeof(parser.data) != TYPE_DICTIONARY:
+		push_error("FloorFile: %s: top level must be an object" % path)
+		return {}
+	var d: Dictionary = parser.data
+	return d
 
 
 static func _is_pair(v: Variant) -> bool:

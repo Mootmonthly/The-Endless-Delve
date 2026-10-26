@@ -114,3 +114,71 @@ func test_structural_problems() -> void:
 
 func test_missing_file_returns_null() -> void:
 	assert_null(FloorFile.load("res://floors/does_not_exist.json"))
+
+
+func test_optional_fields_are_checked_and_parsed() -> void:
+	var d := _tiny()
+	d["floor_number"] = 2
+	d["theme"] = "flooded halls"
+	d["budget"] = {"level": 1, "min": "easy", "max": "medium"}
+	(d["encounter_zones"] as Array)[0]["boss"] = true
+	(d["encounter_zones"] as Array)[0]["kind"] = "boss"
+	assert_eq(FloorFile.structural_problems(d), [] as Array[String])
+	var f := FloorFile.from_dict(JSON.parse_string(JSON.stringify(d)))
+	assert_not_null(f)
+	if f != null:
+		assert_eq(f.floor_number, 2)
+		assert_eq(f.theme, "flooded halls")
+		assert_true(f.encounter_zones[0].boss)
+		assert_eq(f.encounter_zones[0].kind, "boss")
+	var mutations: Array[Callable] = [
+		func(m: Dictionary) -> void: m["floor_number"] = -1,
+		func(m: Dictionary) -> void: m["floor_number"] = "2",
+		func(m: Dictionary) -> void: m["theme"] = 5,
+		func(m: Dictionary) -> void: (m["encounter_zones"] as Array)[0]["boss"] = "yes",
+		func(m: Dictionary) -> void: (m["encounter_zones"] as Array)[0]["kind"] = "horde",
+	]
+	for i in range(mutations.size()):
+		var m := _tiny()
+		mutations[i].call(m)
+		assert_false(FloorFile.structural_problems(m).is_empty(), "optional-field mutation %d should be reported" % i)
+
+
+func test_floor_path() -> void:
+	assert_eq(FloorFile.floor_path("floor_002"), "res://floors/floor_002.json")
+	assert_eq(FloorFile.floor_path("floor_001"), FLOOR_001)
+
+
+func _manifest() -> Dictionary:
+	return {"schema_version": 1, "id": "set_x", "display_name": "Test Set", "theme": "t",
+		"floors": ["floor_a", "floor_b"]}
+
+
+func test_set_manifest_shape() -> void:
+	assert_eq(FloorFile.set_problems(_manifest()), [] as Array[String])
+	assert_eq(FloorFile.set_floor_ids(_manifest()), ["floor_a", "floor_b"] as Array[String])
+	var mutations: Array[Callable] = [
+		func(m: Dictionary) -> void: m["schema_version"] = 2,
+		func(m: Dictionary) -> void: m.erase("id"),
+		func(m: Dictionary) -> void: m["floors"] = [],
+		func(m: Dictionary) -> void: m.erase("floors"),
+		func(m: Dictionary) -> void: m["floors"] = ["floor_a", 3],
+		func(m: Dictionary) -> void: m["floors"] = ["floor_a", "floor_a"],
+		func(m: Dictionary) -> void: m["theme"] = [],
+	]
+	for i in range(mutations.size()):
+		var m := _manifest()
+		mutations[i].call(m)
+		assert_false(FloorFile.set_problems(m).is_empty(), "set mutation %d should be reported" % i)
+
+
+func test_load_set_reads_a_manifest_file() -> void:
+	var path := "user://test_floor_file_set.json"
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(_manifest()))
+	file.close()
+	var loaded := FloorFile.load_set(path)
+	assert_eq(str(loaded.get("id", "")), "set_x")
+	assert_eq(FloorFile.set_floor_ids(loaded), ["floor_a", "floor_b"] as Array[String])
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	assert_eq(FloorFile.load_set("res://floors/does_not_exist.json"), {})

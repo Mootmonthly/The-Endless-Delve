@@ -1,8 +1,10 @@
 class_name Hud
 extends CanvasLayer
 ## Heads-up display for the GameScene, built in code: character panel (name,
-## class, level, HP bar, floor, mode, movement / action), initiative order,
-## action bar, stairs buttons, combat log and the end-of-run panel.
+## class, level / XP, HP bar, floor number and name, mode, movement / action),
+## initiative order, action bar, stairs buttons ("Descend to floor N+1" /
+## "Enter the safe zone"), combat log and the end-of-run panel (game over,
+## floor cleared, set cleared).
 ##
 ## Reads a ClientState in refresh(); user choices leave as signals and the
 ## GameScene turns them into intents. Buttons never take keyboard focus, so
@@ -10,7 +12,7 @@ extends CanvasLayer
 
 ## "attack", "dash", "dodge", "disengage", "end_turn", "use_stairs" or "short_rest".
 signal action_requested(action: String)
-## The run is over (game over / floor cleared) and the player wants a new character.
+## The run is over (game over / floor or set cleared) and the player wants a new character.
 signal new_character_requested
 
 const PANEL_WIDTH := 300
@@ -19,6 +21,7 @@ const LOG_HEIGHT := 170
 var _name_label: Label
 var _hp_bar: ProgressBar
 var _hp_label: Label
+var _xp_label: Label
 var _floor_label: Label
 var _mode_label: Label
 var _turn_label: Label
@@ -63,6 +66,9 @@ func _build_status(root: Control) -> void:
 	hp_row.add_child(_hp_bar)
 	_hp_label = Label.new()
 	hp_row.add_child(_hp_label)
+	_xp_label = Label.new()
+	_xp_label.modulate = Color(1.0, 0.9, 0.55)
+	box.add_child(_xp_label)
 	_floor_label = Label.new()
 	box.add_child(_floor_label)
 	_mode_label = Label.new()
@@ -189,9 +195,11 @@ func refresh(state: ClientState) -> void:
 		elif sheet.current_hp == 0:
 			hp_text += " (stable)" if sheet.stable else " (dying %d/%d)" % [sheet.death_save_successes, sheet.death_save_failures]
 		_hp_label.text = hp_text + "   AC %d" % sheet.armor_class()
+		_xp_label.text = state.level_text()
 	else:
 		_name_label.text = "Connecting..."
-	_floor_label.text = state.floor_data.display_name if state.floor_data != null else ""
+		_xp_label.text = ""
+	_floor_label.text = state.floor_label()
 	_mode_label.text = state.mode_text()
 	if state.is_my_turn():
 		_turn_label.text = "Movement: %d tiles (%d ft)   Action: %s" % [
@@ -223,13 +231,19 @@ func refresh(state: ClientState) -> void:
 	_set_enabled("short_rest", state.can_short_rest())
 	var stairs_button: Button = _buttons["use_stairs"]
 	stairs_button.visible = state.on_stairs()
+	stairs_button.text = state.stairs_label()
 	var rest_button: Button = _buttons["short_rest"]
 	rest_button.visible = state.on_stairs()
 	match state.mode:
 		ClientState.Mode.GAME_OVER:
 			show_end("Game over", "Your party has fallen. Permadeath: the delve starts again from floor 1.")
 		ClientState.Mode.FLOOR_CLEARED:
-			show_end("Floor cleared", "You reached the stairs of %s. (Milestone 1 ends here.)" % (state.floor_data.display_name if state.floor_data != null else state.cleared_floor_id))
+			show_end("Floor cleared", "You reached the stairs of %s." % (state.floor_data.display_name if state.floor_data != null else state.cleared_floor_id))
+		ClientState.Mode.SET_CLEARED:
+			var set_title := state.set_name if not state.set_name.is_empty() else state.cleared_set_id
+			var who := state.sheet.name if state.sheet != null else "You"
+			var level := state.sheet.level if state.sheet != null else 1
+			show_end("Set cleared", "%s conquered all %d floors of %s and reached the safe zone at level %d." % [who, state.floor_count, set_title, level])
 		_:
 			_end_panel.visible = false
 

@@ -6,8 +6,14 @@ extends RefCounted
 ##          combatants on >= 2 teams.
 ## ACTIVE:  turns follow the InitiativeTracker. Everything that changes state
 ##          goes through submit(intent); newcomers may still join.
-## ENDED:   every conscious combatant left shares one team (winning_team), or
-##          nobody is left standing (winning_team = -1).
+## ENDED:   at most one team is still "in the fight" (winning_team), or none
+##          is (winning_team = -1). A team is in the fight while at least one
+##          member is conscious OR still dying (0 hp, not dead, not stable,
+##          rolling death saves). So a downed solo player keeps rolling death
+##          saves at its turn start while the monsters keep acting; the fight
+##          only ends once the fallen die or all become stable (or one rolls a
+##          natural 20 and fights on). Monsters never use death saves, so for
+##          them in the fight means alive and conscious.
 ##
 ## Determinism: given the same seed, setup and accepted intents, an encounter
 ## produces exactly the same `events`. `intent_log` holds every accepted intent
@@ -215,14 +221,15 @@ func end_turn() -> Combatant:
 	return current_actor()
 
 
-## Ends the encounter when at most one team still has conscious combatants.
-## Emits encounter_ended once.
+## Ends the encounter when at most one team is still in the fight (has a
+## member who is conscious or dying; see Combatant.is_in_fight). The winner is
+## that team, else -1. Emits encounter_ended once.
 func check_end() -> bool:
 	if state == State.ENDED:
 		return true
 	if state != State.ACTIVE:
 		return false
-	var teams := _conscious_teams()
+	var teams := _teams_in_fight()
 	if teams.size() > 1:
 		return false
 	var winner := -1
@@ -482,6 +489,16 @@ func _conscious_teams() -> Dictionary:
 	for value: Variant in _combatants.values():
 		var c: Combatant = value
 		if c.is_conscious():
+			teams[c.team] = true
+	return teams
+
+
+## Teams with at least one member who is conscious or dying.
+func _teams_in_fight() -> Dictionary:
+	var teams := {}
+	for value: Variant in _combatants.values():
+		var c: Combatant = value
+		if c.is_in_fight():
 			teams[c.team] = true
 	return teams
 

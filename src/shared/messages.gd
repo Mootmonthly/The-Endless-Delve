@@ -19,10 +19,15 @@ extends RefCounted
 ##   encounter_events {"events": [event dicts, each with "kind"]}
 ##   explore_state    {"entities": [{"id", "position": [x, y], "kind"}], "tick": int}
 ##   error            {"message": String}
-##   floor_loaded     {"floor": FloorData.to_dict()}
+##   floor_loaded     {"floor": FloorData.to_dict()}    sent again for every new floor
+##                    extras: "entity_id", "cleared_zones", "set_id", "set_name",
+##                    "floor_index" (0-based in the set), "floor_count"
 ##   character_state  {"sheet": CharacterSheet.to_dict()}
+##                    extras: "entity_id", "healed", "xp_gained", "levels_gained", "long_rest"
 ##   game_over        {}                                the party is wiped out
 ##   floor_cleared    {"floor_id": String}              stairs taken / floor done
+##   set_cleared      {"set_id": String}                last floor's stairs taken: the
+##                                                      five-floor set is done (terminal)
 ## Unknown extra fields are allowed (forward compatible); missing or
 ## mistyped required fields are not. Numbers may arrive as integral floats
 ## after a JSON round trip and are accepted as ints.
@@ -53,9 +58,11 @@ const FLOOR_LOADED := "floor_loaded"
 const CHARACTER_STATE := "character_state"
 const GAME_OVER := "game_over"
 const FLOOR_CLEARED := "floor_cleared"
+const SET_CLEARED := "set_cleared"
 
 const RESULT_KINDS: Array[String] = [
 	ENCOUNTER_EVENTS, EXPLORE_STATE, ERROR, FLOOR_LOADED, CHARACTER_STATE, GAME_OVER, FLOOR_CLEARED,
+	SET_CLEARED,
 ]
 
 
@@ -180,6 +187,9 @@ static func validate_result(d: Dictionary) -> String:
 		FLOOR_CLEARED:
 			if not Messages._is_non_empty_string(d.get("floor_id")):
 				return "floor_cleared: missing or empty 'floor_id'"
+		SET_CLEARED:
+			if not Messages._is_non_empty_string(d.get("set_id")):
+				return "set_cleared: missing or empty 'set_id'"
 	return ""
 
 

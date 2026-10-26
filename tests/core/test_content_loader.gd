@@ -53,8 +53,8 @@ func test_spellcasters() -> void:
 	assert_eq(_cls("wizard").saving_throws, [Ability.Type.INT, Ability.Type.WIS])
 
 
-func test_loads_four_monsters() -> void:
-	assert_eq(monsters.size(), 4)
+func test_loads_the_original_four_monsters() -> void:
+	assert_true(monsters.size() >= 4, "at least the M0 four (later sets add more)")
 	for monster_id: String in ["goblin", "skeleton", "giant_rat", "zombie"]:
 		assert_has(monsters, monster_id)
 

@@ -85,9 +85,21 @@ func is_alive() -> bool:
 	return sheet != null and sheet.is_alive()
 
 
-## Alive and above 0 hp: able to act and to keep its team in the fight.
+## Alive and above 0 hp: able to act.
 func is_conscious() -> bool:
 	return sheet != null and sheet.is_conscious()
+
+
+## At 0 hp, not dead and not stable, and rolling death saves (players).
+## Monsters never use death saves: they die at 0 hp, so they are never dying.
+func is_dying() -> bool:
+	return sheet != null and sheet.uses_death_saves and sheet.is_unconscious() and not sheet.stable
+
+
+## Keeps its team "in the fight": conscious, or still dying (death saves
+## pending). Stable and dead combatants do not.
+func is_in_fight() -> bool:
+	return is_conscious() or is_dying()
 
 
 func is_monster() -> bool:

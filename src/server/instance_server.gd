@@ -1,7 +1,8 @@
 class_name InstanceServer
 extends Node
-## Authoritative simulation of one floor of a dungeon instance (M1: one floor,
-## offline). Owns every piece of game state; clients only send intents
+## Authoritative simulation of a dungeon instance: one floor at a time, either
+## a single floor (configure) or a five-floor set walked in order
+## (configure_set). Owns every piece of game state; clients only send intents
 ## through a Transport and render the results it broadcasts.
 ##
 ## Tick: a fixed 20 Hz step driven from _physics_process (delta is
@@ -22,10 +23,16 @@ extends Node
 ## turn resolves on the tick after its turn_started was broadcast
 ## (monster_turn_delay_ticks). When an encounter ends:
 ##   - players won: the zone is cleared; every surviving player at 0 hp
-##     (stable or still dying) is set to 1 hp (M1 simplification);
+##     (stable or still dying) is set to 1 hp (M1 simplification). XP = sum of
+##     the stat-block XP of the monsters that died in the encounter, split
+##     evenly (integer division, remainder to nobody) among the encounter's
+##     players alive at its end; each gets CHARACTER_STATE with extras
+##     xp_gained / levels_gained (CharacterSheet.gain_xp, average HP);
 ##   - otherwise (monsters won / nobody left standing): the zone stays
 ##     uncleared and the monsters finish off the downed players, who die
-##     (M1 simplification: no rescue outside an encounter);
+##     (M1 simplification: no rescue outside an encounter). The core only ends
+##     a fight once no player is conscious or still dying (death saves before
+##     wipe), so the fallen here are all stable or dead;
 ##   - dead monsters are removed, survivors return to exploration, every
 ##     participating player gets a CHARACTER_STATE and EXPLORE_STATE is
 ##     broadcast; if no living player remains, GAME_OVER is broadcast once and
@@ -36,6 +43,17 @@ extends Node
 ## while it explores. use_stairs needs the stairs tile and no active encounter
 ## on the floor; short_rest needs the stairs tile. Errors go only to the
 ## sending peer as ERROR results.
+##
+## Stairs: FLOOR_CLEARED {floor_id} is broadcast. In a set with a next floor,
+## the whole instance descends: monsters of the old floor are dropped, the
+## next floor's monsters spawn, cleared zones reset, every player keeps its
+## sheet (HP, XP, hit dice) and is placed at the new arrival, and each player
+## gets FLOOR_LOADED (+ extras), CHARACTER_STATE, then EXPLORE_STATE is
+## broadcast. On the set's LAST floor every living player takes a long rest
+## (safe zone placeholder; CHARACTER_STATE extra long_rest: true) and
+## SET_CLEARED {set_id} is broadcast once; the instance is then terminal and
+## every further intent is rejected. A single floor (configure) only
+## broadcasts FLOOR_CLEARED, as in M1.
 
 const TICKS_PER_SECOND := 20
 const TICK_SECONDS := 1.0 / TICKS_PER_SECOND
@@ -44,9 +62,12 @@ const EXPLORE_STEP_TICKS := 3
 ## At most this many ticks are run per _physics_process call (backlog is dropped).
 const MAX_CATCH_UP_TICKS := 5
 ## Rng.fork stream ids: zone index + attempt * ZONE_ATTEMPT_STRIDE for
-## encounters; REST_STREAM for short-rest hit dice.
+## encounters (forked from the floor's stream); REST_STREAM for short-rest
+## hit dice; FLOOR_STREAM + floor index for floors after the first (the first
+## floor uses the root stream, as a single floor does).
 const ZONE_ATTEMPT_STRIDE := 1024
 const REST_STREAM := 1 << 20
+const FLOOR_STREAM := 1 << 21
 const _TICK_EPSILON := 0.0001
 
 ## Ticks between a monster's turn_started and its actions (>= 1). The client
@@ -59,6 +80,7 @@ var _transport: Transport = null
 var _floor: FloorData = null
 var _seed: int = 0
 var _root_rng: Rng = null
+var _floor_rng: Rng = null  # encounters on the current floor fork from this
 var _rest_rng: Rng = null
 var _monster_defs: Dictionary = {}  # id -> MonsterDefinition
 var _entities: Dictionary = {}  # id -> ServerEntity, insertion order
@@ -69,6 +91,13 @@ var _zone_attempts: Dictionary = {}  # zone id -> encounters created
 var _game_over: bool = false
 var _floor_cleared: bool = false
 var _accumulator: float = 0.0
+# Five-floor set (configure_set); empty / 0 for a single floor.
+var _set_id: String = ""
+var _set_name: String = ""
+var _set_floor_ids: Array[String] = []
+var _set_floor_overrides: Dictionary = {}  # floor id -> FloorData (tests, tools)
+var _floor_index: int = 0
+var _set_cleared: bool = false
 
 
 # --- setup --------------------------------------------------------------------
@@ -88,10 +117,17 @@ func configure(transport: Transport, floor_data: FloorData, instance_seed: int) 
 	_game_over = false
 	_floor_cleared = false
 	_accumulator = 0.0
+	_set_id = ""
+	_set_name = ""
+	_set_floor_ids.clear()
+	_set_floor_overrides = {}
+	_floor_index = 0
+	_set_cleared = false
 	_transport = transport
 	_floor = floor_data
 	_seed = instance_seed
 	_root_rng = Rng.new(instance_seed)
+	_floor_rng = _root_rng
 	_rest_rng = _root_rng.fork(REST_STREAM)
 	if _monster_defs.is_empty():
 		_monster_defs = ContentLoader.load_monsters()
@@ -101,6 +137,29 @@ func configure(transport: Transport, floor_data: FloorData, instance_seed: int) 
 		push_error("InstanceServer.configure: floor is null")
 		return
 	_spawn_monsters()
+
+
+## Like configure(), for a five-floor set manifest (see FloorFile.load_set):
+## loads the set's first floor and remembers the rest for the stairs. Floors
+## are read from FloorFile.floor_path(id) unless `floors` (floor id ->
+## FloorData) supplies them. Returns false (push_error) if the manifest or the
+## first floor is unusable.
+func configure_set(transport: Transport, set_manifest: Dictionary, instance_seed: int, floors: Dictionary = {}) -> bool:
+	var problems := FloorFile.set_problems(set_manifest)
+	if not problems.is_empty():
+		for p in problems:
+			push_error("InstanceServer.configure_set: %s" % p)
+		return false
+	var ids := FloorFile.set_floor_ids(set_manifest)
+	var first := _load_set_floor(ids[0], floors)
+	if first == null:
+		return false
+	configure(transport, first, instance_seed)
+	_set_id = str(set_manifest["id"])
+	_set_name = str(set_manifest.get("display_name", _set_id))
+	_set_floor_ids = ids
+	_set_floor_overrides = floors
+	return true
 
 
 ## Adds a player character (the server keeps its own copy of the sheet) as
@@ -126,12 +185,7 @@ func add_player(peer_id: int, sheet: CharacterSheet) -> String:
 	e.position = _free_tile_near(_floor.arrival)
 	_entities[e.id] = e
 	_peer_entities[peer_id] = e.id
-	var cleared: Array = _cleared_zones.keys()
-	_transport.send_result(peer_id, Messages.make_result(Messages.FLOOR_LOADED, {
-		"floor": _floor.to_dict(),
-		"entity_id": e.id,
-		"cleared_zones": cleared,
-	}))
+	_send_floor_loaded(e)
 	_send_character_state(e)
 	_broadcast_explore_state()
 	_check_zone_entry(e)
@@ -186,6 +240,25 @@ func is_floor_cleared() -> bool:
 	return _floor_cleared
 
 
+## Id of the set being played ("" for a single floor).
+func get_set_id() -> String:
+	return _set_id
+
+
+## 0-based index of the current floor in the set (0 for a single floor).
+func get_floor_index() -> int:
+	return _floor_index
+
+
+## Floors in the set (1 for a single floor).
+func get_floor_count() -> int:
+	return maxi(1, _set_floor_ids.size())
+
+
+func is_set_cleared() -> bool:
+	return _set_cleared
+
+
 # --- tick -----------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
@@ -233,6 +306,9 @@ func _on_intent_received(peer_id: int, intent: Dictionary) -> void:
 		return
 	if _game_over:
 		_send_error(peer_id, "the game is over")
+		return
+	if _set_cleared:
+		_send_error(peer_id, "the set is cleared")
 		return
 	if not entity.is_alive():
 		_send_error(peer_id, "%s is dead" % entity.display_name)
@@ -300,8 +376,79 @@ func _handle_use_stairs(peer_id: int, entity: ServerEntity) -> void:
 		_send_error(peer_id, "%s is not standing on the stairs" % entity.display_name)
 		return
 	entity.path.clear()
+	var next_floor: FloorData = null
+	if _has_next_floor():
+		next_floor = _load_set_floor(_set_floor_ids[_floor_index + 1], _set_floor_overrides)
+		if next_floor == null:
+			_send_error(peer_id, "the next floor could not be loaded")
+			return
 	_floor_cleared = true
 	_transport.broadcast_result(Messages.make_result(Messages.FLOOR_CLEARED, {"floor_id": _floor.id}))
+	if next_floor != null:
+		_enter_floor(_floor_index + 1, next_floor)
+	elif not _set_id.is_empty():
+		_clear_set()
+
+
+func _has_next_floor() -> bool:
+	return not _set_id.is_empty() and _floor_index + 1 < _set_floor_ids.size()
+
+
+func _load_set_floor(floor_id: String, overrides: Dictionary) -> FloorData:
+	if overrides.has(floor_id):
+		var given: FloorData = overrides[floor_id]
+		return given
+	var path := FloorFile.floor_path(floor_id)
+	var loaded := FloorFile.load(path)
+	if loaded == null:
+		push_error("InstanceServer: could not load floor '%s' (%s)" % [floor_id, path])
+	return loaded
+
+
+## Moves the whole instance to the set's floor `index`: old monsters go, the
+## new floor's monsters spawn, players keep their sheets and stand at the
+## new arrival.
+func _enter_floor(index: int, floor_data: FloorData) -> void:
+	var players: Array[ServerEntity] = []
+	for value: Variant in _entities.values():
+		var e: ServerEntity = value
+		if e.is_player():
+			players.append(e)
+	_entities.clear()
+	_sessions.clear()
+	_cleared_zones.clear()
+	_zone_attempts.clear()
+	_floor_cleared = false
+	_floor_index = index
+	_floor = floor_data
+	_floor_rng = _root_rng.fork(FLOOR_STREAM + index)
+	_spawn_monsters()
+	for e in players:
+		e.path.clear()
+		e.step_timer = 0
+		e.encounter_id = ""
+		e.combatant = null
+		e.zone_id = ""
+		e.position = _free_tile_near(_floor.arrival) if e.is_alive() else _floor.arrival
+		_entities[e.id] = e
+	for e in players:
+		_send_floor_loaded(e)
+		_send_character_state(e)
+	_broadcast_explore_state()
+	for e in players:
+		_check_zone_entry(e)
+
+
+## Last floor's stairs: long rest for every living player, then SET_CLEARED.
+func _clear_set() -> void:
+	for value: Variant in _entities.values():
+		var e: ServerEntity = value
+		e.path.clear()
+		if e.is_player() and e.is_alive():
+			Rest.long_rest(e.sheet)
+			_send_character_state(e, {"long_rest": true})
+	_set_cleared = true
+	_transport.broadcast_result(Messages.make_result(Messages.SET_CLEARED, {"set_id": _set_id}))
 
 
 func _handle_short_rest(peer_id: int, entity: ServerEntity, hit_dice: int) -> void:
@@ -380,7 +527,7 @@ func _free_tile_near(p: Vector2i) -> Vector2i:
 ## Called after e entered a tile while exploring: joins an active encounter
 ## whose region holds the tile, or (players only) triggers an uncleared zone.
 func _check_zone_entry(e: ServerEntity) -> void:
-	if _game_over or e.in_combat() or not e.is_alive():
+	if _game_over or _set_cleared or e.in_combat() or not e.is_alive():
 		return
 	for value: Variant in _sessions.values():
 		var session: EncounterSession = value
@@ -399,7 +546,7 @@ func _start_session(zone: EncounterZoneData) -> void:
 	var zone_index := _floor.encounter_zones.find(zone)
 	var attempt: int = _zone_attempts.get(zone.id, 0)
 	_zone_attempts[zone.id] = attempt + 1
-	var rng := _root_rng.fork(zone_index + attempt * ZONE_ATTEMPT_STRIDE)
+	var rng := _floor_rng.fork(zone_index + attempt * ZONE_ATTEMPT_STRIDE)
 	var session_id := zone.id if attempt == 0 else "%s#%d" % [zone.id, attempt + 1]
 	var enc := Encounter.new(session_id, rng, _floor.walk_map, zone.rect)
 	var session := EncounterSession.new(session_id, zone, enc)
@@ -513,8 +660,10 @@ func _run_monster_turn(session: EncounterSession) -> void:
 func _finish_session(session: EncounterSession) -> void:
 	_sessions.erase(session.id)
 	var players_won := session.encounter.winning_team == Combatant.TEAM_PLAYERS
+	var xp_share := 0
 	if players_won:
 		_cleared_zones[session.zone.id] = true
+		xp_share = _xp_share(session)
 	for entity_id in session.entity_ids:
 		var e := get_entity(entity_id)
 		if e == null:
@@ -533,9 +682,34 @@ func _finish_session(session: EncounterSession) -> void:
 				e.sheet.heal(1)  # M1: the downed are patched up to 1 hp
 			else:
 				_kill(e.sheet)  # M1: the monsters finish off the fallen
-		_send_character_state(e)
+		if players_won and e.is_alive():
+			var levels := e.sheet.gain_xp(xp_share)
+			_send_character_state(e, {"xp_gained": xp_share, "levels_gained": levels})
+		else:
+			_send_character_state(e)
 	_broadcast_explore_state()
 	_check_game_over()
+
+
+## Each surviving player's XP for a won encounter: the stat-block XP of the
+## monsters that died in it, split evenly among the encounter's players alive
+## at its end (integer division; the remainder goes to nobody).
+func _xp_share(session: EncounterSession) -> int:
+	var total := 0
+	var survivors := 0
+	for entity_id in session.entity_ids:
+		var e := get_entity(entity_id)
+		if e == null:
+			continue
+		if e.is_monster() and not e.is_alive() and _monster_defs.has(e.monster_id):
+			var def: MonsterDefinition = _monster_defs[e.monster_id]
+			total += def.xp
+		elif e.is_player() and e.is_alive():
+			survivors += 1
+	if survivors == 0:
+		return 0
+	@warning_ignore("integer_division")
+	return total / survivors
 
 
 func _kill(sheet: CharacterSheet) -> void:
@@ -601,6 +775,21 @@ func _broadcast_explore_state() -> void:
 		var e: ServerEntity = value
 		list.append(e.to_state())
 	_transport.broadcast_result(Messages.make_result(Messages.EXPLORE_STATE, {"entities": list, "tick": tick}))
+
+
+## FLOOR_LOADED for one player: the floor plus entity_id, cleared_zones and
+## the set position (set_id / set_name "" and floor_count 1 for a single floor).
+func _send_floor_loaded(e: ServerEntity) -> void:
+	var cleared: Array = _cleared_zones.keys()
+	_transport.send_result(e.peer_id, Messages.make_result(Messages.FLOOR_LOADED, {
+		"floor": _floor.to_dict(),
+		"entity_id": e.id,
+		"cleared_zones": cleared,
+		"set_id": _set_id,
+		"set_name": _set_name,
+		"floor_index": _floor_index,
+		"floor_count": get_floor_count(),
+	}))
 
 
 func _send_character_state(e: ServerEntity, extra: Dictionary = {}) -> void:

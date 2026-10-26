@@ -5,11 +5,15 @@ extends RefCounted
 ## (after a rejection, e.g. the monster was dropped by an opportunity attack
 ## and its turn already ended, the remaining intents can be discarded).
 ##
-## Plan: if adjacent to a conscious hostile, attack (attack_index 0) the
-## adjacent one with the lowest hp (ties: id). Otherwise walk toward the
-## nearest conscious hostile (Chebyshev distance, ties: id) along
-## WalkMap.path_to, truncated to the remaining movement, and attack if that
-## ends adjacent. Always finish with end_turn.
+## Targets: conscious hostiles; only when none is left, dying hostiles
+## (unconscious, not dead, not stable: still rolling death saves). Stable and
+## dead combatants are never targeted.
+## Plan: if adjacent to a target, attack (attack_index 0) the adjacent one
+## with the lowest hp (ties: id). Otherwise walk toward the nearest target
+## (Chebyshev distance, ties: id) along WalkMap.path_to, truncated to the
+## remaining movement, and attack if that ends adjacent. (Attacks on a dying
+## target have advantage and crit within 5 ft: Encounter rules.) Always
+## finish with end_turn.
 
 
 static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
@@ -17,10 +21,7 @@ static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
 	var me := enc.get_combatant(actor_id)
 	if me == null or not me.is_conscious():
 		return out
-	var hostiles: Array[Combatant] = []
-	for h in enc.hostiles_of(me):
-		if h.is_conscious():
-			hostiles.append(h)
+	var hostiles := MonsterBrain._targets(enc, me)
 	if not hostiles.is_empty() and not me.attacks.is_empty() and not me.action_used:
 		var pos := me.position
 		var target := MonsterBrain._weakest_adjacent(pos, hostiles)
@@ -34,6 +35,18 @@ static func decide(enc: Encounter, actor_id: String) -> Array[Dictionary]:
 			out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.ATTACK, "actor": actor_id, "target": target.id, "attack_index": 0})
 	out.append({"v": Encounter.INTENT_VERSION, "type": Encounter.END_TURN, "actor": actor_id})
 	return out
+
+
+## Conscious hostiles of me; when there are none, the dying ones.
+static func _targets(enc: Encounter, me: Combatant) -> Array[Combatant]:
+	var conscious: Array[Combatant] = []
+	var dying: Array[Combatant] = []
+	for h in enc.hostiles_of(me):
+		if h.is_conscious():
+			conscious.append(h)
+		elif h.is_dying():
+			dying.append(h)
+	return conscious if not conscious.is_empty() else dying
 
 
 ## Lowest current hp among hostiles adjacent to pos; ties broken by id.

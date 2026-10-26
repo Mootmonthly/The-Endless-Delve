@@ -92,3 +92,32 @@ func test_dict_round_trip_through_json() -> void:
 	assert_eq(copy.get_zone("z1").monster_ids, ["goblin", "giant_rat"])
 	assert_eq(copy.zone_at(Vector2i(7, 2)).id, "z1")
 	assert_null(copy.zone_at(Vector2i(1, 1)))
+
+
+func test_optional_set_fields_default_and_round_trip() -> void:
+	var plain := FloorData.from_dict({"id": "f", "rows": ["A.S"], "arrival": [0, 0], "stairs": [2, 0],
+		"encounter_zones": [{"id": "z", "rect": [1, 0, 1, 1], "monster_ids": ["goblin"], "spawn_points": [[1, 0]]}]})
+	assert_eq(plain.floor_number, 0, "unnumbered by default")
+	assert_eq(plain.theme, "")
+	assert_false(plain.encounter_zones[0].boss)
+	assert_eq(plain.encounter_zones[0].kind, EncounterZoneData.KIND_PACK)
+	var f := _floor()
+	f.floor_number = 3
+	f.theme = "sunken crypts"
+	f.encounter_zones[0].boss = true
+	f.encounter_zones[0].kind = EncounterZoneData.KIND_BOSS
+	var d := f.to_dict()
+	d["budget"] = {"level": 2, "min": "medium", "max": "hard"}  # content-only key: ignored
+	var copy := FloorData.from_dict(JSON.parse_string(JSON.stringify(d)))
+	assert_eq(copy.floor_number, 3)
+	assert_eq(copy.theme, "sunken crypts")
+	assert_true(copy.encounter_zones[0].boss)
+	assert_eq(copy.encounter_zones[0].kind, "boss")
+	assert_eq(copy.to_dict(), f.to_dict())
+	assert_eq(copy.validate(), [])
+
+
+func test_negative_floor_number_is_a_problem() -> void:
+	var f := _floor()
+	f.floor_number = -1
+	_assert_problem(f, "floor_number")

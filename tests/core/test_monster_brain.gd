@@ -109,3 +109,34 @@ func test_unreachable_target_just_ends_turn() -> void:
 	var e := _fight(Vector2i(0, 0), _heroes([["hero", Vector2i(6, 1)]]))
 	assert_eq(_types(MonsterBrain.decide(e, "m")), ["end_turn"])
 	assert_eq(MonsterBrain.decide(e, "nobody"), [])
+
+
+func test_targets_a_dying_hostile_when_none_is_conscious() -> void:
+	var e := _fight(Vector2i(5, 5), _heroes([["down", Vector2i(4, 5)]]))
+	e.get_combatant("down").sheet.take_damage(30)
+	var plan := MonsterBrain.decide(e, "m")
+	assert_eq(_types(plan), ["attack", "end_turn"], "the dying are attacked once nobody else stands")
+	assert_eq(plan[0]["target"], "down")
+
+
+func test_walks_to_a_dying_hostile() -> void:
+	var e := _fight(Vector2i(0, 0), _heroes([["down", Vector2i(4, 4)]]))
+	e.get_combatant("down").sheet.take_damage(30)
+	var plan := MonsterBrain.decide(e, "m")
+	assert_eq(_types(plan), ["move", "attack", "end_turn"])
+	assert_eq(plan[1]["target"], "down")
+
+
+func test_never_targets_stable_or_dead() -> void:
+	var e := _fight(Vector2i(5, 5), _heroes([["stable", Vector2i(4, 5)], ["dead", Vector2i(6, 5)], ["dying", Vector2i(9, 9)]]))
+	var stable := e.get_combatant("stable")
+	stable.sheet.take_damage(30)
+	stable.sheet.stable = true
+	e.get_combatant("dead").sheet.take_damage(100)
+	assert_true(e.get_combatant("dead").sheet.is_dead())
+	e.get_combatant("dying").sheet.take_damage(30)
+	var plan := MonsterBrain.decide(e, "m")
+	assert_eq(_types(plan), ["move", "attack", "end_turn"], "heads for the dying one, ignoring adjacent stable / dead")
+	assert_eq(plan[1]["target"], "dying")
+	e.get_combatant("dying").sheet.stable = true
+	assert_eq(_types(MonsterBrain.decide(e, "m")), ["end_turn"], "nobody left to target")

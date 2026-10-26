@@ -421,3 +421,104 @@ func test_log_describes_attacks() -> void:
 	assert_eq(lines.size(), 2)
 	assert_eq(lines[0], "%s attacks Tess with Scimitar: 16 vs AC 16 [12/4, advantage], hits." % GOBLIN.capitalize())
 	assert_eq(lines[1], "Tess takes 5 slashing damage (7 HP left).")
+
+
+# --- five-floor sets, XP ------------------------------------------------------------
+
+func _set_floor_loaded(floor_dict: Dictionary, index: int, count: int = 2) -> Dictionary:
+	return Messages.make_result(Messages.FLOOR_LOADED, {"floor": floor_dict, "entity_id": PID,
+		"cleared_zones": [], "set_id": "set_t", "set_name": "Test Set", "floor_index": index, "floor_count": count})
+
+
+func _floor_b_dict() -> Dictionary:
+	return {
+		"schema_version": 1, "id": "floor_b", "display_name": "Lower Hall", "floor_number": 2,
+		"rows": ["#######", "#A...S#", "#######"], "arrival": [1, 1], "stairs": [5, 1],
+		"encounter_zones": [{"id": "z1", "rect": [3, 1, 1, 1], "monster_ids": ["goblin"], "spawn_points": [[3, 1]]}],
+	}
+
+
+func test_single_floor_labels() -> void:
+	var st := _loaded()
+	assert_eq(st.floor_label(), "Floor 1 — Test Floor", "unnumbered floor: place in the set")
+	assert_eq(st.stairs_label(), "Descend", "no set")
+	assert_false(st.has_next_floor())
+	assert_eq(st.level_text(), "Lv 1  XP 0/300")
+
+
+func test_set_floor_labels_and_stairs_button() -> void:
+	var st := ClientState.new(PID)
+	st.apply(_set_floor_loaded(_floor_dict(), 0))
+	assert_eq(st.set_id, "set_t")
+	assert_eq(st.floor_count, 2)
+	assert_eq(st.floor_label(), "Floor 1 — Test Floor")
+	assert_true(st.has_next_floor())
+	assert_eq(st.stairs_label(), "Descend to floor 2")
+	st.apply(_set_floor_loaded(_floor_b_dict(), 1))
+	assert_eq(st.floor_label(), "Floor 2 — Lower Hall")
+	assert_false(st.has_next_floor())
+	assert_eq(st.stairs_label(), "Enter the safe zone", "last floor of the set")
+
+
+func test_repeated_floor_loaded_replaces_the_floor() -> void:
+	var st := ClientState.new(PID)
+	st.apply(_set_floor_loaded(_floor_dict(), 0))
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": _sheet_dict()}))
+	st.apply(_explore([_ent(PID, "player", [10, 5]), _ent(GOBLIN, "monster", [7, 3])]))
+	var serial := st.floor_serial
+	st.apply(Messages.make_result(Messages.FLOOR_CLEARED, {"floor_id": "test_floor"}))
+	assert_eq(st.mode, ClientState.Mode.LOADING, "descending, not the end")
+	assert_has(st.log_lines, "Floor cleared! You descend the stairs to floor 2.")
+	st.apply(_set_floor_loaded(_floor_b_dict(), 1))
+	assert_eq(st.floor_serial, serial + 1, "views rebuild")
+	assert_eq(st.mode, ClientState.Mode.EXPLORING)
+	assert_eq(st.floor_data.id, "floor_b")
+	assert_true(st.entities.is_empty(), "the old floor's entities are gone")
+	assert_eq(st.player_position(), Vector2i(1, 1), "arrival until EXPLORE_STATE")
+	assert_has(st.log_lines, "You arrive on Floor 2 — Lower Hall.")
+	st.apply(_explore([_ent(PID, "player", [1, 1]), _ent("z1_goblin_0", "monster", [3, 1])], 50))
+	assert_eq(st.entities.size(), 2)
+	assert_eq(st.player_position(), Vector2i(1, 1))
+	assert_true(st.sheet != null and st.sheet.name == "Tess", "the sheet survives the descent")
+
+
+func test_floor_loaded_mid_encounter_resets_combat_state() -> void:
+	var st := _in_combat()
+	st.apply(_set_floor_loaded(_floor_b_dict(), 1))
+	assert_false(st.in_encounter)
+	assert_eq(st.order, [] as Array[String])
+	assert_eq(st.mode, ClientState.Mode.EXPLORING)
+
+
+func test_xp_and_level_up_are_logged() -> void:
+	var st := _loaded()
+	var s := CharacterSheet.from_dict(_sheet_dict())
+	s.xp = 315
+	s.level = 2
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": s.to_dict(), "xp_gained": 25, "levels_gained": 1}))
+	assert_eq(st.last_xp_gained, 25)
+	assert_eq(st.last_levels_gained, 1)
+	var log := st.drain_log()
+	assert_has(log, "Gained 25 XP.")
+	assert_has(log, "Level up! Now level 2.")
+	assert_eq(st.level_text(), "Lv 2  XP 315/900")
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": s.to_dict(), "xp_gained": 0, "levels_gained": 0}))
+	assert_eq(st.drain_log().size(), 0, "nothing to report")
+
+
+func test_set_cleared_ends_the_run() -> void:
+	var st := ClientState.new(PID)
+	st.apply(_set_floor_loaded(_floor_b_dict(), 1))
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": _sheet_dict()}))
+	st.apply(_explore([_ent(PID, "player", [5, 1])]))
+	assert_true(st.can_use_stairs())
+	st.apply(Messages.make_result(Messages.FLOOR_CLEARED, {"floor_id": "floor_b"}))
+	assert_eq(st.mode, ClientState.Mode.FLOOR_CLEARED, "last floor: no descent")
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": _sheet_dict(), "long_rest": true}))
+	assert_has(st.drain_log(), "You take a long rest in the safe zone: HP and Hit Dice restored.")
+	st.apply(Messages.make_result(Messages.SET_CLEARED, {"set_id": "set_t"}))
+	assert_eq(st.mode, ClientState.Mode.SET_CLEARED)
+	assert_eq(st.cleared_set_id, "set_t")
+	assert_eq(st.mode_text(), "Set cleared")
+	assert_false(st.can_use_stairs())
+	assert_eq(st.intent_for_click(Vector2i(2, 1)), {}, "no more walking")

@@ -97,6 +97,7 @@ func test_every_result_kind_validates_with_required_fields() -> void:
 		Messages.make_result(Messages.CHARACTER_STATE, {"sheet": {"name": "Ada"}}),
 		Messages.make_result(Messages.GAME_OVER),
 		Messages.make_result(Messages.FLOOR_CLEARED, {"floor_id": "floor_001"}),
+		Messages.make_result(Messages.SET_CLEARED, {"set_id": "set_01"}),
 	]
 	for d in cases:
 		assert_eq(Messages.validate_result(d), "", "kind %s" % d["kind"])
@@ -116,6 +117,8 @@ func test_result_rejects_malformed_payloads() -> void:
 		Messages.make_result(Messages.CHARACTER_STATE, {}),
 		Messages.make_result(Messages.FLOOR_CLEARED, {}),
 		Messages.make_result(Messages.FLOOR_CLEARED, {"floor_id": ""}),
+		Messages.make_result(Messages.SET_CLEARED, {}),
+		Messages.make_result(Messages.SET_CLEARED, {"set_id": 1}),
 	]
 	for d in bad:
 		assert_ne(Messages.validate_result(d), "", "should reject %s" % str(d))

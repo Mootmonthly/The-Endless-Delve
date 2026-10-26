@@ -2,7 +2,15 @@ class_name ClientState
 extends RefCounted
 ## Everything the client knows about the game, derived purely from server
 ## results (see Messages): FLOOR_LOADED, CHARACTER_STATE, EXPLORE_STATE,
-## ENCOUNTER_EVENTS, ERROR, GAME_OVER and FLOOR_CLEARED.
+## ENCOUNTER_EVENTS, ERROR, GAME_OVER, FLOOR_CLEARED and SET_CLEARED.
+##
+## Five-floor sets: FLOOR_LOADED arrives again for every new floor (extras
+## set_id / set_name / floor_index / floor_count); each one replaces the floor,
+## forgets the old floor's entities and encounter and bumps floor_serial so
+## scenes rebuild their views. FLOOR_CLEARED on a floor with a next floor only
+## means "descending" (mode LOADING until the next FLOOR_LOADED); on a single
+## floor or the set's last floor it is the end (mode FLOOR_CLEARED), and
+## SET_CLEARED then ends the run (mode SET_CLEARED).
 ##
 ## Pure view-model: no Nodes, no rules resolution, no dice. The client only
 ## predicts what it needs to drive the UI (movement left this turn, whether
@@ -15,9 +23,10 @@ extends RefCounted
 ##    "down": bool, "dead": bool}
 ## Optional extra fields the server sends are used when present (FLOOR_LOADED /
 ## CHARACTER_STATE "entity_id", EXPLORE_STATE "name"/"hp"/"max_hp"/"dead",
-## ENCOUNTER_EVENTS "encounter_id"/"zone_id", CHARACTER_STATE "healed").
+## ENCOUNTER_EVENTS "encounter_id"/"zone_id", CHARACTER_STATE "healed",
+## "xp_gained", "levels_gained", "long_rest").
 
-enum Mode { LOADING, EXPLORING, COMBAT, GAME_OVER, FLOOR_CLEARED }
+enum Mode { LOADING, EXPLORING, COMBAT, GAME_OVER, FLOOR_CLEARED, SET_CLEARED }
 
 const KIND_PLAYER := "player"
 const KIND_MONSTER := "monster"
@@ -46,6 +55,18 @@ var last_winning_team: int = -1
 
 var last_error: String = ""
 var cleared_floor_id: String = ""
+
+# --- where in the set (FLOOR_LOADED extras; a single floor is a set of one) ---
+var set_id: String = ""
+var set_name: String = ""
+var floor_index: int = 0  # 0-based position of the current floor in the set
+var floor_count: int = 1
+## Bumped by every FLOOR_LOADED; scenes rebuild the floor view when it changes.
+var floor_serial: int = 0
+var cleared_set_id: String = ""
+## From the latest CHARACTER_STATE that carried them.
+var last_xp_gained: int = 0
+var last_levels_gained: int = 0
 var log_lines: Array[String] = []
 ## Bumped by every apply(); scenes redraw when it changes.
 var revision: int = 0
@@ -77,12 +98,7 @@ func apply(result: Dictionary) -> void:
 	var kind: String = result["kind"]
 	match kind:
 		Messages.FLOOR_LOADED:
-			var floor_dict: Dictionary = result["floor"]
-			floor_data = FloorData.from_dict(floor_dict)
-			_adopt_entity_id(result)
-			if mode == Mode.LOADING:
-				mode = Mode.EXPLORING
-			_log("You arrive on %s." % floor_data.display_name)
+			_apply_floor_loaded(result)
 		Messages.CHARACTER_STATE:
 			var sheet_dict: Dictionary = result["sheet"]
 			sheet = CharacterSheet.from_dict(sheet_dict)
@@ -90,6 +106,15 @@ func apply(result: Dictionary) -> void:
 			var healed := DictUtil.to_int(result.get("healed", 0), 0)
 			if healed > 0:
 				_log("%s regains %d HP." % [sheet.name, healed])
+			if result.has("xp_gained") or result.has("levels_gained"):
+				last_xp_gained = DictUtil.to_int(result.get("xp_gained", 0), 0)
+				last_levels_gained = DictUtil.to_int(result.get("levels_gained", 0), 0)
+				if last_xp_gained > 0:
+					_log("Gained %d XP." % last_xp_gained)
+				if last_levels_gained > 0:
+					_log("Level up! Now level %d." % sheet.level)
+			if DictUtil.to_bool(result.get("long_rest", false), false):
+				_log("You take a long rest in the safe zone: HP and Hit Dice restored.")
 			if entities.has(player_id):
 				var e: Dictionary = entities[player_id]
 				e["hp"] = sheet.current_hp
@@ -115,9 +140,41 @@ func apply(result: Dictionary) -> void:
 			_log("Your party has fallen. The delve begins anew on floor 1.")
 		Messages.FLOOR_CLEARED:
 			cleared_floor_id = str(result["floor_id"])
-			mode = Mode.FLOOR_CLEARED
-			_log("You descend the stairs. Floor cleared!")
+			_leave_encounter()
+			if has_next_floor():
+				mode = Mode.LOADING
+				_log("Floor cleared! You descend the stairs to floor %d." % (floor_number() + 1))
+			else:
+				mode = Mode.FLOOR_CLEARED
+				_log("You descend the stairs. Floor cleared!")
+		Messages.SET_CLEARED:
+			cleared_set_id = str(result["set_id"])
+			mode = Mode.SET_CLEARED
+			_leave_encounter()
+			_log("%s cleared! You reach the safe zone." % (set_name if not set_name.is_empty() else "The set"))
 	revision += 1
+
+
+## A (new) floor: replaces the old one and everything that lived on it.
+func _apply_floor_loaded(result: Dictionary) -> void:
+	var floor_dict: Dictionary = result["floor"]
+	var first := floor_data == null
+	floor_data = FloorData.from_dict(floor_dict)
+	floor_serial += 1
+	_adopt_entity_id(result)
+	set_id = str(result.get("set_id", set_id))
+	set_name = str(result.get("set_name", set_name))
+	floor_index = maxi(0, DictUtil.to_int(result.get("floor_index", floor_index), floor_index))
+	floor_count = maxi(1, DictUtil.to_int(result.get("floor_count", floor_count), floor_count))
+	if not first:
+		_leave_encounter()
+		_last_seen_order.clear()
+		initiatives.clear()
+		last_winning_team = -1
+		entities.clear()
+	if mode == Mode.LOADING or mode == Mode.FLOOR_CLEARED or mode == Mode.COMBAT:
+		mode = Mode.EXPLORING
+	_log("You arrive on %s." % floor_label())
 
 
 ## Log lines added since the last call (oldest first).
@@ -592,6 +649,52 @@ func can_short_rest() -> bool:
 	return can_use_stairs() and sheet != null and sheet.hit_dice_remaining > 0 and sheet.current_hp < sheet.max_hp
 
 
+## 1-based floor number: the floor's own floor_number, else its place in the set.
+func floor_number() -> int:
+	if floor_data != null and floor_data.floor_number > 0:
+		return floor_data.floor_number
+	return floor_index + 1
+
+
+## "Floor 2 — <display_name>" ("" before the first FLOOR_LOADED).
+func floor_label() -> String:
+	if floor_data == null:
+		return ""
+	return "Floor %d — %s" % [floor_number(), floor_data.display_name]
+
+
+## True while playing a set whose current floor is not its last.
+func has_next_floor() -> bool:
+	return not set_id.is_empty() and floor_index + 1 < floor_count
+
+
+func is_last_floor_of_set() -> bool:
+	return not set_id.is_empty() and floor_index + 1 >= floor_count
+
+
+## Text for the stairs button.
+func stairs_label() -> String:
+	if has_next_floor():
+		return "Descend to floor %d" % (floor_number() + 1)
+	if is_last_floor_of_set():
+		return "Enter the safe zone"
+	return "Descend"
+
+
+## XP needed in total for the next level (the current level's cap at 20).
+func xp_for_next_level() -> int:
+	if sheet == null:
+		return 0
+	return Experience.xp_for_level(sheet.level + 1)
+
+
+## "Lv N  XP x/y" ("" before the first CHARACTER_STATE).
+func level_text() -> String:
+	if sheet == null:
+		return ""
+	return "Lv %d  XP %d/%d" % [sheet.level, sheet.xp, xp_for_next_level()]
+
+
 ## Human-readable mode line for the HUD.
 func mode_text() -> String:
 	match mode:
@@ -603,6 +706,8 @@ func mode_text() -> String:
 			return "Game over"
 		Mode.FLOOR_CLEARED:
 			return "Floor cleared"
+		Mode.SET_CLEARED:
+			return "Set cleared"
 	if current_actor.is_empty():
 		return "Combat: round %d" % round_number
 	if current_actor == player_id:

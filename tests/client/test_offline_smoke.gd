@@ -126,3 +126,57 @@ func test_hardy_character_clears_the_floor() -> void:
 	assert_eq(_errors, [] as Array[String], "the server rejected no client intent")
 	assert_eq(st.sheet.current_hp, _server_hp, "client HP matches the server")
 	assert_has(st.log_lines, "Victory! The fight is over.")
+
+
+
+## A two-floor set (floor_001, then a small in-test floor) played by the same
+## scripted client: the second FLOOR_LOADED must be handled cleanly and the
+## run ends with SET_CLEARED.
+func test_hardy_character_clears_a_two_floor_set() -> void:
+	_errors.clear()
+	var floor_b := FloorData.from_dict({
+		"schema_version": 1, "id": "smoke_floor_b", "display_name": "Smoke Hall", "floor_number": 2,
+		"rows": ["##########", "#A......S#", "#.########", "#...######", "##########"],
+		"arrival": [1, 1], "stairs": [8, 1],
+		"encounter_zones": [{"id": "z1", "rect": [2, 3, 2, 1], "monster_ids": ["goblin"], "spawn_points": [[3, 3]]}],
+	})
+	var manifest := {"schema_version": 1, "id": "smoke_set", "display_name": "Smoke Set", "floors": ["floor_001", "smoke_floor_b"]}
+	var sheet := _bot_sheet()
+	sheet.max_hp = 100
+	sheet.current_hp = 100
+	var transport := LocalTransport.new()
+	var st := ClientState.new(ClientState.player_id_for_peer(transport.local_peer_id()))
+	transport.result_received.connect(_on_result.bind(st))
+	var server := InstanceServer.new()
+	assert_true(server.configure_set(transport, manifest, 7, {"smoke_floor_b": floor_b}))
+	server.add_player(transport.local_peer_id(), sheet)
+	server.run_tick()
+	assert_eq(st.floor_label(), "Floor 1 — %s" % st.floor_data.display_name)
+	assert_eq(st.stairs_label(), "Descend to floor 2")
+	var stairs_sent_on := -1
+	var walk_sent_tick := -100
+	for t in range(MAX_TICKS * 2):
+		if st.mode == ClientState.Mode.GAME_OVER or st.mode == ClientState.Mode.SET_CLEARED:
+			break
+		if st.in_encounter:
+			if st.is_my_turn():
+				transport.send_intent(_combat_intent(st))
+		elif st.can_use_stairs() and stairs_sent_on != st.floor_serial:
+			transport.send_intent(st.simple_intent(Messages.USE_STAIRS))
+			stairs_sent_on = st.floor_serial
+		elif st.mode == ClientState.Mode.EXPLORING and t - walk_sent_tick > 40:
+			transport.send_intent(st.intent_for_click(st.floor_data.stairs))
+			walk_sent_tick = t
+		server.run_tick()
+	transport.pump()
+	assert_eq(st.mode, ClientState.Mode.SET_CLEARED, st.mode_text())
+	assert_eq(st.floor_data.id, "smoke_floor_b")
+	assert_eq(st.floor_serial, 2, "two FLOOR_LOADED results")
+	assert_eq(st.floor_label(), "Floor 2 — Smoke Hall")
+	assert_eq(st.cleared_set_id, "smoke_set")
+	assert_eq(st.sheet.current_hp, st.sheet.max_hp, "long rest at the end")
+	assert_eq(st.sheet.current_hp, server.get_entity("p1").sheet.current_hp, "client HP matches the server")
+	assert_true(st.sheet.xp > 0, "XP from floor 1's fight")
+	assert_eq(st.entities.size(), 2, "the player and floor B's goblin")
+	assert_eq(_errors, [] as Array[String], "the server rejected no client intent")
+	server.free()

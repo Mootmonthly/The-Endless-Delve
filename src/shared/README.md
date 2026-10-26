@@ -12,4 +12,5 @@ Code shared by `src/server/` and `src/client/`; depends only on `src/core/`.
   Messages are deep-copied into one FIFO queue and delivered by `pump()`,
   which the offline server calls once per tick.
 - `floor_file.gd` (`FloorFile`): loads `floors/floor_NNN.json` into a core
-  `FloorData`.
+  `FloorData`; `load_set` / `set_problems` / `set_floor_ids` read a five-floor
+  set manifest (`floors/set_NN.json`); `floor_path(id)` = `res://floors/<id>.json`.
