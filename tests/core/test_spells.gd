@@ -81,7 +81,10 @@ func test_invalid_spells_are_rejected() -> void:
 	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "effect": {"type": "teleport"}}), "unknown type")
 	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "effect": {"type": "save", "save": "LUCK", "damage": "1d6"}}), "bad save")
 	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "effect": {"type": "spell_attack", "damage": "lots"}}), "bad damage")
-	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "casting_time": "reaction", "effect": {"type": "heal", "dice": "1d4"}}), "reaction")
+	var reaction := CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "casting_time": "reaction", "effect": {"type": "heal", "dice": "1d4"}})
+	assert_not_null(reaction, "reaction spells load as data")
+	assert_false(reaction.is_combat_castable(), "but cannot be cast in combat")
+	assert_null(CoreFixtures.spell({"id": "x", "display_name": "X", "level": 1, "casting_time": "", "effect": {"type": "heal", "dice": "1d4"}}), "empty casting time")
 	assert_null(SpellDefinition.from_dict({"id": "x", "display_name": "X", "level": 1}), "no effect")
 
 

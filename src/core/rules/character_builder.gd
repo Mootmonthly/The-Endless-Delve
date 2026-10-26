@@ -20,7 +20,14 @@ const SHIELD_AC_BONUS := 2
 ## added. Without matching item definitions the armor / shield numbers are
 ## set directly as before. `content` is a ContentLoader.cache()-shaped
 ## dictionary ({} = the cache).
-static func create(character_name: String, cls: ClassDefinition, ancestry: AncestryDefinition, scores: AbilityScores, chosen_skills: Array[int], weapon: WeaponDefinition = null, content: Dictionary = {}) -> CharacterSheet:
+## Level-1 progression: a class whose subclass starts at level 1 (cleric,
+## sorcerer, warlock) gets its SRD subclass and that subclass's level-1
+## features; `choices` answers creation_choices() like LevelUp.apply's made
+## ({"fighting_style": id, "expertise": [skills], "feature_options":
+## {feature: option}}); omitted answers take each entry's default, invalid
+## ones push_error and take the default. Always-prepared subclass spells are
+## added (LevelUp.sync_subclass_spells).
+static func create(character_name: String, cls: ClassDefinition, ancestry: AncestryDefinition, scores: AbilityScores, chosen_skills: Array[int], weapon: WeaponDefinition = null, content: Dictionary = {}, choices: Dictionary = {}) -> CharacterSheet:
 	if cls == null:
 		push_error("CharacterBuilder.create: class definition is null")
 		return null
@@ -65,8 +72,41 @@ static func create(character_name: String, cls: ClassDefinition, ancestry: Ances
 	sheet.spell_slots = sheet.spell_slots_max.duplicate()
 	sheet.slot_recovery = cls.slot_recovery
 	sheet.restore_class_resources()
+	CharacterBuilder._apply_level_one_progression(sheet, cls, content, choices)
 	CharacterBuilder._equip_starting_gear(sheet, cls, weapon, content)
 	return sheet
+
+
+## The progression choices a new character of cls with chosen_skills makes
+## (LevelUp choice entries: fighting_style, expertise, feature_option).
+static func creation_choices(cls: ClassDefinition, chosen_skills: Array[int], content: Dictionary = {}) -> Array[Dictionary]:
+	var s := CharacterSheet.new()
+	s.class_id = cls.id
+	s.proficient_skills = chosen_skills.duplicate()
+	s.features = cls.features.duplicate()
+	var gained := cls.features.duplicate()
+	if cls.has_subclass() and cls.subclass_level <= 1:
+		s.subclass_id = cls.subclass_id
+		for f in cls.subclass_features_at(1):
+			if not gained.has(f):
+				gained.append(f)
+	return LevelUp._choice_entries(s, cls, 1, gained, ContentLoader.resolve(content))
+
+
+static func _apply_level_one_progression(sheet: CharacterSheet, cls: ClassDefinition, content: Dictionary, choices: Dictionary) -> void:
+	var entries := CharacterBuilder.creation_choices(cls, sheet.proficient_skills, content)
+	if cls.has_subclass() and cls.subclass_level <= 1:
+		sheet.subclass_id = cls.subclass_id
+		for f in cls.subclass_features_at(1):
+			sheet.gain_feature(f)
+	var picks := {}
+	var err := LevelUp.check_choices(entries, choices, picks)
+	if not err.is_empty():
+		push_error("CharacterBuilder: %s; using the defaults" % err)
+		picks = {}
+		LevelUp.check_choices(entries, {}, picks)
+	LevelUp.apply_picks(sheet, picks)
+	LevelUp.sync_subclass_spells(sheet, cls)
 
 
 static func _equip_starting_gear(sheet: CharacterSheet, cls: ClassDefinition, weapon: WeaponDefinition, content: Dictionary) -> void:
@@ -154,7 +194,11 @@ static func _find_shield(items: Dictionary) -> String:
 ## to_hit = ability modifier + proficiency (if proficient); damage = weapon
 ## dice (one-handed) + ability modifier, e.g. "1d8+3". item_id is the weapon
 ## item; consumes is the item used up per attack ("" = none).
-static func weapon_attack(sheet: CharacterSheet, weapon: WeaponDefinition, proficient: bool = true, kind: String = "melee", item_id: String = "", consumes: String = "") -> Dictionary:
+## Fighting styles: Archery +2 to hit with ranged weapons. Martial Arts: a monk
+## weapon uses the Martial Arts die when it is larger. damage_bonus adds to the
+## damage modifier (Dueling); add_mod false leaves a positive ability modifier
+## out of the damage (off-hand attack without the Two-Weapon Fighting style).
+static func weapon_attack(sheet: CharacterSheet, weapon: WeaponDefinition, proficient: bool = true, kind: String = "melee", item_id: String = "", consumes: String = "", damage_bonus: int = 0, add_mod: bool = true) -> Dictionary:
 	var str_mod := sheet.ability_modifier(Ability.Type.STR)
 	var dex_mod := sheet.ability_modifier(Ability.Type.DEX)
 	var use_dex := false
@@ -170,11 +214,20 @@ static func weapon_attack(sheet: CharacterSheet, weapon: WeaponDefinition, profi
 	for p in weapon.properties:
 		properties.append(p)
 	var tiles := weapon.range_tiles()
+	var dice := weapon.damage
+	if sheet.has_feature("martial_arts") and kind != "ranged" and CharacterBuilder.is_monk_weapon(weapon):
+		var parsed := DiceExpr.parse(weapon.damage)
+		if parsed.valid and parsed.count == 1 and sheet.martial_arts_die() > parsed.sides:
+			dice = "1d%d" % sheet.martial_arts_die()
+	var to_hit := mod + (sheet.proficiency_bonus() if proficient else 0)
+	if kind == "ranged" and sheet.has_fighting_style("archery"):
+		to_hit += 2
+	var damage_mod := (mod if add_mod or mod < 0 else 0) + damage_bonus
 	return {
 		"name": attack_name,
 		"kind": kind,
-		"to_hit": mod + (sheet.proficiency_bonus() if proficient else 0),
-		"damage": weapon.damage + CharacterBuilder.signed(mod),
+		"to_hit": to_hit,
+		"damage": dice + CharacterBuilder.signed(damage_mod),
 		"damage_type": weapon.damage_type,
 		"weapon_id": weapon.id,
 		"item": item_id if not item_id.is_empty() else weapon.id,

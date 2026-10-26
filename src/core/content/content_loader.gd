@@ -5,11 +5,15 @@ extends RefCounted
 ##
 ## cache() loads everything under res://data once and returns the shared
 ## content dictionary {"classes", "ancestries", "weapons", "items", "spells",
-## "loot_tables", "monsters"} (each id -> definition). Rules code that needs
+## "loot_tables", "monsters"} (each id -> definition), plus the record folders
+## {"features", "invocations", "metamagic", "fighting_styles"} (each id -> the
+## JSON object, with at least "id" and "mechanic"). Rules code that needs
 ## definitions takes such a dictionary (tests pass hand-built ones).
 
 const DATA_ROOT := "res://data"
-const CONTENT_KEYS: Array[String] = ["classes", "ancestries", "weapons", "items", "spells", "loot_tables", "monsters"]
+const CONTENT_KEYS: Array[String] = ["classes", "ancestries", "weapons", "items", "spells", "loot_tables", "monsters", "features", "invocations", "metamagic", "fighting_styles"]
+## Folders loaded as plain records (id -> Dictionary) by load_records().
+const RECORD_KEYS: Array[String] = ["features", "invocations", "metamagic", "fighting_styles"]
 
 static var _cache: Dictionary = {}
 
@@ -166,6 +170,24 @@ static func load_loot_tables(dir_path: String = "res://data/loot") -> Dictionary
 	return result
 
 
+## id -> JSON object for every *.json file in dir_path (needs a non-empty "id").
+static func load_records(dir_path: String) -> Dictionary:
+	var result := {}
+	for path in ContentLoader.json_files(dir_path):
+		var data := ContentLoader.load_json(path)
+		if data.is_empty():
+			continue
+		var record_id := str(data.get("id", ""))
+		if record_id.is_empty():
+			push_error("ContentLoader: %s has no id" % path)
+			continue
+		if result.has(record_id):
+			push_error("ContentLoader: duplicate id '%s' in %s" % [record_id, path])
+			continue
+		result[record_id] = data
+	return result
+
+
 ## Loads every content folder under root (a missing folder gives an empty
 ## dictionary without an error). Shape: see cache().
 static func load_all(root: String = DATA_ROOT) -> Dictionary:
@@ -187,6 +209,9 @@ static func load_all(root: String = DATA_ROOT) -> Dictionary:
 		out["loot_tables"] = ContentLoader.load_loot_tables(root.path_join("loot"))
 	if DirAccess.dir_exists_absolute(root.path_join("monsters")):
 		out["monsters"] = ContentLoader.load_monsters(root.path_join("monsters"))
+	for key in RECORD_KEYS:
+		if DirAccess.dir_exists_absolute(root.path_join(key)):
+			out[key] = ContentLoader.load_records(root.path_join(key))
 	return out
 
 

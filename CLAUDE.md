@@ -155,3 +155,15 @@ Append one entry per working session (newest last).
   chest intents, drops, LEVEL_UP_AVAILABLE/level_up round trip. Client: Tab
   inventory, Spells/Features/attack pickers with targeting, level-up screen,
   settings menu with rebinding and volume, InputMap actions. Suite: 482 green.
+- **2026-10-26 — Progression to 20, round A.** Owner: "add literally
+  everything". `tools/import_srd.py` imports the whole SRD 5.1 dataset
+  (12 classes to level 20 with subclasses, 192 features, 320 spells, 329
+  monsters, 540 items, invocations, metamagic, fighting styles). Core adds
+  conditions, concentration, multiattack/Action Surge/two-weapon fighting,
+  areas of effect (sphere/cube/cone/line), slots to 9 with upcasting,
+  fighting styles, every class feature through level 5 (`Features.IMPLEMENTED`
+  is the source of truth; the importer syncs data/features `mechanic` from
+  it), and LevelUp choice types (subclass, style, expertise, invocations,
+  metamagic, feature options, skills). Also: offline-only pause, a private
+  Feat Workshop artifact for original feats (SRD has only Grappler). Suite:
+  576 green. Next: round B (levels 6-12), round C (13-20), UI exposure.

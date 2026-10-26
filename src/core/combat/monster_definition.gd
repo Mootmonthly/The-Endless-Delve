@@ -27,6 +27,9 @@ var damage_vulnerabilities: Array[String] = []
 var condition_immunities: Array[String] = []
 var traits: Array[Dictionary] = []  # {"name", "description"}; descriptive only for now
 var loot_table: String = ""  # LootTable id rolled when it dies ("" = no drops)
+var creature_type: String = ""  # "undead", "humanoid", "beast", ... (lower case; "" = unknown)
+## Multiattack: attack names used by one Attack action, in order ([] = one attack).
+var multiattack: Array[String] = []
 
 
 ## Returns null (and push_error) when a field is missing or invalid.
@@ -90,7 +93,21 @@ static func from_dict(d: Dictionary) -> MonsterDefinition:
 	m.condition_immunities = DictUtil.to_string_array(d.get("condition_immunities", []))
 	m.traits = DictUtil.to_dict_array(d.get("traits", []))
 	m.loot_table = "" if d.get("loot_table") == null else str(d.get("loot_table", ""))
+	m.creature_type = "" if d.get("creature_type") == null else str(d.get("creature_type", "")).to_lower()
+	# Multiattack names an attack each; unknown names count as the first attack.
+	m.multiattack = DictUtil.to_string_array(d.get("multiattack", []))
+	for attack_name in m.multiattack:
+		if m.attack_index(attack_name) < 0:
+			push_warning("%s: multiattack names unknown attack '%s'" % [ctx, attack_name])
 	return m
+
+
+## Index of the attack with this name (case-insensitive), or -1.
+func attack_index(attack_name: String) -> int:
+	for i in range(attacks.size()):
+		if str(attacks[i]["name"]).to_lower() == attack_name.to_lower():
+			return i
+	return -1
 
 
 ## Builds a CharacterSheet for this monster. Uses average hp unless roll_hp is
@@ -118,4 +135,5 @@ func to_sheet(rng: Rng = null, roll_hp: bool = false) -> CharacterSheet:
 	sheet.damage_resistances = damage_resistances.duplicate()
 	sheet.damage_immunities = damage_immunities.duplicate()
 	sheet.damage_vulnerabilities = damage_vulnerabilities.duplicate()
+	sheet.condition_immunities = condition_immunities.duplicate()
 	return sheet

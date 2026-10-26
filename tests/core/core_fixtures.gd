@@ -76,12 +76,74 @@ static func content() -> Dictionary:
 		spell({"id": "acid_arrow", "display_name": "Acid Arrow", "level": 2, "range_ft": 90, "effect": {"type": "spell_attack", "damage": "4d4", "damage_type": "acid", "on_miss": "half"}}),
 	]:
 		spells[sdef.id] = sdef
+	for sdef: SpellDefinition in CoreFixtures.progression_spells():
+		spells[sdef.id] = sdef
 	var loot := {}
 	var table := LootTable.from_dict({"id": "starter_gear", "rolls": 1, "entries": [
 		{"item": "leather_armor", "weight": 3}, {"item": "potion_of_healing", "weight": 2, "qty": [1, 2]},
 		{"item": "gold", "weight": 4, "qty": [5, 20]}, {"nothing": true, "weight": 1}]})
 	loot[table.id] = table
 	return {"classes": {}, "ancestries": {}, "weapons": weapons, "items": items, "spells": spells, "loot_tables": loot, "monsters": {}}
+
+
+## Spells for the progression systems: conditions, concentration, areas,
+## slot tables (independent of data/spells).
+static func progression_spells() -> Array[SpellDefinition]:
+	return [
+		spell({"id": "hold_person", "display_name": "Hold Person", "level": 2, "range_ft": 60, "concentration": true, "effect": {"type": "save", "save": "WIS", "apply_condition": {"condition": "paralyzed", "duration": "save_ends"}}}),
+		spell({"id": "scare", "display_name": "Scare", "level": 1, "range_ft": 60, "concentration": true, "effect": {"type": "save", "save": "WIS", "apply_condition": {"condition": "frightened", "duration": {"type": "rounds", "rounds": 10}}}}),
+		spell({"id": "trip", "display_name": "Trip", "level": 1, "range_ft": 60, "effect": {"type": "save", "save": "DEX", "condition": "prone"}}),
+		spell({"id": "hex_c", "display_name": "Hex (concentration)", "level": 1, "casting_time": "bonus_action", "range_ft": 90, "concentration": true, "effect": {"type": "mark", "mark": "hex", "bonus_damage": "1d6", "damage_type": "necrotic"}}),
+		spell({"id": "fireball", "display_name": "Fireball", "level": 3, "school": "evocation", "range_ft": 150, "area": {"shape": "sphere", "size_ft": 10},
+			"damage_by_slot": {"3": "8d6", "4": "9d6", "5": "10d6"}, "saving_throw": {"ability": "DEX", "on_success": "half"},
+			"effect": {"type": "area_save", "damage_type": "fire"}}),
+		spell({"id": "cone_spray", "display_name": "Cone Spray", "level": 1, "school": "evocation", "target": "self", "range_ft": 0, "area": {"shape": "cone", "size_ft": 15},
+			"effect": {"type": "area_save", "save": "DEX", "damage": "3d6", "damage_type": "fire", "on_save": "half", "per_slot_level_above": "1d6"}}),
+		spell({"id": "bolt_line", "display_name": "Bolt Line", "level": 3, "target": "self", "range_ft": 0, "area": {"shape": "line", "size_ft": 30},
+			"effect": {"type": "area_save", "save": "DEX", "damage": "8d6", "damage_type": "lightning", "on_save": "half"}}),
+		spell({"id": "thunder_cube", "display_name": "Thunder Cube", "level": 1, "target": "self", "range_ft": 0, "area": {"shape": "cube", "size_ft": 15},
+			"effect": {"type": "area_save", "save": "CON", "damage": "2d8", "damage_type": "thunder", "on_save": "half", "push_ft": 10}}),
+		spell({"id": "frost_shards", "display_name": "Frost Shards", "level": 2, "range_ft": 60, "area": {"shape": "sphere", "size_ft": 5},
+			"effect": {"type": "area_attack", "damage": "2d6", "damage_type": "cold"}}),
+		spell({"id": "cure_by_slot", "display_name": "Cure by Slot", "level": 1, "range_ft": 5, "target": "creature_or_self",
+			"heal_by_slot": {"1": "1d8+MOD", "2": "2d8+MOD"}, "effect": {"type": "heal"}}),
+		spell({"id": "spark", "display_name": "Spark", "level": 0, "range_ft": 60,
+			"damage_by_character_level": {"1": "1d6", "5": "2d6", "11": "3d6"}, "effect": {"type": "spell_attack", "damage_type": "lightning"}}),
+		spell({"id": "eldritch_blast", "display_name": "Eldritch Blast", "level": 0, "range_ft": 120, "effect": {"type": "spell_attack", "damage": "1d10", "damage_type": "force", "beams": {"1": 1, "5": 2}}}),
+		spell({"id": "shield_reaction", "display_name": "Shield", "level": 1, "casting_time": "reaction", "target": "self", "effect": {"type": "unsupported"}}),
+	]
+
+
+## An intent {"v": 1, "type", "actor"} + fields.
+static func intent(intent_type: String, actor: String, fields: Dictionary = {}) -> Dictionary:
+	var d := {"v": 1, "type": intent_type, "actor": actor}
+	d.merge(fields)
+	return d
+
+
+## A fight on the open 12x12 map: hero at hero_pos and foes (id -> [sheet,
+## position, attacks]); `first` acts first. The sheets are copied per seed.
+static func duel(hero_sheet: CharacterSheet, hero_attacks: Array[Dictionary], foes: Dictionary, content_set: Dictionary, first: String = "hero", hero_pos: Vector2i = Vector2i(3, 3), allies: Dictionary = {}) -> Encounter:
+	var make := func() -> Array:
+		var all: Array = []
+		var hero := CoreFixtures.combatant("hero", CharacterSheet.from_dict(hero_sheet.to_dict()), Combatant.TEAM_PLAYERS, hero_pos, hero_attacks)
+		all.append(hero)
+		for side: Array in [[allies, Combatant.TEAM_PLAYERS], [foes, Combatant.TEAM_MONSTERS]]:
+			var group: Dictionary = side[0]
+			var keys: Array = group.keys()
+			keys.sort()
+			for key: Variant in keys:
+				var spec: Array = group[key]
+				var s: CharacterSheet = spec[0]
+				var atk: Array[Dictionary] = []
+				if spec.size() > 2:
+					for a: Variant in spec[2]:
+						atk.append(a)
+				var team_id: int = side[1]
+				var pos: Vector2i = spec[1]
+				all.append(CoreFixtures.combatant(str(key), CharacterSheet.from_dict(s.to_dict()), team_id, pos, atk))
+		return all
+	return CoreFixtures.fight(make, first, content_set)
 
 
 ## A bare level-1 sheet with 10s everywhere unless scores are given.

@@ -67,7 +67,7 @@ func test_fighter_level_two_with_average_hp() -> void:
 	var ch := LevelUp.choices(s, content)
 	assert_eq(ch["new_level"], 2)
 	assert_eq(ch["levels_pending"], 1)
-	assert_eq(ch["hp"], {"average": 8, "may_roll": true, "die": 10, "con_mod": 2})
+	assert_eq(ch["hp"], {"average": 8, "may_roll": true, "die": 10, "con_mod": 2, "bonus": 0})
 	assert_eq(ch["asi"], false)
 	assert_eq(ch["new_spell_slots"], [])
 	assert_eq(ch["cantrips_to_learn"], 0)

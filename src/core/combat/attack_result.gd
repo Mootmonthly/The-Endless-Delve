@@ -13,6 +13,7 @@ var d20: D20Result = null
 var attack_total: int = 0  # natural + to_hit
 var target_ac: int = 0
 var damage: DiceRoll = null  # null on a miss
+var damage_rolls: Array[int] = []  # base damage dice rolled (after rerolls)
 var damage_total: int = 0  # after resistances / immunities / vulnerabilities, extras included
 var extras: Array[Dictionary] = []  # [{"source", "amount", "type"}] extra damage on a hit
 var target_hp_after: int = 0

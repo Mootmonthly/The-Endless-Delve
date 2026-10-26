@@ -61,6 +61,31 @@ var cantrips_known_table: Dictionary = {}  # character level (int) -> int
 var spells_known_table: Dictionary = {}  # character level (int) -> int (known casters)
 var prepares_spells: bool = false  # prepared caster (casting mod + level spells prepared)
 var spellbook_learn_per_level: int = 0  # wizard: spells added to the spellbook per level
+## Per-class numeric tables ("tables"): name -> {level (int): value} (rage_uses,
+## rage_damage, sneak_attack_dice, martial_arts_die, ki_points, unarmored_movement,
+## bardic_inspiration_die, extra_attacks, sorcery_points, invocations_known,
+## channel_divinity_uses, lay_on_hands_pool, aura_radius, ...). Read with
+## table_int / table_die.
+var tables: Dictionary = {}
+## The SRD subclass ("subclass" object; subclass_id "" = none).
+var subclass_id: String = ""
+var subclass_name: String = ""
+var subclass_description: String = ""
+var subclass_level: int = 0  # class level at which the subclass is chosen
+var subclass_features_by_level: Dictionary = {}  # level -> Array[String]
+var subclass_spells_by_level: Dictionary = {}  # level -> Array[String]
+## "always_prepared" (domain / oath / circle spells) or "expanded_list" (added
+## to the spells the class may learn).
+var subclass_spells_mode: String = "always_prepared"
+## Circle of the Land: terrain -> {level: Array[String]} (the terrain is the
+## circle_of_the_land_<terrain> option of circle_spells).
+var subclass_spells_by_terrain: Dictionary = {}
+## Fighting style options ("fighting_styles"); empty = the class has none.
+var fighting_style_options: Array[String] = []
+var expertise_levels: Dictionary = {}  # level -> number of skills gaining expertise
+var invocations_known_table: Dictionary = {}  # level -> invocations known (warlock)
+var metamagic_known_table: Dictionary = {}  # level -> metamagic options known (sorcerer)
+var sorcery_slot_costs: Dictionary = {}  # slot level -> sorcery points to create it
 
 
 ## Returns null (and push_error) when a field is missing or invalid.
@@ -133,19 +158,65 @@ static func from_dict(d: Dictionary) -> ClassDefinition:
 		def.starting_kit.append({"item": item, "qty": qty})
 	for f in DictUtil.to_string_array(d.get("features", [])):
 		def.features.append(f.to_lower())
-	var fbl: Variant = d.get("features_by_level", {})
-	if typeof(fbl) == TYPE_DICTIONARY:
-		var fbl_d: Dictionary = fbl
-		for key: Variant in fbl_d.keys():
-			var ids: Array[String] = []
-			for f in DictUtil.to_string_array(fbl_d[key]):
-				ids.append(f.to_lower())
-			def.features_by_level[DictUtil.to_int(key, 0)] = ids
+	def.features_by_level = ClassDefinition._id_lists_by_level(d.get("features_by_level", {}))
+	if def.features.is_empty() and def.features_by_level.has(1):
+		var first: Array[String] = def.features_by_level[1]
+		def.features = first.duplicate()
 	if d.has("asi_levels"):
 		def.asi_levels = DictUtil.to_int_array(d["asi_levels"])
+	var tables_v: Variant = d.get("tables", {})
+	if typeof(tables_v) == TYPE_DICTIONARY:
+		var tables_d: Dictionary = tables_v
+		for key: Variant in tables_d.keys():
+			var rows: Variant = tables_d[key]
+			if typeof(rows) != TYPE_DICTIONARY:
+				push_error("%s: table '%s' must be an object keyed by level" % [ctx, str(key)])
+				return null
+			var rows_d: Dictionary = rows
+			var table := {}
+			for lvl_v: Variant in rows_d.keys():
+				table[DictUtil.to_int(lvl_v, 0)] = rows_d[lvl_v]
+			def.tables[str(key)] = table
+	var sub_v: Variant = d.get("subclass", null)
+	if typeof(sub_v) == TYPE_DICTIONARY:
+		var sub: Dictionary = sub_v
+		def.subclass_id = str(sub.get("id", ""))
+		def.subclass_name = str(sub.get("display_name", def.subclass_id))
+		def.subclass_description = str(sub.get("description", ""))
+		def.subclass_level = DictUtil.to_int(sub.get("level", 3), 3)
+		def.subclass_features_by_level = ClassDefinition._id_lists_by_level(sub.get("features_by_level", {}))
+		def.subclass_spells_by_level = ClassDefinition._id_lists_by_level(sub.get("spells_by_level", {}))
+		def.subclass_spells_mode = str(sub.get("spells_mode", "always_prepared"))
+		var terrains_v: Variant = sub.get("spells_by_terrain", {})
+		if typeof(terrains_v) == TYPE_DICTIONARY:
+			var terrains: Dictionary = terrains_v
+			for terrain: Variant in terrains.keys():
+				def.subclass_spells_by_terrain[str(terrain)] = ClassDefinition._id_lists_by_level(terrains[terrain])
+		if def.subclass_id.is_empty() or def.subclass_level < 1 or def.subclass_level > CharacterSheet.MAX_LEVEL:
+			push_error("%s: subclass needs an id and a level 1..20" % ctx)
+			return null
+	def.fighting_style_options = DictUtil.to_string_array(d.get("fighting_styles", []))
+	def.expertise_levels = ClassDefinition._level_table(d.get("expertise_levels", {}))
+	def.invocations_known_table = ClassDefinition._level_table(d.get("invocations_known", def.tables.get("invocations_known", {})))
+	def.metamagic_known_table = ClassDefinition._level_table(d.get("metamagic_known", def.tables.get("metamagic_known", {})))
+	def.sorcery_slot_costs = ClassDefinition._level_table(d.get("sorcery_slot_costs", {}))
 	if not ClassDefinition._parse_spellcasting(def, d, ctx):
 		return null
 	return def
+
+
+## {"3": ["a", "b"]} -> {3: ["a", "b"]} (ids lower-cased); anything else -> {}.
+static func _id_lists_by_level(v: Variant) -> Dictionary:
+	var out := {}
+	if typeof(v) != TYPE_DICTIONARY:
+		return out
+	var src: Dictionary = v
+	for key: Variant in src.keys():
+		var ids: Array[String] = []
+		for f in DictUtil.to_string_array(src[key]):
+			ids.append(f.to_lower())
+		out[DictUtil.to_int(key, 0)] = ids
+	return out
 
 
 ## Reads the "spellcasting" object. Level-up tables (spell_list, cantrips_known,
@@ -171,27 +242,47 @@ static func _parse_spellcasting(def: ClassDefinition, d: Dictionary, ctx: String
 			push_error("%s: spellcasting needs an ability" % ctx)
 			return false
 		def.spells_prepared = DictUtil.to_string_array(sc.get("prepared", []))
-		var slots_v: Variant = sc.get("slots", {})
-		if typeof(slots_v) == TYPE_DICTIONARY:
-			var slots_d: Dictionary = slots_v
-			for key: Variant in slots_d.keys():
-				var lvl := DictUtil.to_int(key, 0)
-				var row := DictUtil.to_int_array(slots_d[key])
-				if lvl < 1 or lvl > CharacterSheet.MAX_LEVEL or row.has(-1) or row.size() > 9:
-					push_error("%s: invalid spell slot row %s: %s" % [ctx, str(key), str(slots_d[key])])
-					return false
-				def.spell_slot_table[lvl] = row
+		if not ClassDefinition._parse_slot_table(def, sc.get("slots", {}), ctx):
+			return false
 		def.slot_recovery = str(sc.get("slot_recovery", SLOT_RECOVERY_LONG)).to_lower()
-		if def.features.has(FEATURE_PACT_MAGIC):
-			def.slot_recovery = SLOT_RECOVERY_SHORT
 		if not def.slot_recovery in [SLOT_RECOVERY_LONG, SLOT_RECOVERY_SHORT]:
 			push_error("%s: slot_recovery must be long_rest or short_rest" % ctx)
 			return false
+	# The top-level full table (1..20, half casters from level 2, pact rows) wins.
+	if typeof(d.get("spell_slots", null)) == TYPE_DICTIONARY:
+		def.spell_slot_table.clear()
+		if not ClassDefinition._parse_slot_table(def, d["spell_slots"], ctx):
+			return false
+	if def.features.has(FEATURE_PACT_MAGIC) or def.id == "warlock":
+		def.slot_recovery = SLOT_RECOVERY_SHORT
+	if not def.spell_slot_table.is_empty() and def.spellcasting_ability < 0:
+		# Half casters without a level-1 "spellcasting" object (paladin, ranger):
+		# the last mental ability among the primary abilities (CHA, WIS).
+		for ability in def.primary_abilities:
+			if ability in [Ability.Type.INT, Ability.Type.WIS, Ability.Type.CHA]:
+				def.spellcasting_ability = ability
 	def.spell_list = DictUtil.to_string_array(sc.get("spell_list", d.get("spell_list", [])))
 	def.cantrips_known_table = ClassDefinition._level_table(sc.get("cantrips_known", d.get("cantrips_known", {})))
 	def.spells_known_table = ClassDefinition._level_table(sc.get("spells_known", d.get("spells_known", {})))
 	def.prepares_spells = DictUtil.to_bool(sc.get("prepares", d.get("prepares", false)), false)
 	def.spellbook_learn_per_level = DictUtil.to_int(sc.get("spellbook_learn_per_level", d.get("spellbook_learn_per_level", 0)), 0)
+	return true
+
+
+static func _parse_slot_table(def: ClassDefinition, slots_v: Variant, ctx: String) -> bool:
+	if typeof(slots_v) != TYPE_DICTIONARY:
+		return true
+	var slots_d: Dictionary = slots_v
+	for key: Variant in slots_d.keys():
+		var lvl := DictUtil.to_int(key, 0)
+		var row := DictUtil.to_int_array(slots_d[key])
+		if lvl < 1 or lvl > CharacterSheet.MAX_LEVEL or row.has(-1) or row.size() > 9:
+			push_error("%s: invalid spell slot row %s: %s" % [ctx, str(key), str(slots_d[key])])
+			return false
+		# Trailing zero levels carry no information.
+		while not row.is_empty() and row[row.size() - 1] == 0:
+			row.remove_at(row.size() - 1)
+		def.spell_slot_table[lvl] = row
 	return true
 
 
@@ -238,6 +329,102 @@ func features_at(level: int) -> Array[String]:
 		var ids: Array[String] = features_by_level[level]
 		out = ids.duplicate()
 	return out
+
+
+## Subclass feature ids gained on reaching `level`.
+func subclass_features_at(level: int) -> Array[String]:
+	var out: Array[String] = []
+	if subclass_features_by_level.has(level):
+		var ids: Array[String] = subclass_features_by_level[level]
+		out = ids.duplicate()
+	return out
+
+
+## Subclass spells granted at or below `level` (terrain: a Circle of the Land
+## terrain, "" = spells_by_level).
+func subclass_spells_through(level: int, terrain: String = "") -> Array[String]:
+	var out: Array[String] = []
+	var table: Dictionary = subclass_spells_by_level
+	if not terrain.is_empty():
+		table = subclass_spells_by_terrain.get(terrain, {})
+	var keys: Array = table.keys()
+	keys.sort()
+	for key: Variant in keys:
+		if DictUtil.to_int(key) <= level:
+			var ids: Array[String] = table[key]
+			for s in ids:
+				if not out.has(s):
+					out.append(s)
+	return out
+
+
+## Every subclass spell (any level, any terrain).
+func all_subclass_spells() -> Array[String]:
+	var out := subclass_spells_through(CharacterSheet.MAX_LEVEL)
+	for terrain: Variant in subclass_spells_by_terrain.keys():
+		for s in subclass_spells_through(CharacterSheet.MAX_LEVEL, str(terrain)):
+			if not out.has(s):
+				out.append(s)
+	return out
+
+
+## Half casters (paladin, ranger) gain their first slots after level 1.
+func is_half_caster() -> bool:
+	if spell_slot_table.is_empty():
+		return false
+	for n in slots_for_level(1):
+		if n > 0:
+			return false
+	return true
+
+
+func has_subclass() -> bool:
+	return not subclass_id.is_empty()
+
+
+## The value of a "tables" entry at `level` (highest key <= level), or null.
+func table_raw(table_name: String, level: int) -> Variant:
+	if not tables.has(table_name):
+		return null
+	var table: Dictionary = tables[table_name]
+	var best := 0
+	var value: Variant = null
+	for key: Variant in table.keys():
+		var k := DictUtil.to_int(key)
+		if k <= level and k > best:
+			best = k
+			value = table[key]
+	return value
+
+
+## A table value as an int: numbers as is, "Unlimited" = 99, otherwise the
+## first integer in the text ("3d6" -> 3, "+10 ft." -> 10); fallback if none.
+func table_int(table_name: String, level: int, fallback: int = 0) -> int:
+	var v: Variant = table_raw(table_name, level)
+	if v == null:
+		return fallback
+	if DictUtil.is_number(v):
+		return DictUtil.to_int(v, fallback)
+	var text := str(v).to_lower()
+	if text.contains("unlimited"):
+		return 99
+	var re := RegEx.new()
+	re.compile("\\d+")
+	var m := re.search(text)
+	return m.get_string().to_int() if m != null else fallback
+
+
+## A table value as a die size: "1d6" / "d6" -> 6, numbers as is; fallback if none.
+func table_die(table_name: String, level: int, fallback: int = 0) -> int:
+	var v: Variant = table_raw(table_name, level)
+	if v == null:
+		return fallback
+	if DictUtil.is_number(v):
+		return DictUtil.to_int(v, fallback)
+	var re := RegEx.new()
+	re.compile("d(\\d+)")
+	var m := re.search(str(v).to_lower())
+	return m.get_string(1).to_int() if m != null else fallback
 
 
 func has_feature(feature: String) -> bool:

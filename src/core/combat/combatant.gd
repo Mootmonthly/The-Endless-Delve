@@ -11,6 +11,12 @@ var team: int = TEAM_PLAYERS  # 0 players, 1 monsters; PVP gives each party its 
 var sheet: CharacterSheet = null
 var attacks: Array[Dictionary] = []
 var monster_id: String = ""  # empty for player characters
+var creature_type: String = ""  # monsters: "undead", "humanoid", ... ("" for player characters)
+var challenge_rating: float = 0.0  # monsters (Destroy Undead)
+## Attack rolls per Attack action (Extra Attack; a monster's Multiattack size).
+var attacks_per_action: int = 1
+## Monster Multiattack: attack names in stat-block order ([] = none).
+var multiattack: Array[String] = []
 var initiative: int = 0
 var join_order: int = -1  # set by InitiativeTracker; final tie-breaker
 var has_acted_this_round: bool = false
@@ -24,6 +30,10 @@ var reaction_used: bool = false
 var dodging: bool = false
 var disengaging: bool = false
 var attack_action_taken: bool = false  # took the Attack action this turn (Martial Arts bonus strike)
+var attacks_remaining: int = 0  # further attacks of this turn's Attack action
+var bonus_attacks_remaining: int = 0  # bonus-action attacks granted (Flurry of Blows)
+var bonus_attack_source: String = ""  # feature that granted bonus_attacks_remaining
+var action_surged: bool = false  # Action Surge used this turn
 
 ## Encounter-scoped effects (not part of the setup snapshot; a new encounter
 ## starts without them).
@@ -40,6 +50,17 @@ var guided_turns_left: int = 0  # turn ends of guided_by before the mark fades
 ## attack hits on this combatant add the dice.
 var marks: Dictionary = {}
 var sneak_attack_turn: int = -1  # encounter turn counter when Sneak Attack was last used
+var colossus_turn: int = -1  # encounter turn counter when Colossus Slayer was last used
+## Conditions with durations (see Conditions): [{"condition", "source", "duration", "turns_left", ...}].
+var conditions: Array[Dictionary] = []
+## The concentration spell being maintained: {"spell": id, "slot_level": int} ({} = none).
+var concentration: Dictionary = {}
+var reckless: bool = false  # Reckless Attack: attacks against it have advantage until its next turn
+var frenzied: bool = false  # Berserker Frenzy while raging
+var rage_started_turn: int = -1  # encounter turn counter when it started raging
+var sacred_weapon_bonus: int = 0  # Sacred Weapon: added to its weapon attack rolls (0 = none)
+var sacred_weapon_turns: int = 0  # its turn ends before Sacred Weapon fades
+var pact_weapon: bool = false  # Pact of the Blade weapon summoned (an extra attack entry)
 
 
 ## Player character: the sheet's weapon attacks, then an unarmed strike fallback.
@@ -49,6 +70,7 @@ static func from_sheet(combatant_id: String, character: CharacterSheet, team_id:
 	c.display_name = character.name
 	c.team = team_id
 	c.sheet = character
+	c.attacks_per_action = character.attacks_per_action()
 	for attack in character.attacks:
 		c.attacks.append(attack.duplicate(true))
 	c.attacks.append(character.unarmed_strike())
@@ -62,6 +84,10 @@ static func from_monster(combatant_id: String, def: MonsterDefinition, team_id: 
 	c.team = team_id
 	c.monster_id = def.id
 	c.sheet = def.to_sheet(rng, roll_hp)
+	c.creature_type = def.creature_type
+	c.challenge_rating = def.challenge_rating
+	c.multiattack = def.multiattack.duplicate()
+	c.attacks_per_action = maxi(1, def.multiattack.size())
 	for attack in def.attacks:
 		c.attacks.append(attack.duplicate(true))
 	return c
@@ -79,13 +105,18 @@ static func from_setup_dict(d: Dictionary) -> Combatant:
 	c.sheet = CharacterSheet.from_dict(sheet_dict)
 	c.display_name = str(d.get("display_name", c.sheet.name))
 	c.monster_id = str(d.get("monster_id", ""))
+	c.creature_type = str(d.get("creature_type", ""))
+	c.challenge_rating = DictUtil.to_float(d.get("challenge_rating", 0.0), 0.0)
+	c.attacks_per_action = maxi(1, DictUtil.to_int(d.get("attacks_per_action", 1), 1))
+	c.multiattack = DictUtil.to_string_array(d.get("multiattack", []))
 	for raw in DictUtil.to_dict_array(d.get("attacks", [])):
 		c.attacks.append(CharacterSheet.normalize_attack(raw))
 	return c
 
 
 ## JSON-safe snapshot: {"id", "team", "position": [x, y], "sheet", "attacks",
-## "monster_id", "display_name"}.
+## "monster_id", "display_name", "creature_type", "challenge_rating",
+## "attacks_per_action", "multiattack"}.
 func to_setup_dict() -> Dictionary:
 	return {
 		"id": id,
@@ -95,6 +126,10 @@ func to_setup_dict() -> Dictionary:
 		"sheet": sheet.to_dict() if sheet != null else {},
 		"attacks": attacks.duplicate(true),
 		"monster_id": monster_id,
+		"creature_type": creature_type,
+		"challenge_rating": challenge_rating,
+		"attacks_per_action": attacks_per_action,
+		"multiattack": multiattack.duplicate(),
 	}
 
 
@@ -131,13 +166,16 @@ func initiative_modifier() -> int:
 	return sheet.initiative_modifier() if sheet != null else 0
 
 
-## Walking speed in tiles (speed in feet / 5).
+## Walking speed in tiles (speed in feet / 5, with Fast Movement / Unarmored
+## Movement); 0 while grappled, restrained, stunned or paralyzed.
 func speed_tiles() -> int:
-	return GridMath.feet_to_tiles(sheet.speed) if sheet != null else 0
+	if sheet == null or is_immobilized():
+		return 0
+	return GridMath.feet_to_tiles(sheet.effective_speed())
 
 
 ## Start-of-turn reset: full movement (minus any slow), fresh action/bonus
-## action/reaction, Dodge and Disengage end.
+## action/reaction, Dodge, Disengage and Reckless Attack end.
 func reset_turn() -> void:
 	movement_remaining = maxi(0, speed_tiles() - slowed_tiles)
 	slowed_tiles = 0
@@ -147,6 +185,81 @@ func reset_turn() -> void:
 	dodging = false
 	disengaging = false
 	attack_action_taken = false
+	attacks_remaining = 0
+	bonus_attacks_remaining = 0
+	bonus_attack_source = ""
+	action_surged = false
+	reckless = false
+
+
+# --- conditions ----------------------------------------------------------------
+
+## True when it has the condition (an encounter condition entry, the sheet's
+## lasting conditions, or a condition that includes it: stunned and paralyzed
+## include incapacitated).
+func has_condition(condition: String) -> bool:
+	if condition == Conditions.INCAPACITATED:
+		for c in Conditions.INCAPACITATING:
+			if _has_own_condition(c):
+				return true
+		return false
+	return _has_own_condition(condition)
+
+
+func _has_own_condition(condition: String) -> bool:
+	if sheet != null and sheet.conditions.has(condition):
+		return true
+	for entry in conditions:
+		if str(entry.get("condition", "")) == condition:
+			return true
+	return false
+
+
+## Ids of the creatures it is frightened of (entries with a source).
+func condition_sources(condition: String) -> Array[String]:
+	var out: Array[String] = []
+	for entry in conditions:
+		if str(entry.get("condition", "")) == condition:
+			var src := str(entry.get("source", ""))
+			if not src.is_empty() and not out.has(src):
+				out.append(src)
+	return out
+
+
+## Incapacitated (stunned, paralyzed): no actions, bonus actions or reactions.
+func is_incapacitated() -> bool:
+	return has_condition(Conditions.INCAPACITATED)
+
+
+## Speed 0: grappled, restrained, stunned or paralyzed.
+func is_immobilized() -> bool:
+	for c in Conditions.IMMOBILIZING:
+		if has_condition(c):
+			return true
+	return false
+
+
+## Stunned or paralyzed: the turn passes without it acting or moving.
+func loses_turn() -> bool:
+	return has_condition(Conditions.STUNNED) or has_condition(Conditions.PARALYZED)
+
+
+## Turned (Turn Undead): it may only move away and Dash.
+func is_fleeing() -> bool:
+	for entry in conditions:
+		if entry.get("flee", false) == true:
+			return true
+	return false
+
+
+## Conscious and not incapacitated: can take reactions (opportunity attacks).
+func can_react() -> bool:
+	return is_conscious() and not reaction_used and not is_incapacitated() and not is_fleeing() \
+			and not has_condition(Conditions.NO_REACTIONS)
+
+
+func is_immune_to_condition(condition: String) -> bool:
+	return sheet != null and sheet.condition_immunities.has(condition)
 
 
 ## Damage after the sheet's immunities / resistances / vulnerabilities, with

@@ -20,10 +20,26 @@ const SLOTS: Array[String] = [SLOT_MAIN_HAND, SLOT_OFF_HAND, SLOT_ARMOR]
 const GOLD_ITEM := "gold"
 const BUFF_MAGE_ARMOR := "mage_armor"
 const MAGE_ARMOR_BASE := 13
-## Class features with a per-rest resource counter in class_resources.
-const RESOURCE_FEATURES: Array[String] = ["second_wind", "rage", "lay_on_hands", "bardic_inspiration"]
+## Per-rest resource counters in class_resources: resource id -> the feature
+## that grants it.
+const RESOURCE_OWNERS: Dictionary[String, String] = {
+	"second_wind": "second_wind", "action_surge": "action_surge", "rage": "rage",
+	"lay_on_hands": "lay_on_hands", "bardic_inspiration": "bardic_inspiration", "ki": "ki",
+	"channel_divinity": "channel_divinity", "sorcery_points": "font_of_magic",
+	"arcane_recovery": "arcane_recovery", "natural_recovery": "natural_recovery",
+}
+## Resource ids (keys of class_resources).
+const RESOURCE_FEATURES: Array[String] = [
+	"second_wind", "action_surge", "rage", "lay_on_hands", "bardic_inspiration", "ki",
+	"channel_divinity", "sorcery_points", "arcane_recovery", "natural_recovery",
+]
 ## Resources that also come back on a short rest (the rest need a long rest).
-const SHORT_REST_RESOURCES: Array[String] = ["second_wind"]
+## Bardic Inspiration joins them with Font of Inspiration.
+const SHORT_REST_RESOURCES: Array[String] = ["second_wind", "action_surge", "ki", "channel_divinity"]
+const FIGHTING_STYLES: Array[String] = ["archery", "defense", "dueling", "great_weapon_fighting", "protection", "two_weapon_fighting"]
+## Fighting styles the rules engine models (protection needs ally-targeted reactions).
+const SUPPORTED_FIGHTING_STYLES: Array[String] = ["archery", "defense", "dueling", "great_weapon_fighting", "two_weapon_fighting"]
+const DRACONIC_AC_BASE := 13
 ## SRD rage uses by barbarian level (index = level); 20th level is unlimited (99).
 const RAGE_USES: Array[int] = [0, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 99]
 
@@ -50,7 +66,8 @@ var death_save_failures: int = 0
 var stable: bool = false
 var dead: bool = false
 var uses_death_saves: bool = true  # false for monsters: they die at 0 hp
-var conditions: Array[String] = []
+var conditions: Array[String] = []  # lasting conditions outside encounters (e.g. "poisoned")
+var condition_immunities: Array[String] = []
 var damage_resistances: Array[String] = []
 var damage_immunities: Array[String] = []
 var damage_vulnerabilities: Array[String] = []
@@ -80,6 +97,17 @@ var slot_recovery: String = "long_rest"  # "short_rest" for pact magic
 var class_resources: Dictionary[String, int] = {}
 ## Lasting spell effects on this character ("mage_armor"); cleared by a long rest.
 var active_buffs: Array[String] = []
+## Progression choices: the class's subclass id ("" until chosen), fighting
+## styles, skills with expertise (Skill.Type), eldritch invocations, metamagic
+## options, and spells that are always prepared and do not count against the
+## prepared / known limits (domain, circle, oath spells). Option features (pact
+## boon, hunter's prey, land, dragon ancestor) are plain entries of `features`.
+var subclass_id: String = ""
+var fighting_styles: Array[String] = []
+var expertise_skills: Array[int] = []
+var invocations: Array[String] = []
+var metamagic: Array[String] = []
+var always_prepared: Array[String] = []
 
 
 func proficiency_bonus() -> int:
@@ -102,11 +130,60 @@ func armor_class() -> int:
 	if armor_base <= 0:
 		if active_buffs.has(BUFF_MAGE_ARMOR):
 			ac = maxi(ac, MAGE_ARMOR_BASE + raw_dex)
+		if features.has("draconic_resilience"):
+			ac = maxi(ac, DRACONIC_AC_BASE + raw_dex)
 		if features.has("unarmored_defense_con"):
 			ac = maxi(ac, 10 + raw_dex + abilities.get_modifier(Ability.Type.CON))
 		if features.has("unarmored_defense_wis") and shield_bonus == 0:
 			ac = maxi(ac, 10 + raw_dex + abilities.get_modifier(Ability.Type.WIS))
+	elif fighting_styles.has("defense"):
+		ac += 1
 	return ac + shield_bonus
+
+
+## Wearing heavy armor (no DEX bonus at all).
+func wears_heavy_armor() -> bool:
+	return armor_base > 0 and armor_max_dex == 0
+
+
+## Speed in feet with Fast Movement (+10 ft without heavy armor) and Unarmored
+## Movement (no armor, no shield).
+func effective_speed() -> int:
+	var feet := speed
+	if features.has("fast_movement") and not wears_heavy_armor():
+		feet += 10
+	if features.has("unarmored_movement") and armor_base <= 0 and shield_bonus == 0:
+		feet += table_int("unarmored_movement", Progression.unarmored_movement_ft(level))
+	return feet
+
+
+func has_fighting_style(style: String) -> bool:
+	return fighting_styles.has(style)
+
+
+## Attack rolls per Attack action: 1, plus the class's Extra Attack table
+## ("extra_attacks", SRD fighter 1 / 2 at 11 / 3 at 20) with the feature.
+func attacks_per_action() -> int:
+	if not features.has("extra_attack"):
+		return 1
+	return 1 + maxi(1, table_int("extra_attacks", 1))
+
+
+## A level table of the class ("tables" in the class JSON) as an int at this
+## level (see ClassDefinition.table_int); fallback without a class or table.
+func table_int(table_name: String, fallback: int) -> int:
+	var cls := class_definition()
+	if cls == null or not cls.tables.has(table_name):
+		return fallback
+	return cls.table_int(table_name, level, fallback)
+
+
+## As table_int, reading dice values as their die size ("1d6" -> 6).
+func table_die(table_name: String, fallback: int) -> int:
+	var cls := class_definition()
+	if cls == null or not cls.tables.has(table_name):
+		return fallback
+	return cls.table_die(table_name, level, fallback)
 
 
 func has_feature(feature: String) -> bool:
@@ -124,10 +201,13 @@ func save_modifier(ability: int) -> int:
 	return mod
 
 
+## Ability modifier + proficiency (doubled with Expertise).
 func skill_modifier(skill: int) -> int:
 	var mod := abilities.get_modifier(Skill.ability_for(skill))
 	if proficient_skills.has(skill):
 		mod += proficiency_bonus()
+		if expertise_skills.has(skill):
+			mod += proficiency_bonus()
 	return mod
 
 
@@ -304,16 +384,23 @@ func level_up(rng: Rng = null, average: bool = true, cls: ClassDefinition = null
 		base = rng.next_int(1, hit_die)
 	var gain := maxi(1, base + abilities.get_modifier(Ability.Type.CON))
 	advance_level(gain, cls)
-	return gain
+	return gain + hp_bonus_per_level()
 
 
-## The bookkeeping of one level: level + 1, hp + gain, one more hit die,
-## proficient attacks' to_hit follow the proficiency bonus, then spell slots
-## and class resources follow the class table (see apply_class_level).
+## Extra hit points per level from features (Draconic Resilience: 1).
+func hp_bonus_per_level() -> int:
+	return 1 if features.has("draconic_resilience") else 0
+
+
+## The bookkeeping of one level: level + 1, hp + gain (+ hp_bonus_per_level),
+## one more hit die, proficient attacks' to_hit follow the proficiency bonus,
+## then spell slots and class resources follow the class table (see
+## apply_class_level).
 func advance_level(hp_gain: int, cls: ClassDefinition = null) -> void:
 	var old_prof := proficiency_bonus()
 	var resource_before := _resource_maxima()
 	level += 1
+	hp_gain += hp_bonus_per_level()
 	max_hp += hp_gain
 	if is_conscious():
 		current_hp += hp_gain
@@ -340,6 +427,9 @@ func apply_class_level(cls: ClassDefinition = null) -> void:
 		def = class_definition()
 	if def == null or def.spell_slot_table.is_empty():
 		return
+	if casting_ability < 0 and def.spellcasting_ability >= 0:
+		casting_ability = def.spellcasting_ability
+	slot_recovery = def.slot_recovery
 	var new_max := def.slots_for_level(level)
 	var new_slots: Array[int] = []
 	for i in range(new_max.size()):
@@ -364,20 +454,30 @@ func class_definition(content: Dictionary = {}) -> ClassDefinition:
 
 # --- class resources ---------------------------------------------------------
 
-## Maximum uses of a resource feature at the current level, or 0 when the
-## character lacks the feature.
-func resource_max(feature: String) -> int:
-	if not features.has(feature):
+## Maximum of a resource (RESOURCE_FEATURES) at the current level, or 0 when
+## the character lacks the feature that grants it. Sized from the class's
+## "tables" when present, else from the SRD formulas.
+func resource_max(resource: String) -> int:
+	var owner: String = RESOURCE_OWNERS.get(resource, "")
+	if owner.is_empty() or not features.has(owner):
 		return 0
-	match feature:
-		"second_wind":
+	match resource:
+		"second_wind", "arcane_recovery", "natural_recovery":
 			return 1
+		"action_surge":
+			return table_int("action_surges", 2 if level >= 17 else 1)
 		"rage":
-			return RAGE_USES[clampi(level, 1, MAX_LEVEL)]
+			return table_int("rage_uses", RAGE_USES[clampi(level, 1, MAX_LEVEL)])
 		"lay_on_hands":
-			return 5 * level
+			return table_int("lay_on_hands_pool", 5 * level)
 		"bardic_inspiration":
 			return maxi(1, abilities.get_modifier(Ability.Type.CHA))
+		"ki":
+			return table_int("ki_points", level)
+		"channel_divinity":
+			return table_int("channel_divinity_uses", Progression.channel_divinity_uses(class_id, level))
+		"sorcery_points":
+			return table_int("sorcery_points", level)
 	return 0
 
 
@@ -385,14 +485,37 @@ func class_resource(feature: String) -> int:
 	return DictUtil.to_int(class_resources.get(feature, 0))
 
 
+## Whether a resource comes back on a short rest (Bardic Inspiration with Font
+## of Inspiration).
+func resource_short_rest(resource: String) -> bool:
+	if resource == "bardic_inspiration":
+		return features.has("font_of_inspiration")
+	return SHORT_REST_RESOURCES.has(resource)
+
+
 ## Refills every resource feature (long rest), or only the short-rest ones.
 func restore_class_resources(short_rest_only: bool = false) -> void:
-	for feature in RESOURCE_FEATURES:
-		if not features.has(feature):
+	for resource in RESOURCE_FEATURES:
+		if not features.has(str(RESOURCE_OWNERS[resource])):
 			continue
-		if short_rest_only and not SHORT_REST_RESOURCES.has(feature):
+		if short_rest_only and not resource_short_rest(resource):
 			continue
-		class_resources[feature] = resource_max(feature)
+		class_resources[resource] = resource_max(resource)
+
+
+## Adds a feature (if missing); resources it grants start full and Draconic
+## Resilience adds its hit points for the levels so far.
+func gain_feature(feature: String) -> void:
+	if features.has(feature):
+		return
+	features.append(feature)
+	for resource in RESOURCE_FEATURES:
+		if str(RESOURCE_OWNERS[resource]) == feature:
+			class_resources[resource] = resource_max(resource)
+	if feature == "draconic_resilience":
+		max_hp += level
+		if is_conscious():
+			current_hp += level
 
 
 ## Spends n uses; false (nothing spent) when fewer remain.
@@ -405,15 +528,25 @@ func spend_class_resource(feature: String, n: int = 1) -> bool:
 
 func _resource_maxima() -> Dictionary:
 	var out := {}
-	for feature in RESOURCE_FEATURES:
-		if features.has(feature):
-			out[feature] = resource_max(feature)
+	for resource in RESOURCE_FEATURES:
+		if features.has(str(RESOURCE_OWNERS[resource])):
+			out[resource] = resource_max(resource)
 	return out
 
 
 ## Sneak Attack dice at this level: 1d6 per two rogue levels, rounded up.
 func sneak_attack_dice() -> String:
-	return "%dd6" % ceili(level / 2.0)
+	return "%dd6" % table_int("sneak_attack_dice", ceili(level / 2.0))
+
+
+## Martial Arts die size (4, 6 at 5, 8 at 11, 10 at 17).
+func martial_arts_die() -> int:
+	return table_die("martial_arts_die", Progression.martial_arts_die(level))
+
+
+## Bardic Inspiration die size (6, 8 at 5, 10 at 10, 12 at 15).
+func bardic_inspiration_die() -> int:
+	return table_die("bardic_inspiration_die", Progression.bardic_die(level))
 
 
 # --- spellcasting ------------------------------------------------------------
@@ -627,20 +760,33 @@ func _has_attack_using(item_id: String) -> bool:
 ## can be thrown or shot (drawing a weapon is the free object interaction),
 ## in inventory order. Thrown attacks use up the weapon item; ranged attacks
 ## use up the ammunition item (item or weapon "ammo_id"). Items whose weapon
-## is unknown are skipped.
+## is unknown are skipped. Last, with light melee weapons in both hands, the
+## off-hand attack ("off_hand": true, a bonus action; no positive ability
+## modifier to damage without the Two-Weapon Fighting style).
+## Fighting styles: Dueling (+2 damage, main-hand melee weapon not two-handed,
+## no off-hand weapon), Great Weapon Fighting ("reroll_max": 2 on a two-handed
+## melee weapon), Archery (see CharacterBuilder.weapon_attack).
 func rebuild_attacks(content: Dictionary = {}) -> void:
 	var c := ContentLoader.resolve(content)
 	attacks.clear()
 	var main := equipped_item(SLOT_MAIN_HAND)
+	var off := equipped_item(SLOT_OFF_HAND)
+	var off_weapon := CharacterSheet.weapon_for_item(off, c)
+	var main_weapon: WeaponDefinition = null
 	if not main.is_empty():
 		var w := CharacterSheet.weapon_for_item(main, c)
+		main_weapon = w
 		if w != null:
 			if w.ranged and not w.is_thrown():
 				attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "ranged", main, CharacterSheet.ammo_for_item(main, c)))
 			elif w.ranged:
 				attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "thrown", main, main))
 			else:
-				attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "melee", main, ""))
+				var dueling := 2 if has_fighting_style("dueling") and not w.is_two_handed() and off_weapon == null else 0
+				var melee := CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "melee", main, "", dueling)
+				if has_fighting_style("great_weapon_fighting") and w.is_two_handed():
+					melee["reroll_max"] = 2
+				attacks.append(melee)
 				if w.is_thrown():
 					attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "thrown", main, main))
 	for entry in inventory:
@@ -654,6 +800,12 @@ func rebuild_attacks(content: Dictionary = {}) -> void:
 			attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "thrown", item_id, item_id))
 		elif w.ranged:
 			attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "ranged", item_id, CharacterSheet.ammo_for_item(item_id, c)))
+	if off_weapon != null and main_weapon != null and not off_weapon.ranged and not main_weapon.ranged \
+			and off_weapon.has_property("light") and main_weapon.has_property("light"):
+		var off_attack := CharacterBuilder.weapon_attack(self, off_weapon, _proficient(off_weapon, c), "melee", off, "", 0, has_fighting_style("two_weapon_fighting"))
+		off_attack["name"] = "%s (off hand)" % off_weapon.display_name
+		off_attack["off_hand"] = true
+		attacks.append(off_attack)
 
 
 func _proficient(weapon: WeaponDefinition, content: Dictionary) -> bool:
@@ -718,7 +870,7 @@ func unarmed_strike() -> Dictionary:
 		var dex_mod := abilities.get_modifier(Ability.Type.DEX)
 		var mod := maxi(str_mod, dex_mod)
 		attack["to_hit"] = proficiency_bonus() + mod
-		attack["damage"] = "1d4" + CharacterBuilder.signed(mod)
+		attack["damage"] = "1d%d" % martial_arts_die() + CharacterBuilder.signed(mod)
 		attack["ability"] = "DEX" if dex_mod > str_mod else "STR"
 	return attack
 
@@ -762,6 +914,13 @@ func to_dict() -> Dictionary:
 		"dead": dead,
 		"uses_death_saves": uses_death_saves,
 		"conditions": conditions.duplicate(),
+		"condition_immunities": condition_immunities.duplicate(),
+		"subclass_id": subclass_id,
+		"fighting_styles": fighting_styles.duplicate(),
+		"expertise_skills": DictUtil.skill_keys(expertise_skills),
+		"invocations": invocations.duplicate(),
+		"metamagic": metamagic.duplicate(),
+		"always_prepared": always_prepared.duplicate(),
 		"damage_resistances": damage_resistances.duplicate(),
 		"damage_immunities": damage_immunities.duplicate(),
 		"damage_vulnerabilities": damage_vulnerabilities.duplicate(),
@@ -826,6 +985,15 @@ static func from_dict(d: Dictionary) -> CharacterSheet:
 	s.dead = DictUtil.to_bool(d.get("dead", false), false)
 	s.uses_death_saves = DictUtil.to_bool(d.get("uses_death_saves", true), true)
 	s.conditions = DictUtil.to_string_array(d.get("conditions", []))
+	s.condition_immunities = DictUtil.to_string_array(d.get("condition_immunities", []))
+	s.subclass_id = str(d.get("subclass_id", ""))
+	s.fighting_styles = DictUtil.to_string_array(d.get("fighting_styles", []))
+	for skill in DictUtil.to_skill_array(d.get("expertise_skills", [])):
+		if skill >= 0 and not s.expertise_skills.has(skill):
+			s.expertise_skills.append(skill)
+	s.invocations = DictUtil.to_string_array(d.get("invocations", []))
+	s.metamagic = DictUtil.to_string_array(d.get("metamagic", []))
+	s.always_prepared = DictUtil.to_string_array(d.get("always_prepared", []))
 	s.damage_resistances = DictUtil.to_string_array(d.get("damage_resistances", []))
 	s.damage_immunities = DictUtil.to_string_array(d.get("damage_immunities", []))
 	s.damage_vulnerabilities = DictUtil.to_string_array(d.get("damage_vulnerabilities", []))
