@@ -37,18 +37,31 @@ Decisions are recorded as ADRs in `docs/decisions/`.
 ## Repository layout
 
 ```
-project.godot              Godot 4.5 project (no autoloads)
-scenes/main.tscn, main.gd  minimal boot scene
+project.godot              Godot 4.5 project (no autoloads; InputMap actions, audio buses)
+scenes/                    main (boot + settings/pause overlay), ui/ (creator, settings,
+                           level-up), game/ (game scene, HUD, entity layer), floor/ (FloorView)
 src/core/                  pure rules engine (RefCounted only)
-  rng/ dice/ rules/ combat/ content/
-src/server/                authoritative instance server (stub)
-src/client/                presentation only (stub)
-src/shared/                network message definitions (stub)
-data/                      JSON content (SRD subset): classes/, monsters/
-tests/                     run_tests.gd, test_case.gd, core/test_*.gd
+  rng/ dice/ grid/ rules/ combat/ spells/ items/ floors/ content/
+src/server/                authoritative instance server (InstanceServer, 20 Hz)
+src/client/                view-model (ClientState), drafts, settings, icons
+src/shared/                Messages, Transport/LocalTransport, FloorFile
+data/                      JSON content, all SRD 5.1 (+ hex from SRD 5.2):
+  classes/ (12, progression to 20) ancestries/ features/ spells/ weapons/
+  items/ monsters/ loot/ invocations/ metamagic/ fighting_styles/
+floors/                    set manifests and JSON floors (ASCII grid + zones + chests)
+assets/                    generated placeholder tiles and icons (tools/gen_tileset.py)
+tools/                     install_godot.sh, gen_tileset.py, import_srd.py (SRD importer;
+                           cache in tools/srd_cache/, gitignored)
+tests/                     run_tests.gd, test_case.gd, core/ shared/ server/ client/
+                           scenes/ content/
 docs/                      gdd, tdd, roadmap, licensing, decisions/
 .github/workflows/ci.yml   headless test run on push / PR
 ```
+
+Regenerating data: `python3 -I tools/import_srd.py --offline --check` verifies the
+converted data is deterministic and licence-clean; without `--offline` it refreshes
+the cache from the SRD API. Hand-tuned records carry `"hand_edited": true` and keep
+their hand-written keys.
 
 Dependency direction: `client` -> `shared` -> `core`; `server` -> `shared` ->
 `core`. `core` depends on nothing outside itself.
