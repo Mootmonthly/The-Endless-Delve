@@ -1,0 +1,27 @@
+{
+	"schema_version": 1,
+	"id": "barbarian",
+	"display_name": "Barbarian",
+	"description": "A fierce warrior of primitive background who can enter a battle rage.",
+	"hit_die": 12,
+	"primary_abilities": ["STR"],
+	"saving_throws": ["STR", "CON"],
+	"armor_proficiencies": ["light", "medium", "shield"],
+	"weapon_proficiencies": ["simple", "martial"],
+	"tool_proficiencies": [],
+	"skill_choices": ["ANIMAL_HANDLING", "ATHLETICS", "INTIMIDATION", "NATURE", "PERCEPTION", "SURVIVAL"],
+	"skill_choice_count": 2,
+	"spellcasting_ability": null,
+	"starting_weapon": "greataxe",
+	"starting_armor": null,
+	"starting_shield": false,
+	"starting_kit": [
+		{ "item": "handaxe", "qty": 2 },
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["rage", "unarmored_defense_con"],
+	"features_by_level": { "1": ["rage", "unarmored_defense_con"], "2": ["reckless_attack", "danger_sense"], "3": ["primal_path"] },
+	"spellcasting": null
+}

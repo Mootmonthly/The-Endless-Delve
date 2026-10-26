@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "monster_medium",
+	"description": "Drops from tougher monsters: coins, healing and a chance at a weapon or armor.",
+	"rolls": 1,
+	"entries": [
+		{ "nothing": true, "weight": 4 },
+		{ "item": "gold", "weight": 6, "qty": [5, 25] },
+		{ "item": "potion_of_healing", "weight": 4 },
+		{ "item": "shortsword", "weight": 1 },
+		{ "item": "scimitar", "weight": 1 },
+		{ "item": "handaxe", "weight": 1, "qty": [1, 2] },
+		{ "item": "javelin", "weight": 1, "qty": [1, 3] },
+		{ "item": "shortbow", "weight": 1 },
+		{ "item": "arrows", "weight": 2, "qty": [5, 15] },
+		{ "item": "studded_leather_armor", "weight": 1 },
+		{ "item": "chain_shirt", "weight": 1 },
+		{ "item": "shield", "weight": 1 }
+	]
+}

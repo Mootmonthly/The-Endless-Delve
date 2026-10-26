@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "component_pouch",
+	"display_name": "Component Pouch",
+	"kind": "misc",
+	"description": "A watertight belt pouch holding the material components a spellcaster needs.",
+	"weight": 2,
+	"value_gp": 25,
+	"stackable": false
+}

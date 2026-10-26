@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"id": "eldritch_blast",
+	"display_name": "Eldritch Blast",
+	"level": 0,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 120,
+	"target": "creature",
+	"effect": {
+		"type": "spell_attack",
+		"attack": "ranged",
+		"damage": "1d10",
+		"damage_type": "force",
+		"beams": { "1": 1, "5": 2, "11": 3, "17": 4 }
+	},
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["warlock"],
+	"source": "SRD 5.1",
+	"description": "A beam of crackling energy: a ranged spell attack for 1d10 force damage. Extra beams (separate attack rolls) at character levels 5, 11 and 17; one beam at level 1."
+}

@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "lesser_restoration",
+	"display_name": "Lesser Restoration",
+	"level": 2,
+	"school": "abjuration",
+	"casting_time": "action",
+	"range_ft": 5,
+	"target": "creature_or_self",
+	"effect": { "type": "unsupported", "reason": "conditions are not modelled yet" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["bard", "cleric", "druid", "paladin", "ranger"],
+	"source": "SRD 5.1",
+	"description": "You touch a creature and end one disease or one condition afflicting it: blinded, deafened, paralyzed or poisoned.",
+	"planned_effect": { "type": "cure", "conditions": ["blinded", "deafened", "paralyzed", "poisoned"] }
+}

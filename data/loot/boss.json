@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "boss",
+	"description": "The set boss's hoard: several rolls, never empty.",
+	"rolls": 3,
+	"entries": [
+		{ "item": "gold", "weight": 6, "qty": [30, 80] },
+		{ "item": "potion_of_healing", "weight": 4, "qty": [1, 2] },
+		{ "item": "potion_of_greater_healing", "weight": 2 },
+		{ "item": "greataxe", "weight": 1 },
+		{ "item": "battleaxe", "weight": 1 },
+		{ "item": "warhammer", "weight": 1 },
+		{ "item": "rapier", "weight": 1 },
+		{ "item": "longbow", "weight": 1 },
+		{ "item": "breastplate", "weight": 1 },
+		{ "item": "chain_mail", "weight": 1 },
+		{ "item": "scale_mail", "weight": 1 },
+		{ "item": "chain_shirt", "weight": 1 },
+		{ "item": "shield", "weight": 1 }
+	]
+}

@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "chain_shirt",
+	"display_name": "Chain Shirt",
+	"kind": "armor",
+	"description": "Medium armor: AC 13 + Dex modifier (max 2).",
+	"weight": 20,
+	"value_gp": 50,
+	"stackable": false,
+	"armor": { "base": 13, "max_dex": 2, "category": "medium", "stealth_disadvantage": false }
+}

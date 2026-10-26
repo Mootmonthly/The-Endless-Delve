@@ -1,0 +1,25 @@
+{
+	"schema_version": 1,
+	"id": "sacred_flame",
+	"display_name": "Sacred Flame",
+	"level": 0,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": {
+		"type": "save",
+		"save": "DEX",
+		"damage": "1d8",
+		"damage_type": "radiant",
+		"on_save": "none",
+		"scaling": { "5": "2d8", "11": "3d8", "17": "4d8" },
+		"ignores_cover": true
+	},
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["cleric"],
+	"source": "SRD 5.1",
+	"description": "Flame-like radiance descends on a creature you can see: Dexterity save or take 1d8 radiant damage. The target gains no benefit from cover."
+}

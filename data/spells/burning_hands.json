@@ -1,0 +1,26 @@
+{
+	"schema_version": 1,
+	"id": "burning_hands",
+	"display_name": "Burning Hands",
+	"level": 1,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "area (15-foot cone)" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "A thin sheet of flames shoots from your outstretched fingertips in a 15-foot cone: Dexterity save, 3d6 fire damage, half on a success. Area spells come later.",
+	"planned_effect": {
+		"type": "save",
+		"save": "DEX",
+		"damage": "3d6",
+		"damage_type": "fire",
+		"on_save": "half",
+		"per_slot_level_above": "1d6",
+		"area": { "shape": "cone", "size_ft": 15 }
+	}
+}

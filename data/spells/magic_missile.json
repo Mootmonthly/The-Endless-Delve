@@ -1,0 +1,17 @@
+{
+	"schema_version": 1,
+	"id": "magic_missile",
+	"display_name": "Magic Missile",
+	"level": 1,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 120,
+	"target": "creature",
+	"effect": { "type": "auto_hit", "darts": 3, "damage": "1d4+1", "damage_type": "force", "per_slot_level_above": 1 },
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "Three glowing darts of magical force each hit automatically for 1d4 + 1 force damage. One more dart for each slot level above 1st."
+}

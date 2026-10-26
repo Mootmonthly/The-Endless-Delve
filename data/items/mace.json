@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "mace",
+	"display_name": "Mace",
+	"kind": "weapon",
+	"description": "A simple melee weapon.",
+	"weight": 4,
+	"value_gp": 5,
+	"stackable": true,
+	"weapon_id": "mace"
+}

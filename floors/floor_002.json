@@ -5,9 +5,9 @@
 	"floor_number": 2,
 	"theme": "The Barrow Warrens",
 	"budget": {
-		"level": 1,
-		"min": "medium",
-		"max": "hard"
+		"level": 2,
+		"min": "easy",
+		"max": "medium"
 	},
 	"rows": [
 		"########################################################",
@@ -135,6 +135,26 @@
 					9
 				]
 			]
+		}
+	],
+	"chests": [
+		{
+			"id": "f2_stairs",
+			"position": [
+				50,
+				28
+			],
+			"table": "starter_gear",
+			"hidden": false
+		},
+		{
+			"id": "f2_hidden",
+			"position": [
+				50,
+				3
+			],
+			"table": "hidden_cache",
+			"hidden": true
 		}
 	]
 }

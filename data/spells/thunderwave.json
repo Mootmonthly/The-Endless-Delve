@@ -1,0 +1,27 @@
+{
+	"schema_version": 1,
+	"id": "thunderwave",
+	"display_name": "Thunderwave",
+	"level": 1,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "area (15-foot cube) and push" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["bard", "druid", "sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "A wave of thunderous force sweeps out from you in a 15-foot cube: Constitution save, 2d8 thunder damage and a 10-foot push, half damage and no push on a success. Area spells come later.",
+	"planned_effect": {
+		"type": "save",
+		"save": "CON",
+		"damage": "2d8",
+		"damage_type": "thunder",
+		"on_save": "half",
+		"per_slot_level_above": "1d8",
+		"push_ft": 10,
+		"area": { "shape": "cube", "size_ft": 15 }
+	}
+}

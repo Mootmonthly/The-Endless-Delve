@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "sling",
+	"display_name": "Sling",
+	"category": "simple",
+	"damage": "1d4",
+	"damage_type": "bludgeoning",
+	"properties": ["ammunition"],
+	"range_ft": [30, 120],
+	"ranged": true,
+	"ammo_id": "sling_bullets"
+}

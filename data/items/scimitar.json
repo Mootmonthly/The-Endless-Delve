@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "scimitar",
+	"display_name": "Scimitar",
+	"kind": "weapon",
+	"description": "A martial melee weapon.",
+	"weight": 3,
+	"value_gp": 25,
+	"stackable": true,
+	"weapon_id": "scimitar"
+}

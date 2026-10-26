@@ -1,0 +1,17 @@
+{
+	"schema_version": 1,
+	"id": "hex",
+	"display_name": "Hex",
+	"level": 1,
+	"school": "enchantment",
+	"casting_time": "bonus_action",
+	"range_ft": 90,
+	"target": "creature",
+	"effect": { "type": "buff", "buff": "hex", "bonus_damage": "1d6", "damage_type": "necrotic", "until": "encounter_end" },
+	"duration": "1 hour",
+	"concentration": true,
+	"components": ["V", "S", "M"],
+	"classes": ["warlock"],
+	"source": "SRD 5.2",
+	"description": "You curse a creature you can see within 90 feet: until the spell ends, you deal an extra 1d6 necrotic damage to it whenever you hit it with an attack roll. Here it lasts until the end of the encounter. (The ability-check curse is not implemented yet.)"
+}

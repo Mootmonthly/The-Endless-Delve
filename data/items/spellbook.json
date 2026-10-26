@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "spellbook",
+	"display_name": "Spellbook",
+	"kind": "misc",
+	"description": "A leather-bound book of 100 vellum pages where a wizard records the spells they know.",
+	"weight": 3,
+	"value_gp": 50,
+	"stackable": false
+}

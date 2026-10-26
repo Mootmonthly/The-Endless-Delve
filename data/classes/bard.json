@@ -1,0 +1,68 @@
+{
+	"schema_version": 1,
+	"id": "bard",
+	"display_name": "Bard",
+	"description": "An inspiring magician whose power echoes the music of creation.",
+	"hit_die": 8,
+	"primary_abilities": ["CHA"],
+	"saving_throws": ["DEX", "CHA"],
+	"armor_proficiencies": ["light"],
+	"weapon_proficiencies": ["simple", "hand_crossbow", "longsword", "rapier", "shortsword"],
+	"tool_proficiencies": ["musical_instrument"],
+	"skill_choices": [
+		"ACROBATICS",
+		"ANIMAL_HANDLING",
+		"ARCANA",
+		"ATHLETICS",
+		"DECEPTION",
+		"HISTORY",
+		"INSIGHT",
+		"INTIMIDATION",
+		"INVESTIGATION",
+		"MEDICINE",
+		"NATURE",
+		"PERCEPTION",
+		"PERFORMANCE",
+		"PERSUASION",
+		"RELIGION",
+		"SLEIGHT_OF_HAND",
+		"STEALTH",
+		"SURVIVAL"
+	],
+	"skill_choice_count": 3,
+	"spellcasting_ability": "CHA",
+	"starting_weapon": "rapier",
+	"starting_armor": { "base": 11, "max_dex": -1, "item": "leather_armor" },
+	"starting_shield": false,
+	"starting_kit": [
+		{ "item": "dagger", "qty": 1 },
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["spellcasting", "bardic_inspiration"],
+	"features_by_level": {
+		"1": ["spellcasting", "bardic_inspiration"],
+		"2": ["jack_of_all_trades", "song_of_rest"],
+		"3": ["bard_college", "expertise"]
+	},
+	"spellcasting": {
+		"ability": "CHA",
+		"prepared": ["vicious_mockery", "healing_word", "cure_wounds"],
+		"slots": { "1": [2], "2": [3], "3": [4, 2], "4": [4, 3], "5": [4, 3, 2] },
+		"slot_recovery": "long_rest"
+	},
+	"spell_list": [
+		"vicious_mockery",
+		"charm_person",
+		"cure_wounds",
+		"healing_word",
+		"sleep",
+		"thunderwave",
+		"hold_person",
+		"lesser_restoration",
+		"shatter"
+	],
+	"spells_known": { "1": 4, "2": 5, "3": 6, "4": 7, "5": 8 },
+	"cantrips_known": { "1": 2, "4": 3, "10": 4 }
+}

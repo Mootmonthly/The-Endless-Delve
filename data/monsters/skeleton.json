@@ -16,6 +16,7 @@
 	"senses": "darkvision 60 ft., passive Perception 9",
 	"challenge_rating": 0.25,
 	"xp": 50,
+	"loot_table": "monster_small",
 	"traits": [],
 	"attacks": [
 		{ "name": "Shortsword", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "1d6+2", "damage_type": "piercing" },

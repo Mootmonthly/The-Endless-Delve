@@ -1,0 +1,33 @@
+{
+	"schema_version": 1,
+	"id": "paladin",
+	"display_name": "Paladin",
+	"description": "A holy warrior bound to a sacred oath. Paladin spellcasting (Charisma) starts at level 2.",
+	"hit_die": 10,
+	"primary_abilities": ["STR", "CHA"],
+	"saving_throws": ["WIS", "CHA"],
+	"armor_proficiencies": ["light", "medium", "heavy", "shield"],
+	"weapon_proficiencies": ["simple", "martial"],
+	"tool_proficiencies": [],
+	"skill_choices": ["ATHLETICS", "INSIGHT", "INTIMIDATION", "MEDICINE", "PERSUASION", "RELIGION"],
+	"skill_choice_count": 2,
+	"spellcasting_ability": null,
+	"starting_weapon": "longsword",
+	"starting_armor": { "base": 16, "max_dex": 0, "item": "chain_mail" },
+	"starting_shield": true,
+	"starting_kit": [
+		{ "item": "holy_symbol", "qty": 1 },
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["divine_sense", "lay_on_hands"],
+	"features_by_level": {
+		"1": ["divine_sense", "lay_on_hands"],
+		"2": ["fighting_style", "spellcasting", "divine_smite"],
+		"3": ["divine_health", "sacred_oath"]
+	},
+	"spellcasting": null,
+	"spell_list": ["bless", "cure_wounds", "shield_of_faith", "lesser_restoration"],
+	"prepares": true
+}

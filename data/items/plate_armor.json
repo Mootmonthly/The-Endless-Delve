@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "plate_armor",
+	"display_name": "Plate Armor",
+	"kind": "armor",
+	"description": "Heavy armor: AC 18. Needs Strength 15 (not enforced yet). Disadvantage on Stealth checks.",
+	"weight": 65,
+	"value_gp": 1500,
+	"stackable": false,
+	"armor": { "base": 18, "max_dex": 0, "category": "heavy", "stealth_disadvantage": true, "strength": 15 }
+}

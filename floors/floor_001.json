@@ -110,5 +110,25 @@
 				]
 			]
 		}
+	],
+	"chests": [
+		{
+			"id": "f1_stairs",
+			"position": [
+				44,
+				25
+			],
+			"table": "starter_gear",
+			"hidden": false
+		},
+		{
+			"id": "f1_hidden",
+			"position": [
+				28,
+				29
+			],
+			"table": "hidden_cache",
+			"hidden": true
+		}
 	]
 }

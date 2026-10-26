@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "sling",
+	"display_name": "Sling",
+	"kind": "weapon",
+	"description": "A simple ranged weapon (30/120 ft) that fires sling bullets.",
+	"weight": 0,
+	"value_gp": 0.1,
+	"stackable": true,
+	"weapon_id": "sling",
+	"ammo_id": "sling_bullets"
+}

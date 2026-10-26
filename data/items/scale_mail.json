@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "scale_mail",
+	"display_name": "Scale Mail",
+	"kind": "armor",
+	"description": "Medium armor: AC 14 + Dex modifier (max 2). Disadvantage on Stealth checks.",
+	"weight": 45,
+	"value_gp": 50,
+	"stackable": false,
+	"armor": { "base": 14, "max_dex": 2, "category": "medium", "stealth_disadvantage": true }
+}

@@ -1,0 +1,27 @@
+{
+	"schema_version": 1,
+	"id": "acid_arrow",
+	"display_name": "Acid Arrow",
+	"level": 2,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 90,
+	"target": "creature",
+	"effect": {
+		"type": "spell_attack",
+		"attack": "ranged",
+		"damage": "4d4",
+		"damage_type": "acid",
+		"per_slot_level_above": "1d4",
+		"on_miss": "half",
+		"delayed_damage": "2d4",
+		"delayed_per_slot_level_above": "1d4",
+		"delayed_when": "target_next_turn_end"
+	},
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S", "M"],
+	"classes": ["wizard"],
+	"source": "SRD 5.1",
+	"description": "A shimmering green arrow: a ranged spell attack for 4d4 acid damage, then 2d4 acid at the end of the target's next turn. On a miss, half the initial damage and nothing later."
+}

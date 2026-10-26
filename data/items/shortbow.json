@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "shortbow",
+	"display_name": "Shortbow",
+	"kind": "weapon",
+	"description": "A simple ranged weapon (80/320 ft) that fires arrows.",
+	"weight": 2,
+	"value_gp": 25,
+	"stackable": true,
+	"weapon_id": "shortbow",
+	"ammo_id": "arrows"
+}

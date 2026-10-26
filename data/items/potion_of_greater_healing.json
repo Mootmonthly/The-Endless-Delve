@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "potion_of_greater_healing",
+	"display_name": "Potion of Greater Healing",
+	"kind": "consumable",
+	"description": "A brighter red potion. Drinking it restores 4d4 + 4 hit points.",
+	"weight": 0.5,
+	"value_gp": 150,
+	"stackable": true,
+	"use": { "action": "action", "effect": "heal", "dice": "4d4+4", "target": "self" }
+}

@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "bolts",
+	"display_name": "Crossbow Bolts",
+	"kind": "ammo",
+	"description": "Bolts for a crossbow. One is used up per shot.",
+	"weight": 0.075,
+	"value_gp": 0.05,
+	"stackable": true
+}

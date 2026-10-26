@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "longbow",
+	"display_name": "Longbow",
+	"category": "martial",
+	"damage": "1d8",
+	"damage_type": "piercing",
+	"properties": ["ammunition", "heavy", "two_handed"],
+	"range_ft": [150, 600],
+	"ranged": true,
+	"ammo_id": "arrows"
+}

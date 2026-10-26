@@ -1,0 +1,15 @@
+{
+	"schema_version": 1,
+	"id": "monster_small",
+	"description": "Drops from small or weak monsters: mostly nothing, sometimes coins or a small weapon.",
+	"rolls": 1,
+	"entries": [
+		{ "nothing": true, "weight": 12 },
+		{ "item": "gold", "weight": 5, "qty": [1, 6] },
+		{ "item": "potion_of_healing", "weight": 1 },
+		{ "item": "dagger", "weight": 1 },
+		{ "item": "dart", "weight": 1, "qty": [2, 5] },
+		{ "item": "arrows", "weight": 1, "qty": [3, 8] },
+		{ "item": "rations", "weight": 1 }
+	]
+}

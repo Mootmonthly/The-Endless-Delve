@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "dart",
+	"display_name": "Dart",
+	"kind": "weapon",
+	"description": "A simple weapon that can be thrown (20/60 ft); a thrown one is lost.",
+	"weight": 0.25,
+	"value_gp": 0.05,
+	"stackable": true,
+	"weapon_id": "dart"
+}

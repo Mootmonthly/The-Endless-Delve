@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "light_crossbow",
+	"display_name": "Light Crossbow",
+	"category": "simple",
+	"damage": "1d8",
+	"damage_type": "piercing",
+	"properties": ["ammunition", "loading", "two_handed"],
+	"range_ft": [80, 320],
+	"ranged": true,
+	"ammo_id": "bolts"
+}

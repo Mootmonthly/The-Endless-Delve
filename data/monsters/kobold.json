@@ -12,6 +12,7 @@
 	"senses": "darkvision 60 ft., passive Perception 8",
 	"challenge_rating": 0.125,
 	"xp": 25,
+	"loot_table": "monster_small",
 	"traits": [
 		{ "name": "Sunlight Sensitivity", "description": "While in sunlight, has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight." },
 		{ "name": "Pack Tactics", "description": "Has advantage on attack rolls against a creature if at least one of its allies is within 5 feet of the creature and the ally isn't incapacitated." }

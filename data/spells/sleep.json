@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"id": "sleep",
+	"display_name": "Sleep",
+	"level": 1,
+	"school": "enchantment",
+	"casting_time": "action",
+	"range_ft": 90,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "area (20-foot sphere), hit point pool" },
+	"duration": "1 minute",
+	"concentration": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "Roll 5d8: creatures within 20 feet of a point you choose fall unconscious in order of lowest current hit points until the total is used up (+2d8 per slot level above 1st).",
+	"planned_effect": {
+		"hp_pool": "5d8",
+		"per_slot_level_above": "2d8",
+		"area": { "shape": "sphere", "size_ft": 20 }
+	}
+}

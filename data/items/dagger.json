@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "dagger",
+	"display_name": "Dagger",
+	"kind": "weapon",
+	"description": "A simple weapon that can be thrown (20/60 ft); a thrown one is lost.",
+	"weight": 1,
+	"value_gp": 2,
+	"stackable": true,
+	"weapon_id": "dagger"
+}

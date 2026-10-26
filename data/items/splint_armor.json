@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "splint_armor",
+	"display_name": "Splint Armor",
+	"kind": "armor",
+	"description": "Heavy armor: AC 17. Needs Strength 15 (not enforced yet). Disadvantage on Stealth checks.",
+	"weight": 60,
+	"value_gp": 200,
+	"stackable": false,
+	"armor": { "base": 17, "max_dex": 0, "category": "heavy", "stealth_disadvantage": true, "strength": 15 }
+}

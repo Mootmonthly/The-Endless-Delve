@@ -15,6 +15,7 @@
 	"senses": "darkvision 60 ft., passive Perception 8",
 	"challenge_rating": 0.25,
 	"xp": 50,
+	"loot_table": "monster_small",
 	"traits": [
 		{ "name": "Undead Fortitude", "description": "If damage reduces it to 0 hit points, it makes a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, it drops to 1 hit point instead." }
 	],

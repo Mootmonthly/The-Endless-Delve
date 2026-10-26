@@ -9,10 +9,32 @@
 	"armor_proficiencies": ["light"],
 	"weapon_proficiencies": ["simple", "hand_crossbow", "longsword", "rapier", "shortsword"],
 	"tool_proficiencies": ["thieves_tools"],
-	"skill_choices": ["ACROBATICS", "ATHLETICS", "DECEPTION", "INSIGHT", "INTIMIDATION", "INVESTIGATION", "PERCEPTION", "PERFORMANCE", "PERSUASION", "SLEIGHT_OF_HAND", "STEALTH"],
+	"skill_choices": [
+		"ACROBATICS",
+		"ATHLETICS",
+		"DECEPTION",
+		"INSIGHT",
+		"INTIMIDATION",
+		"INVESTIGATION",
+		"PERCEPTION",
+		"PERFORMANCE",
+		"PERSUASION",
+		"SLEIGHT_OF_HAND",
+		"STEALTH"
+	],
 	"skill_choice_count": 4,
 	"spellcasting_ability": null,
 	"starting_weapon": "shortsword",
-	"starting_armor": { "base": 11, "max_dex": -1 },
-	"starting_shield": false
+	"starting_armor": { "base": 11, "max_dex": -1, "item": "leather_armor" },
+	"starting_shield": false,
+	"starting_kit": [
+		{ "item": "dagger", "qty": 4 },
+		{ "item": "thieves_tools", "qty": 1 },
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["expertise", "sneak_attack", "thieves_cant"],
+	"features_by_level": { "1": ["expertise", "sneak_attack", "thieves_cant"], "2": ["cunning_action"], "3": ["roguish_archetype"] },
+	"spellcasting": null
 }

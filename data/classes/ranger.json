@@ -1,0 +1,35 @@
+{
+	"schema_version": 1,
+	"id": "ranger",
+	"display_name": "Ranger",
+	"description": "A warrior who uses martial prowess and nature magic to combat threats on the edges of civilization. Ranger spellcasting (Wisdom) starts at level 2.",
+	"hit_die": 10,
+	"primary_abilities": ["DEX", "WIS"],
+	"saving_throws": ["STR", "DEX"],
+	"armor_proficiencies": ["light", "medium", "shield"],
+	"weapon_proficiencies": ["simple", "martial"],
+	"tool_proficiencies": [],
+	"skill_choices": ["ANIMAL_HANDLING", "ATHLETICS", "INSIGHT", "INVESTIGATION", "NATURE", "PERCEPTION", "STEALTH", "SURVIVAL"],
+	"skill_choice_count": 3,
+	"spellcasting_ability": null,
+	"starting_weapon": "shortsword",
+	"starting_armor": { "base": 11, "max_dex": -1, "item": "leather_armor" },
+	"starting_shield": false,
+	"starting_kit": [
+		{ "item": "shortsword", "qty": 1 },
+		{ "item": "longbow", "qty": 1 },
+		{ "item": "arrows", "qty": 20 },
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["favored_enemy", "natural_explorer"],
+	"features_by_level": {
+		"1": ["favored_enemy", "natural_explorer"],
+		"2": ["fighting_style", "spellcasting"],
+		"3": ["ranger_archetype", "primeval_awareness"]
+	},
+	"spellcasting": null,
+	"spell_list": ["cure_wounds", "hunters_mark", "barkskin", "lesser_restoration"],
+	"spells_known": { "1": 0, "2": 2, "3": 3, "4": 3, "5": 4 }
+}

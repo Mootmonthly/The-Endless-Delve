@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "padded_armor",
+	"display_name": "Padded Armor",
+	"kind": "armor",
+	"description": "Light armor: AC 11 + Dex modifier. Disadvantage on Stealth checks.",
+	"weight": 8,
+	"value_gp": 5,
+	"stackable": false,
+	"armor": { "base": 11, "max_dex": -1, "category": "light", "stealth_disadvantage": true }
+}

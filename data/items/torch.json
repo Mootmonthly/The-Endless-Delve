@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "torch",
+	"display_name": "Torch",
+	"kind": "misc",
+	"description": "Burns for 1 hour, shedding bright light in a 20-foot radius and dim light 20 feet beyond.",
+	"weight": 1,
+	"value_gp": 0.01,
+	"stackable": true
+}

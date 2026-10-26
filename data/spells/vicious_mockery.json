@@ -1,0 +1,25 @@
+{
+	"schema_version": 1,
+	"id": "vicious_mockery",
+	"display_name": "Vicious Mockery",
+	"level": 0,
+	"school": "enchantment",
+	"casting_time": "action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": {
+		"type": "save",
+		"save": "WIS",
+		"damage": "1d4",
+		"damage_type": "psychic",
+		"on_save": "none",
+		"scaling": { "5": "2d4", "11": "3d4", "17": "4d4" },
+		"on_fail": { "disadvantage_next_attack": true, "until": "target_next_turn_end" }
+	},
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V"],
+	"classes": ["bard"],
+	"source": "SRD 5.1",
+	"description": "A string of insults laced with enchantment: Wisdom save or take 1d4 psychic damage and have disadvantage on the next attack roll before the end of its next turn."
+}

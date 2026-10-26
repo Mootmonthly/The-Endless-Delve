@@ -14,6 +14,7 @@
 	"senses": "darkvision 60 ft., passive Perception 10",
 	"challenge_rating": 1,
 	"xp": 200,
+	"loot_table": "monster_medium",
 	"traits": [
 		{ "name": "Claws: paralysis", "description": "If the claws hit a creature other than an elf or undead, it must succeed on a DC 10 Constitution saving throw or be paralyzed for 1 minute. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. (Not yet modelled.)" }
 	],

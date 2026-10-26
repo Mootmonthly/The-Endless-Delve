@@ -14,6 +14,7 @@
 	"senses": "darkvision 60 ft., passive Perception 9",
 	"challenge_rating": 0.25,
 	"xp": 50,
+	"loot_table": "monster_small",
 	"traits": [
 		{ "name": "Nimble Escape", "description": "Can take the Disengage or Hide action as a bonus action on each of its turns." }
 	],

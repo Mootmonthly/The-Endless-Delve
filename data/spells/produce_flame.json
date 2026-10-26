@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"id": "produce_flame",
+	"display_name": "Produce Flame",
+	"level": 0,
+	"school": "conjuration",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature",
+	"effect": {
+		"type": "spell_attack",
+		"attack": "ranged",
+		"damage": "1d8",
+		"damage_type": "fire",
+		"scaling": { "5": "2d8", "11": "3d8", "17": "4d8" }
+	},
+	"duration": "10 minutes",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["druid"],
+	"source": "SRD 5.1",
+	"description": "A flickering flame appears in your hand; you hurl it at a creature within 30 feet: a ranged spell attack for 1d8 fire damage."
+}

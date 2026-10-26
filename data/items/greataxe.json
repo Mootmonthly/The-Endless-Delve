@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "greataxe",
+	"display_name": "Greataxe",
+	"kind": "weapon",
+	"description": "A martial melee weapon.",
+	"weight": 7,
+	"value_gp": 30,
+	"stackable": true,
+	"weapon_id": "greataxe"
+}

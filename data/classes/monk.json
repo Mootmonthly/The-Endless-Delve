@@ -1,0 +1,31 @@
+{
+	"schema_version": 1,
+	"id": "monk",
+	"display_name": "Monk",
+	"description": "A master of martial arts, harnessing the power of the body in pursuit of physical and spiritual perfection.",
+	"hit_die": 8,
+	"primary_abilities": ["DEX", "WIS"],
+	"saving_throws": ["STR", "DEX"],
+	"armor_proficiencies": [],
+	"weapon_proficiencies": ["simple", "shortsword"],
+	"tool_proficiencies": ["artisans_tools_or_instrument"],
+	"skill_choices": ["ACROBATICS", "ATHLETICS", "HISTORY", "INSIGHT", "RELIGION", "STEALTH"],
+	"skill_choice_count": 2,
+	"spellcasting_ability": null,
+	"starting_weapon": "shortsword",
+	"starting_armor": null,
+	"starting_shield": false,
+	"starting_kit": [
+		{ "item": "dart", "qty": 10 },
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["unarmored_defense_wis", "martial_arts"],
+	"features_by_level": {
+		"1": ["unarmored_defense_wis", "martial_arts"],
+		"2": ["ki", "unarmored_movement"],
+		"3": ["monastic_tradition", "deflect_missiles"]
+	},
+	"spellcasting": null
+}

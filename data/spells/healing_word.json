@@ -1,0 +1,17 @@
+{
+	"schema_version": 1,
+	"id": "healing_word",
+	"display_name": "Healing Word",
+	"level": 1,
+	"school": "evocation",
+	"casting_time": "bonus_action",
+	"range_ft": 60,
+	"target": "creature_or_self",
+	"effect": { "type": "heal", "dice": "1d4", "add_casting_mod": true, "per_slot_level_above": "1d4", "revives": true },
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V"],
+	"classes": ["bard", "cleric", "druid"],
+	"source": "SRD 5.1",
+	"description": "A creature you can see within 60 feet regains 1d4 + your spellcasting modifier hit points (+1d4 per slot level above 1st). Bonus action."
+}

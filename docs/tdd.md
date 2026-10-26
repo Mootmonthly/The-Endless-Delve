@@ -206,8 +206,14 @@ The offline "server" runs PVE rules with one party and no turn timer.
 
 See [ADR-0004](decisions/ADR-0004-srd-only-content.md).
 
-- Content lives as JSON under `data/` (`data/classes/*.json`, `data/monsters/*.json`, later items,
-  spells, conditions). One record per file, file name equals the record `id`.
+- Content lives as JSON under `data/`: `classes/`, `ancestries/`, `weapons/`, `items/`, `spells/`,
+  `loot/` and `monsters/` (later conditions). One record per file, file name equals the record `id`.
+  Floors (`floors/*.json`) reference monsters by id and loot tables by id (`chests`); monsters name a
+  `loot_table`; class kits, loot entries and spell lists reference item and spell ids.
+  `tests/content/` checks every reference and the SRD numbers.
+- **Icons:** `tools/gen_tileset.py` also writes `assets/icons/entity_icons.png` (one row of 32x32 icons),
+  `entity_icons.tres` (TileSet, atlas source 0) and `entity_icons.json`, whose `icons` map an id (class id,
+  monster id, item kind, `potion`, `chest_closed`, `chest_open`) to its atlas column.
 - **Schema conventions:** every record has `id` (lowercase `snake_case`, unique per kind),
   `schema_version` (integer), `name`, and `source` (for example `"SRD 5.1"`). Units are explicit in key
   names (`speed_ft`, `range_ft`). Dice are strings in standard notation (`"1d8"`, `"2d6+3"`).

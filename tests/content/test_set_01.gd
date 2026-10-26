@@ -8,10 +8,14 @@ extends TestCase
 ## 11-14: x3, 15+: x4), compared with one character's thresholds, because the
 ## set is tuned for a solo at the floor's "budget.level". A zone marked
 ## "optional" (a side area) may exceed the band; the "boss" zone must be at
-## least deadly. See docs/gdd.md section 5.4.
+## least deadly. Expected levels include the floor-clear bonus: every living
+## player gets FLOOR_CLEAR_XP when taking the stairs of any floor. See
+## docs/gdd.md section 5.4.
 
 const SET_PATH := "res://floors/set_01.json"
 const MONSTER_DIR := "res://data/monsters"
+## Bonus XP each living player earns on the stairs of every floor (server rule).
+const FLOOR_CLEAR_XP := 100
 const BANDS: Array[String] = ["trivial", "easy", "medium", "hard", "deadly"]
 ## SRD XP thresholds per character level: [easy, medium, hard, deadly].
 const THRESHOLDS: Dictionary[int, Array] = {
@@ -323,7 +327,8 @@ func test_boss_guards_the_stairs_on_the_last_floor() -> void:
 
 
 func test_full_clear_level_matches_each_floor_budget() -> void:
-	# A solo who clears every zone arrives on each floor at its budget level.
+	# A solo who clears every zone (and takes the stairs, earning the floor-clear
+	# bonus) arrives on each floor at its budget level: F1 1, F2 2, F3 2, F4 3, F5 3.
 	var cumulative := 0
 	for floor_id in _floor_ids():
 		var f := FloorFile.load(FloorFile.floor_path(floor_id))
@@ -335,13 +340,23 @@ func test_full_clear_level_matches_each_floor_budget() -> void:
 		var level := DictUtil.to_int(budget.get("level", 0), 0)
 		assert_eq(Experience.level_for_xp(cumulative), level,
 				"%s: a full-clear solo arrives with %d XP" % [floor_id, cumulative])
-		cumulative += _floor_xp(f)
+		cumulative += _floor_xp(f) + FLOOR_CLEAR_XP
+
+
+func test_budget_levels_follow_the_floor_clear_curve() -> void:
+	var expected: Array[int] = [1, 2, 2, 3, 3]
+	var ids := _floor_ids()
+	for i in range(mini(ids.size(), expected.size())):
+		var budget_v: Variant = _raw(ids[i]).get("budget", {})
+		var budget: Dictionary = budget_v if typeof(budget_v) == TYPE_DICTIONARY else {}
+		assert_eq(DictUtil.to_int(budget.get("level", 0), 0), expected[i], "%s budget level" % ids[i])
 
 
 func test_a_party_of_three_can_face_the_boss() -> void:
-	# XP is split across the party, so a party of three arrives on the last
-	# floor at a lower level than a solo; the boss must still be at most hard
-	# for them, while it is deadly for a solo (test_zone_budgets_fit_the_declared_band).
+	# Monster XP is split across the party (the floor-clear bonus is not), so a
+	# party of three arrives on the last floor at a lower level than a solo; the
+	# boss must still be at most hard for them, while it is deadly for a solo
+	# (test_zone_budgets_fit_the_declared_band).
 	var ids := _floor_ids()
 	var cumulative := 0
 	for i in range(ids.size()):
@@ -352,7 +367,7 @@ func test_a_party_of_three_can_face_the_boss() -> void:
 		if i < ids.size() - 1:
 			cumulative += _floor_xp(f)
 			continue
-		var party_level := Experience.level_for_xp(cumulative / 3)
+		var party_level := Experience.level_for_xp(cumulative / 3 + FLOOR_CLEAR_XP * i)
 		for zone in f.encounter_zones:
 			if zone.boss:
 				var band := _band(_adjusted_xp(zone.monster_ids), party_level, 3)

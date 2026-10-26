@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "hunters_mark",
+	"display_name": "Hunter's Mark",
+	"level": 1,
+	"school": "divination",
+	"casting_time": "bonus_action",
+	"range_ft": 90,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "ranger spellcasting starts at level 2" },
+	"duration": "1 hour",
+	"concentration": true,
+	"components": ["V"],
+	"classes": ["ranger"],
+	"source": "SRD 5.1",
+	"description": "You mark a creature as your quarry: your weapon attacks deal an extra 1d6 damage to it while you concentrate.",
+	"planned_effect": { "type": "buff", "buff": "hunters_mark", "bonus_damage": "1d6", "weapon_attacks_only": true }
+}

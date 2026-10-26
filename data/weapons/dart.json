@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "dart",
+	"display_name": "Dart",
+	"category": "simple",
+	"damage": "1d4",
+	"damage_type": "piercing",
+	"properties": ["finesse", "thrown"],
+	"range_ft": [20, 60],
+	"ranged": true
+}

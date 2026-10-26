@@ -1,0 +1,17 @@
+{
+	"schema_version": 1,
+	"id": "cure_wounds",
+	"display_name": "Cure Wounds",
+	"level": 1,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 5,
+	"target": "creature_or_self",
+	"effect": { "type": "heal", "dice": "1d8", "add_casting_mod": true, "per_slot_level_above": "1d8", "revives": true },
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["bard", "cleric", "druid", "paladin", "ranger"],
+	"source": "SRD 5.1",
+	"description": "A creature you touch regains 1d8 + your spellcasting modifier hit points (+1d8 per slot level above 1st). No effect on undead or constructs. Brings a dying ally back up."
+}

@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "chain_mail",
+	"display_name": "Chain Mail",
+	"kind": "armor",
+	"description": "Heavy armor: AC 16. Needs Strength 13 (not enforced yet). Disadvantage on Stealth checks.",
+	"weight": 55,
+	"value_gp": 75,
+	"stackable": false,
+	"armor": { "base": 16, "max_dex": 0, "category": "heavy", "stealth_disadvantage": true, "strength": 13 }
+}

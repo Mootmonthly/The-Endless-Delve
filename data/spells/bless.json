@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "bless",
+	"display_name": "Bless",
+	"level": 1,
+	"school": "enchantment",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature_or_self",
+	"effect": { "type": "unsupported", "reason": "multi-target concentration buff" },
+	"duration": "1 minute",
+	"concentration": true,
+	"components": ["V", "S", "M"],
+	"classes": ["cleric", "paladin"],
+	"source": "SRD 5.1",
+	"description": "Up to three creatures add 1d4 to attack rolls and saving throws while you concentrate.",
+	"planned_effect": { "type": "buff", "buff": "bless", "targets": 3, "bonus_die": "1d4" }
+}

@@ -10,7 +10,7 @@ each item.
 | M1 | One Floor Offline | Play one handcrafted floor offline with real-time movement and a turn-based fight. |
 | M2 | Five Floors + Rests + Death | A full offline instance with boss, rests, permadeath and saves. |
 | M3 | Multiplayer Instance | Headless server, 5-player party, PVE rules, revolving door. |
-| M4 | Spells, Classes Wave 2, Loot | Full SRD class roster, spellcasting, magic items. |
+| M4 | Spells, Classes Wave 2, Loot | Full SRD class roster to level 20, full spellcasting, magic items. |
 | M5 | PVP + Safe-zone Social + Matchmaker | PVP servers, social hubs, queueing. |
 | M6 | Content Production Pipeline | Tools and process to build all 100 floors. |
 | M7 | Steam Early Access | Shippable build on Steam. |
@@ -69,7 +69,22 @@ resolved by the owner on 2026-10-26 (GDD 5.4, 8.3, 9.3).
   the set; the last floor's stairs give a long rest and end the set), XP awards and level-ups, death saves
   before the wipe, and the five floors' content. What remains for M2 is the rest of the list above: the
   safe zone itself, saves, the extra classes and spells, and tuning from playtests.
-- **Out of scope:** full spell lists, multiplayer, trading.
+- **Items, spells, loot, twelve classes (playtest round 1, 2026-10-26):** the owner's first playtest asked
+  for inventory, potions, throwing weapons, spells for the Wizard, visible armor, chests by the stairs,
+  monster drops, icons and faster early levels. Added: SRD items (`data/items/`: 19 weapons, 10 armors,
+  shield, potions, ammunition, gold, tools) and a Tab inventory with equip slots (GDD 8.5); starter kits
+  per class; SRD spells (`data/spells/`: 9 cantrips, 14 level-1 and 8 level-2 spells, of which the area and
+  condition spells are data only) with ranged, thrown and spell attack rules (GDD 7.6); loot tables
+  (`data/loot/`) for chests and monster drops, a `starter_gear` chest by every staircase and a hidden
+  chest in every side area; a floor-clear bonus of 100 XP per floor (budgets in GDD 5.4 updated: floor 2 is
+  now planned at level 2); class, monster and item icons (`assets/icons/`); and data for an interactive
+  level-up screen (GDD 8.6).
+- **Wave 2 landed early (owner request):** all twelve SRD classes are playable at level-1 depth (GDD 8.2):
+  Barbarian, Bard, Druid, Monk, Paladin, Ranger, Sorcerer and Warlock join the wave-1 four with their
+  level-1 fight mechanics (Rage, Unarmored Defense, Martial Arts, Lay on Hands, Bardic Inspiration, Pact
+  Magic, Sneak Attack, Second Wind) and spells; the remaining features are flavour until M4.
+- **Out of scope:** full spell lists, area and condition spells, subclasses, class features above level 1
+  (listed as flavour), multiplayer, trading.
 - **Exit criteria:**
   - A party can play floors 1-5 and reach safe zone 1, leveling from XP on the way (GDD 5.4 expects a
     full-clear solo to reach level 4 and a party of three level 3).
@@ -96,8 +111,9 @@ resolved by the owner on 2026-10-26 (GDD 5.4, 8.3, 9.3).
 ## M4 - Spells, Classes Wave 2, Loot
 
 - **Goal:** the full SRD character experience.
-- **In scope:** spellcasting system (slots, concentration, areas, saving throws, conditions); the
-  remaining SRD classes and subclasses; levels 1-20 data; SRD magic items, attunement, loot tables,
+- **In scope:** spellcasting system (concentration, areas, conditions; slots, saving throws and the
+  twelve classes at level-1 depth landed early in M2); subclasses and class features above level 1;
+  Paladin and Ranger spellcasting; levels 1-20 data; SRD magic items, attunement, loot tables,
   secret loot rooms; merchant in safe zones.
 - **Out of scope:** PVP, trading between players.
 - **Exit criteria:**

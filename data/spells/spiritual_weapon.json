@@ -1,0 +1,25 @@
+{
+	"schema_version": 1,
+	"id": "spiritual_weapon",
+	"display_name": "Spiritual Weapon",
+	"level": 2,
+	"school": "evocation",
+	"casting_time": "bonus_action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "summoned weapon that persists" },
+	"duration": "1 minute",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["cleric"],
+	"source": "SRD 5.1",
+	"description": "A floating spectral weapon makes a melee spell attack for 1d8 + your spellcasting modifier force damage, and can attack again as a bonus action on later turns.",
+	"planned_effect": {
+		"type": "spell_attack",
+		"attack": "melee",
+		"damage": "1d8",
+		"add_casting_mod": true,
+		"damage_type": "force",
+		"per_two_slot_levels_above": "1d8"
+	}
+}

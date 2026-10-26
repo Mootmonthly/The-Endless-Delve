@@ -1,0 +1,26 @@
+{
+	"schema_version": 1,
+	"id": "shatter",
+	"display_name": "Shatter",
+	"level": 2,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "area (10-foot sphere)" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "sorcerer", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "A painfully loud ringing erupts in a 10-foot sphere: Constitution save, 3d8 thunder damage, half on a success.",
+	"planned_effect": {
+		"type": "save",
+		"save": "CON",
+		"damage": "3d8",
+		"damage_type": "thunder",
+		"on_save": "half",
+		"per_slot_level_above": "1d8",
+		"area": { "shape": "sphere", "size_ft": 10 }
+	}
+}

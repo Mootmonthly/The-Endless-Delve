@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "longsword",
+	"display_name": "Longsword",
+	"kind": "weapon",
+	"description": "A martial melee weapon.",
+	"weight": 3,
+	"value_gp": 15,
+	"stackable": true,
+	"weapon_id": "longsword"
+}

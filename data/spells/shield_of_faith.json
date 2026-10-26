@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "shield_of_faith",
+	"display_name": "Shield of Faith",
+	"level": 1,
+	"school": "abjuration",
+	"casting_time": "bonus_action",
+	"range_ft": 60,
+	"target": "creature_or_self",
+	"effect": { "type": "unsupported", "reason": "concentration buff" },
+	"duration": "10 minutes",
+	"concentration": true,
+	"components": ["V", "S", "M"],
+	"classes": ["cleric", "paladin"],
+	"source": "SRD 5.1",
+	"description": "A shimmering field surrounds a creature within 60 feet, granting +2 AC while you concentrate.",
+	"planned_effect": { "type": "buff", "buff": "shield_of_faith", "ac_bonus": 2 }
+}

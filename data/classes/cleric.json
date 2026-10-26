@@ -13,6 +13,36 @@
 	"skill_choice_count": 2,
 	"spellcasting_ability": "WIS",
 	"starting_weapon": "mace",
-	"starting_armor": { "base": 14, "max_dex": 2 },
-	"starting_shield": true
+	"starting_armor": { "base": 14, "max_dex": 2, "item": "scale_mail" },
+	"starting_shield": true,
+	"starting_kit": [
+		{ "item": "light_crossbow", "qty": 1 },
+		{ "item": "bolts", "qty": 20 },
+		{ "item": "holy_symbol", "qty": 1 },
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["spellcasting", "divine_domain"],
+	"features_by_level": { "1": ["spellcasting", "divine_domain"], "2": ["channel_divinity"], "3": [] },
+	"spellcasting": {
+		"ability": "WIS",
+		"prepared": ["sacred_flame", "cure_wounds", "healing_word", "guiding_bolt"],
+		"slots": { "1": [2], "2": [3], "3": [4, 2], "4": [4, 3], "5": [4, 3, 2] },
+		"slot_recovery": "long_rest"
+	},
+	"spell_list": [
+		"sacred_flame",
+		"bless",
+		"cure_wounds",
+		"guiding_bolt",
+		"healing_word",
+		"inflict_wounds",
+		"shield_of_faith",
+		"hold_person",
+		"lesser_restoration",
+		"spiritual_weapon"
+	],
+	"prepares": true,
+	"cantrips_known": { "1": 3, "4": 4, "10": 5 }
 }

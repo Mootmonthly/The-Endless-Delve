@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "battleaxe",
+	"display_name": "Battleaxe",
+	"kind": "weapon",
+	"description": "A martial melee weapon.",
+	"weight": 4,
+	"value_gp": 10,
+	"stackable": true,
+	"weapon_id": "battleaxe"
+}

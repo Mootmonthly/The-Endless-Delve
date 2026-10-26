@@ -152,15 +152,27 @@ brackets are adjusted XP and side areas are in italics.
 | Floor | Name | Size (tiles) | Zones (of which optional) | Assumed solo level | Band (solo) | Roster by zone | Notable feature |
 |---|---|---|---|---|---|---|---|
 | 1 | The Threshold | 48x32 | 2 (1) | 1 | easy-hard | rat hall: 2 giant rats, hard (75); *crypt*: 2 skeletons + zombie, deadly (300) | One required fight; the crypt is a side room off the rat hall. |
-| 2 | The Spoil Tunnels | 56x36 | 3 (1) | 1, reaching 2 | medium-hard | kobold den: 2 kobolds, hard (75); centipede gallery (ambush): giant centipede, medium (50); *goblin cache*: 2 goblins, deadly (150) | Two ways off the landing (through the den or down the west tunnel); both meet in the gallery. |
+| 2 | The Spoil Tunnels | 56x36 | 3 (1) | 2 | easy-medium | kobold den: 2 kobolds, easy (75); centipede gallery (ambush): giant centipede, easy (50); *goblin cache*: 2 goblins, hard (150) | Two ways off the landing (through the den or down the west tunnel); both meet in the gallery. |
 | 3 | The Ossuary | 64x40 | 4 (1) | 2 | medium-hard | bone-pickers' hall: 3 kobolds, hard (150); narrow ossuary (ambush): 2 giant centipedes, hard (150); guard post: hobgoblin + kobold, hard (187.5); *charnel chamber*: ghoul, deadly (200) | After the hall the route forks: low road through the ossuary, or high road through the guard post. |
-| 4 | The Webbed Crypts | 72x44 | 4 (1) | 2-3 (budget 3) | hard | war-band camp: hobgoblin + goblin, hard (225); webbed gallery (ambush): giant spider + giant centipede, hard (375); sealed crypt: ghoul + zombie, hard (375); *chieftain's tomb*: bugbear + hobgoblin, deadly (450) | Landing in the middle of the floor; a north road (camp, then gallery) and a south road (crypt) to the stairs. |
+| 4 | The Webbed Crypts | 72x44 | 4 (1) | 3 | hard | war-band camp: hobgoblin + goblin, hard (225); webbed gallery (ambush): giant spider + giant centipede, hard (375); sealed crypt: ghoul + zombie, hard (375); *chieftain's tomb*: bugbear + hobgoblin, deadly (450) | Landing in the middle of the floor; a north road (camp, then gallery) and a south road (crypt) to the stairs. |
 | 5 | The Gravebreaker's Hall | 80x48 | 5 (1) | 3 | hard, boss deadly | muster room: bugbear + goblin, hard (375); sniper gallery (ambush): 3 goblins, hard (300); bone pit: ghoul + skeleton, hard (375); *charnel pit*: 2 ghouls, deadly (600); **boss** great hall: ogre, deadly (450) | The stairs stand inside the great hall: the boss zone is on every route. West road (sniper gallery) or east road (bone pit). |
 
 Layout rules every floor of the set meets (checked by `tests/content/test_set_01.gd`): each floor is wider
 and taller than the one before; zone counts never drop; every route from arrival to the stairs crosses at
 least one non-optional zone (the shortest route crosses a zone too); the optional zone is a dead end that
 never blocks the stairs; and on floor 5 the stairs lie inside the boss zone.
+
+Every floor also has two treasure chests (`"chests"` in the floor file, checked by
+`tests/content/test_chests.gd`): a visible `starter_gear` chest within 3 tiles of the stairs and a hidden
+`hidden_cache` chest in the optional side area (8.5).
+
+| Floor | Stair chest (`starter_gear`) | Hidden chest (`hidden_cache`, side area) |
+|---|---|---|
+| 1 | f1_stairs (44, 25), stairs (42, 26) | f1_hidden (28, 29), crypt |
+| 2 | f2_stairs (50, 28), stairs (48, 29) | f2_hidden (50, 3), goblin cache |
+| 3 | f3_stairs (56, 30), stairs (54, 31) | f3_hidden (37, 14), charnel chamber |
+| 4 | f4_stairs (64, 34), stairs (62, 35) | f4_hidden (47, 38), chieftain's tomb |
+| 5 | f5_stairs (66, 8), stairs (64, 9), inside the boss hall | f5_hidden (66, 29), charnel pit |
 
 **Proposal (needs owner sign-off):** in this set only floor 5 has a boss. Floors 1-4 gate their stairs with
 required pack zones instead of the one-to-three bosses of 5.2, so the set's single boss is a clear finale;
@@ -183,7 +195,8 @@ later sets may add mid-set bosses once boss mechanics (lair behaviour, respawn, 
 
 An ogre (SRD 5.1, CR 2, 450 XP: AC 11, 59 hit points, greatclub +6 for 2d8+4) alone in a 32x13 hall with
 pillars, standing by the stairs. Adjusted XP 450: **deadly** for one level-3 character, **hard** for three
-level-2 characters, medium for four.
+level-2 characters, medium for three level-3 characters (a full-clear party of three now arrives at level 3
+thanks to the floor-clear bonus) and for four level-2 characters.
 
 - **Why a solo loses head-on.** A level-3 solo has about 28 hit points (a Fighter with Constitution 14).
   The ogre hits AC 16-18 about half the time for 13 on average (20 at most, 22 on average with a
@@ -203,6 +216,9 @@ level-2 characters, medium for four.
   (integer division) among the players who were in that encounter and are alive at its end. Levels apply
   at once (average hit points). Taking the stairs on floors 1-4 is a short rest (5.2); floor 5's stairs
   lead to the safe zone (for now: a long rest and the end of the set).
+- **Floor-clear bonus (owner decision, playtest round 1):** every living player who takes the stairs of a
+  floor, any floor, earns `FLOOR_CLEAR_XP = 100` XP, not split. It answers "still level 1 entering
+  floor 2": a solo who clears floor 1 (200 XP) arrives on floor 2 with 300 XP, which is level 2.
 - **XP per floor (sum of monster XP):**
 
 | Floor | Required zones (both roads) | Optional zone | Full clear | Solo total after full clears | Solo total, side rooms skipped |
@@ -213,20 +229,24 @@ level-2 characters, medium for four.
 | 4 | 650 | 300 | 950 | 1,850 | 1,100 |
 | 5 | 1,100 | 400 | 1,500 | 3,350 | 2,200 |
 
-- **Expected level on arrival** (SRD thresholds: level 2 at 300 XP, 3 at 900, 4 at 2,700):
+- **Expected level on arrival**, monster XP plus 100 per floor already left by the stairs (SRD
+  thresholds: level 2 at 300 XP, 3 at 900, 4 at 2,700). Each floor's `budget.level` is the full-clear solo
+  column: 1, 2, 2, 3, 3.
 
-| Arriving on | Solo, full clears | Solo, side rooms skipped | Party of 3, full clears (XP each) | Party of 5, full clears (XP each) |
+| Arriving on | Solo, full clears (XP) | Solo, side rooms skipped (XP) | Party of 3, full clears (XP each) | Party of 5, full clears (XP each) |
 |---|---|---|---|---|
-| Floor 1 | 1 | 1 | 1 (0) | 1 (0) |
-| Floor 2 | 1 | 1 | 1 (66) | 1 (40) |
-| Floor 3 | 2 | 1 | 1 (133) | 1 (80) |
-| Floor 4 | 3 | 2 | 2 (300) | 1 (180) |
-| Floor 5 | 3 | 3 | 2 (616) | 2 (370) |
-| Safe zone 1 | 4 | 3 | 3 (1,116) | 2 (670) |
+| Floor 1 | 1 (0) | 1 (0) | 1 (0) | 1 (0) |
+| Floor 2 | 2 (300) | 1 (150) | 1 (166) | 1 (140) |
+| Floor 3 | 2 (600) | 2 (350) | 2 (333) | 1 (280) |
+| Floor 4 | 3 (1,200) | 2 (750) | 2 (600) | 2 (480) |
+| Floor 5 | 3 (2,250) | 3 (1,500) | 3 (1,016) | 2 (770) |
+| Safe zone 1 | 4 (3,850) | 4 (2,700) | 3 (1,616) | 3 (1,170) |
 
-  A solo who skips side rooms runs about a level behind the budget on floors 3 and 4, and catches up by
-  the end of floor 4 only by clearing both of its roads. Side rooms are therefore the solo's way to stay on the curve, at a risk.
-  `test_full_clear_level_matches_each_floor_budget` pins the full-clear column to each floor's budget level.
+  With the bonus, floor 2 drops to easy-medium for its full-clear level-2 solo (its required zones are
+  easy at level 2; the goblin cache is hard). A solo who skips side rooms runs a level behind the budget
+  on floors 2 and 4 and catches up on floor 5. Side rooms (now with a hidden chest each) remain the solo's
+  way to stay on the curve, at a risk. `test_full_clear_level_matches_each_floor_budget` pins the
+  full-clear column to each floor's budget level.
 
 #### Measurement (moved from Open question 19)
 
@@ -328,6 +348,30 @@ Then all survivors return to real-time.
 - If every member of one side has fled, the encounter ends for the remaining side.
 - An encounter with no player characters left inside resets: monsters heal to full and return to place.
 
+### 7.6 Ranged, thrown and spell attacks (M2)
+
+Replaces M1's "ranged attacks always have disadvantage" stand-in with the SRD rules:
+
+- **Range:** distance is Chebyshev tiles (1 tile = 5 ft). A ranged or thrown attack, or a spell, needs the
+  target within its long range (`range_ft[1]` for weapons, `range_ft` for spells); beyond the normal range
+  the attack roll has disadvantage. Melee attacks still need an adjacent target.
+- **Hostile adjacent:** a ranged attack roll (weapon or spell) has disadvantage while any conscious hostile
+  is adjacent to the attacker. Melee spell attacks (Shocking Grasp, Inflict Wounds) are exempt.
+- **Line of sight:** every ranged attack and spell needs a clear line (Bresenham over walkable tiles)
+  from attacker to target.
+- **Thrown weapons** (dagger, handaxe, javelin, spear, dart) use the weapon's `thrown` property and range.
+  A thrown weapon is used up from the inventory and is lost for M2 (proposal for later: it lands on the
+  target's tile and can be picked up).
+- **Ammunition weapons** (shortbow, longbow, light crossbow, sling) consume one `arrows`, `bolts` or
+  `sling_bullets` per shot and cannot attack without ammunition. Ammunition is not recovered in M2.
+- **Spells:** `cast` intents name the spell, target and slot level. Spell attacks roll d20 + proficiency +
+  casting modifier against AC; saving-throw spells use DC 8 + proficiency + casting modifier. Cantrip
+  damage grows at character levels 5, 11 and 17; levelled spells add dice (or darts and rays) per slot
+  level above their own. Healing spells can target a dying ally and bring them back up (Cure Wounds is
+  the main revive path; Healing Word does it at 60 ft as a bonus action). Area spells (Burning Hands,
+  Thunderwave, Shatter, Sleep) and condition spells (Hold Person, Charm Person, Bless) are data only in
+  M2: they appear in spell lists but cannot be cast yet.
+
 ## 8. Characters and progression
 
 ### 8.1 Character sheet
@@ -341,12 +385,37 @@ rolled stats online (avoids rerolling abuse and keeps PVP fair). Offline mode ma
 
 ### 8.2 Classes at launch
 
-**Proposal (needs owner sign-off):** classes ship in two waves, each class with its SRD subclass.
+**Owner request (playtest round 1):** all twelve SRD classes are playable from M2 at level-1 depth. The
+original plan shipped Fighter, Rogue, Cleric and Wizard first (M1-M3) and the other eight in M4; wave 2
+landed early, with each class's level-1 features that matter in a fight implemented and the rest listed
+as flavour until later milestones. Class data lives in `data/classes/<id>.json` (SRD 5.1 hit dice, saves,
+proficiencies and skill lists); every class also starts with 2 potions of healing, 5 rations and 10 gp.
 
-| Wave | Classes | Rationale |
-|---|---|---|
-| Wave 1 (M1-M3) | Fighter, Rogue, Cleric, Wizard | Covers the four classic roles; martial classes first because they need no spell system. |
-| Wave 2 (M4) | Barbarian, Bard, Druid, Monk, Paladin, Ranger, Sorcerer, Warlock | The remaining SRD classes once spells, conditions and concentration are solid. |
+| Class | Hit die | Saves | Starting gear (equipped; carried) | M2 level-1 mechanics | Deferred |
+|---|---|---|---|---|---|
+| Barbarian | d12 | STR, CON | greataxe, no armor; 2 handaxes | Rage (bonus action, 2 per long rest, until the encounter ends: +2 damage on Strength melee attacks, resistance to bludgeoning, piercing and slashing); Unarmored Defense (AC 10 + DEX + CON, shield allowed) | Reckless Attack, Danger Sense (2), Primal Path (3) |
+| Bard | d8 | DEX, CHA | rapier, leather armor; dagger | Spellcasting (CHA, known caster): Vicious Mockery, Healing Word, Cure Wounds; Bardic Inspiration (bonus action, CHA-modifier uses per long rest, a d6 added to an ally's next attack roll within 60 ft) | Inspiration on checks and saves, Jack of All Trades, Song of Rest (2), College, Expertise (3) |
+| Cleric | d8 | WIS, CHA | mace, scale mail, shield; light crossbow, 20 bolts, holy symbol | Spellcasting (WIS, prepared): Sacred Flame, Cure Wounds, Healing Word, Guiding Bolt | Divine Domain features, Channel Divinity (2) |
+| Druid | d8 | INT, WIS | scimitar, leather armor, shield | Spellcasting (WIS, prepared): Produce Flame, Cure Wounds, Healing Word | Druidic, Wild Shape and Druid Circle (2) |
+| Fighter | d10 | STR, CON | longsword, chain mail; 2 handaxes | Second Wind (bonus action, 1d10 + level hit points, once per short or long rest) | Fighting Style, Action Surge (2), Martial Archetype (3) |
+| Monk | d8 | STR, DEX | shortsword, no armor; 10 darts | Unarmored Defense (AC 10 + DEX + WIS, no shield); Martial Arts (unarmed strike 1d4, DEX for unarmed and monk weapons, a bonus-action unarmed strike after the Attack action) | Ki, Unarmored Movement (2), Monastic Tradition, Deflect Missiles (3) |
+| Paladin | d10 | WIS, CHA | longsword, chain mail, shield; holy symbol | Lay on Hands (action, pool of 5 x level hit points per long rest, touch, can bring a dying ally up); Divine Sense (flavour) | Spellcasting (CHA, prepared, from level 2), Fighting Style, Divine Smite (2), Sacred Oath (3) |
+| Ranger | d10 | STR, DEX | shortsword, leather armor; second shortsword, longbow, 20 arrows | Favored Enemy and Natural Explorer (flavour) | Spellcasting (WIS, known, from level 2), Fighting Style (2), Archetype (3) |
+| Rogue | d8 | DEX, INT | shortsword, leather armor; 4 daggers, thieves' tools | Sneak Attack (once per turn, +1d6 per two levels rounded up, finesse or ranged weapon, with advantage or an ally adjacent to the target and no disadvantage) | Expertise, Thieves' Cant, Cunning Action (2), Archetype (3) |
+| Sorcerer | d6 | CON, CHA | dagger; second dagger, light crossbow, 20 bolts, component pouch | Spellcasting (CHA, known caster): Fire Bolt, Ray of Frost, Magic Missile, Mage Armor | Sorcerous Origin, Font of Magic (2), Metamagic (3) |
+| Warlock | d8 | WIS, CHA | dagger, leather armor; light crossbow, 20 bolts, component pouch | Pact Magic (CHA, known caster, slots recover on a short rest): Eldritch Blast (one beam at level 1), Chill Touch, Hex (bonus action: +1d6 necrotic on the caster's hits against the target until the encounter ends) | Otherworldly Patron, Eldritch Invocations (2), Pact Boon (3) |
+| Wizard | d6 | INT, WIS | quarterstaff; 2 daggers, spellbook, component pouch | Spellcasting (INT, prepared from a spellbook of six): Fire Bolt, Ray of Frost, Magic Missile, Mage Armor | Arcane Recovery, Arcane Tradition (2), ritual casting |
+
+Notes:
+
+- Spell slots per level follow the SRD tables (full casters 2, 3, 4+2, 4+3, 4+3+2 for levels 1-5; the
+  warlock's pact slots 1, 2, then 2 of 2nd level, then 2 of 3rd level at 5). Paladin and Ranger have no
+  spells at level 1 in the SRD; their level-2 spellcasting is a later task (their spell lists are already
+  in the data for the level-up screen, 8.6).
+- Hex is the only SRD 5.2 spell in the data (`"source": "SRD 5.2"`); everything else is SRD 5.1. See
+  `docs/licensing.md` for the two attribution statements.
+- Armor proficiency is not enforced in M2; shields need an empty off hand.
+- Subclasses: each class gets its SRD subclass when its subclass level is implemented.
 
 Multiclassing: **Proposal (needs owner sign-off):** not at launch; reconsider after Early Access.
 
@@ -362,12 +431,77 @@ Because XP is split, a solo levels faster than a party, and a player who clears 
 than one who does not. Encounter budgets are therefore written per floor for a solo at the level a
 full-clear solo reaches there; see 5.4 for the first set's expected levels for solos and parties.
 
+**Owner decision (playtest round 1):** every living player who takes the stairs of a floor earns a
+floor-clear bonus of 100 XP (not split), so progress through the dungeon itself is rewarded and a solo who
+clears floor 1 reaches level 2 on the way down (5.4).
+
 ### 8.4 Deepest-floor badge
 
 The deepest floor a player has ever reached with a given class is shown next to their name and level,
 for example `Mira  Lv 7  Rogue  [Deepest 38]`. **Proposal (needs owner sign-off):** the record is per
 account and per class, is never lost on death, and counts a floor as "reached" when the player arrives on
 it. Separate records for PVP, PVE and Offline, displayed only on the matching server type.
+
+### 8.5 Items and inventory
+
+**Owner request (playtest round 1):** characters carry items: potions, throwing weapons, ammunition and
+gear found in chests and on monsters. Item data lives in `data/items/` (one SRD item per file; weapons
+point at `data/weapons/`), loot tables in `data/loot/`.
+
+- **Inventory screen (Tab):** lists everything the character carries with quantities (potions, ammunition,
+  thrown weapons and gold stack), the total weight and the gold count. From it a player equips, unequips
+  and uses items. Out of combat this is free; in combat equipping a weapon is the free object interaction,
+  donning or doffing armor is not allowed, and drinking a potion takes the item's action.
+- **Slots:** `main_hand` (a weapon), `off_hand` (a shield, or a light weapon later), `armor` (one suit).
+  Equipping armor or a shield updates AC at once; equipping a weapon rebuilds the attack list. A shield
+  needs the off hand free; a two-handed weapon needs both hands.
+- **Starter kits:** every class starts with its SRD-flavoured kit (8.2): the equipped weapon and armor plus
+  carried extras, always 2 potions of healing, 5 rations and 10 gp.
+- **Consumables:** Potion of Healing (2d4 + 2) and Potion of Greater Healing (4d4 + 4) take an action and
+  target the drinker in M2 (feeding a potion to a dying ally is a later "touch" target). Rations, torches
+  and tools are carried flavour for now.
+- **Thrown and ranged weapons:** thrown weapons are used up when thrown and ammunition is used up per shot
+  (7.6); keep a stack. Each attack in the HUD shows its kind (melee, ranged, thrown) and range.
+- **Chests by the stairs:** every floor has a visible treasure chest within 3 tiles of its staircase,
+  rolling the `starter_gear` table twice: low-level weapons, light and medium armor, a shield,
+  ammunition, potions, gold, or nothing. It is the safety net for a character who arrives under-equipped.
+- **Hidden chests:** every floor's optional side area hides a chest (`"hidden": true`) rolling the
+  better `hidden_cache` table (two rolls: healing, medium armor, martial weapons, more gold). A hidden
+  chest is drawn only once a player is adjacent to it. **Proposal (needs owner sign-off):** later a
+  passive Wisdom (Perception) or an active Intelligence (Investigation) check reveals it from further away.
+- **Monster drops:** every monster names a loot table. Vermin and weak foes (giant rats, centipedes,
+  kobolds, goblins, skeletons, zombies) roll `monster_small`, which drops nothing more than half the time;
+  hobgoblins, bugbears, ghouls and giant spiders roll `monster_medium`; the set boss rolls `boss` three
+  times and never comes up empty. **Proposal (needs owner sign-off):** drops are rolled per monster when
+  the encounter is won and go to the winning side (personal loot for bosses, 11).
+- **More secrets as floors deepen:** **Proposal (needs owner sign-off):** the first set has one hidden
+  chest per floor; later sets add more per floor (two from floor 6, three from floor 11, and so on) along
+  with hidden doors and trapped chests (5.2), and the hidden tables improve set by set (SRD magic items
+  by rarity).
+- **Death:** items carried by a fully dead character are destroyed (9.4).
+
+### 8.6 Levelling up
+
+**Owner request:** levelling is an interactive screen, opened from the HUD when a character has enough XP
+(8.3). XP still applies at once in combat (hit points and proficiency go up immediately, so a fight is
+never paused); the choices below are made on the screen, out of combat, and the character keeps playing
+with defaults until they are confirmed.
+
+- **Hit points:** take the class average (hit die / 2 + 1) or roll the hit die (minimum 1), plus the
+  Constitution modifier. **Proposal (needs owner sign-off):** online servers allow only the average.
+- **Spell slots:** the new slot row from the class table, shown as "+1 1st-level slot" and so on.
+- **Spells:** known casters (Bard, Sorcerer, Warlock, Ranger) learn up to `spells_known[level]` spells
+  from their `spell_list` and may swap one known spell per level; cantrips grow at levels 4 and 10
+  (`cantrips_known`). Prepared casters (Cleric, Druid, Paladin, Wizard) re-pick their prepared list
+  (casting modifier + level, or + half level for the Paladin) after every long rest, not only on level up.
+  The Wizard adds `spellbook_learn_per_level` (2) spells of a level it can cast to its spellbook each level
+  and prepares from the book (it starts with six level-1 spells). Spells marked unsupported (area and
+  condition spells) are shown greyed out with "coming later".
+- **Ability Score Improvement** at levels 4, 8, 12, 16 and 19 (Fighter also 6 and 14, Rogue also 10):
+  +2 to one ability or +1 to two, maximum 20. The SRD 5.1 has one feat (Grappler), so feats are deferred.
+- **Features:** the list from `features_by_level` for the new level with a one-line summary; features
+  without M2 mechanics say so.
+- The screen confirms everything at once; the server validates the choices against the class data.
 
 ## 9. Death and reset
 
@@ -440,6 +574,8 @@ Sketch only; tuned in M4.
 
 - Loot comes from monster packs, bosses and secret loot rooms; items are SRD equipment and SRD magic
   items, using SRD rarities.
+- M2 implements the first slice: items, inventory, starter kits, chests by the stairs, hidden chests and
+  monster drops (8.5).
 - Gold uses SRD coinage (cp, sp, ep, gp, pp) and SRD prices for mundane gear.
 - **Proposal (needs owner sign-off):** boss loot is rolled per player (personal loot) so 100-player
   instances do not fight over drops; secret loot rooms are one chest per player per visit.

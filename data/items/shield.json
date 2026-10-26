@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "shield",
+	"display_name": "Shield",
+	"kind": "shield",
+	"description": "A wooden or metal shield carried in the off hand: +2 AC.",
+	"weight": 6,
+	"value_gp": 10,
+	"stackable": false,
+	"shield": { "bonus": 2 }
+}

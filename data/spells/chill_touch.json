@@ -1,0 +1,24 @@
+{
+	"schema_version": 1,
+	"id": "chill_touch",
+	"display_name": "Chill Touch",
+	"level": 0,
+	"school": "necromancy",
+	"casting_time": "action",
+	"range_ft": 120,
+	"target": "creature",
+	"effect": {
+		"type": "spell_attack",
+		"attack": "ranged",
+		"damage": "1d8",
+		"damage_type": "necrotic",
+		"scaling": { "5": "2d8", "11": "3d8", "17": "4d8" },
+		"on_hit": { "no_healing": true, "undead_disadvantage_vs_caster": true, "until": "caster_next_turn_start" }
+	},
+	"duration": "1 round",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["sorcerer", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "A ghostly skeletal hand: a ranged spell attack for 1d8 necrotic damage; the target cannot regain hit points until the start of your next turn, and undead hit have disadvantage on attacks against you until then (riders not implemented yet)."
+}

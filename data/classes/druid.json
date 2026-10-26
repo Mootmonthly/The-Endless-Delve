@@ -1,0 +1,44 @@
+{
+	"schema_version": 1,
+	"id": "druid",
+	"display_name": "Druid",
+	"description": "A priest of the Old Faith, wielding the powers of nature and adopting animal forms.",
+	"hit_die": 8,
+	"primary_abilities": ["WIS"],
+	"saving_throws": ["INT", "WIS"],
+	"armor_proficiencies": ["light", "medium", "shield"],
+	"weapon_proficiencies": ["club", "dagger", "dart", "javelin", "mace", "quarterstaff", "scimitar", "sickle", "sling", "spear"],
+	"tool_proficiencies": ["herbalism_kit"],
+	"skill_choices": ["ARCANA", "ANIMAL_HANDLING", "INSIGHT", "MEDICINE", "NATURE", "PERCEPTION", "RELIGION", "SURVIVAL"],
+	"skill_choice_count": 2,
+	"spellcasting_ability": "WIS",
+	"starting_weapon": "scimitar",
+	"starting_armor": { "base": 11, "max_dex": -1, "item": "leather_armor" },
+	"starting_shield": true,
+	"starting_kit": [
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["druidic", "spellcasting"],
+	"features_by_level": { "1": ["druidic", "spellcasting"], "2": ["wild_shape", "druid_circle"], "3": [] },
+	"spellcasting": {
+		"ability": "WIS",
+		"prepared": ["produce_flame", "cure_wounds", "healing_word"],
+		"slots": { "1": [2], "2": [3], "3": [4, 2], "4": [4, 3], "5": [4, 3, 2] },
+		"slot_recovery": "long_rest"
+	},
+	"spell_list": [
+		"poison_spray",
+		"produce_flame",
+		"charm_person",
+		"cure_wounds",
+		"healing_word",
+		"thunderwave",
+		"barkskin",
+		"hold_person",
+		"lesser_restoration"
+	],
+	"prepares": true,
+	"cantrips_known": { "1": 2, "4": 3, "10": 4 }
+}

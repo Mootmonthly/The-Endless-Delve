@@ -14,5 +14,43 @@
 	"spellcasting_ability": "INT",
 	"starting_weapon": "quarterstaff",
 	"starting_armor": null,
-	"starting_shield": false
+	"starting_shield": false,
+	"starting_kit": [
+		{ "item": "dagger", "qty": 2 },
+		{ "item": "spellbook", "qty": 1 },
+		{ "item": "component_pouch", "qty": 1 },
+		{ "item": "potion_of_healing", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "gold", "qty": 10 }
+	],
+	"features": ["spellcasting", "arcane_recovery"],
+	"features_by_level": { "1": ["spellcasting", "arcane_recovery"], "2": ["arcane_tradition"], "3": [] },
+	"spellcasting": {
+		"ability": "INT",
+		"prepared": ["fire_bolt", "ray_of_frost", "magic_missile", "mage_armor"],
+		"slots": { "1": [2], "2": [3], "3": [4, 2], "4": [4, 3], "5": [4, 3, 2] },
+		"slot_recovery": "long_rest"
+	},
+	"spell_list": [
+		"chill_touch",
+		"fire_bolt",
+		"poison_spray",
+		"ray_of_frost",
+		"shocking_grasp",
+		"burning_hands",
+		"charm_person",
+		"mage_armor",
+		"magic_missile",
+		"sleep",
+		"thunderwave",
+		"acid_arrow",
+		"hold_person",
+		"misty_step",
+		"scorching_ray",
+		"shatter"
+	],
+	"prepares": true,
+	"cantrips_known": { "1": 3, "4": 4, "10": 5 },
+	"spellbook": ["magic_missile", "mage_armor", "burning_hands", "thunderwave", "sleep", "charm_person"],
+	"spellbook_learn_per_level": 2
 }

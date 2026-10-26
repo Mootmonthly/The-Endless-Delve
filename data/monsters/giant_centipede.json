@@ -13,6 +13,7 @@
 	"senses": "blindsight 30 ft., passive Perception 8",
 	"challenge_rating": 0.25,
 	"xp": 50,
+	"loot_table": "monster_small",
 	"traits": [
 		{ "name": "Bite: poison", "description": "A target hit by the bite must succeed on a DC 11 Constitution saving throw or take 10 (3d6) poison damage. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way. (Not yet modelled: only the bite's piercing damage applies.)" }
 	],

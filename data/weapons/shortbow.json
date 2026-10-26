@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "shortbow",
+	"display_name": "Shortbow",
+	"category": "simple",
+	"damage": "1d6",
+	"damage_type": "piercing",
+	"properties": ["ammunition", "two_handed"],
+	"range_ft": [80, 320],
+	"ranged": true,
+	"ammo_id": "arrows"
+}

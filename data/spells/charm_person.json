@@ -1,0 +1,17 @@
+{
+	"schema_version": 1,
+	"id": "charm_person",
+	"display_name": "Charm Person",
+	"level": 1,
+	"school": "enchantment",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "charmed condition" },
+	"duration": "1 hour",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["bard", "druid", "sorcerer", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "A humanoid you can see makes a Wisdom saving throw (with advantage if you are fighting it) or is charmed by you for 1 hour."
+}

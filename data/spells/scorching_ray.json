@@ -1,0 +1,24 @@
+{
+	"schema_version": 1,
+	"id": "scorching_ray",
+	"display_name": "Scorching Ray",
+	"level": 2,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 120,
+	"target": "creature",
+	"effect": {
+		"type": "spell_attack",
+		"attack": "ranged",
+		"rays": 3,
+		"damage": "2d6",
+		"damage_type": "fire",
+		"per_slot_level_above": 1
+	},
+	"duration": "instantaneous",
+	"concentration": false,
+	"components": ["V", "S"],
+	"classes": ["sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "Three rays of fire, each a separate ranged spell attack for 2d6 fire damage. One more ray for each slot level above 2nd."
+}

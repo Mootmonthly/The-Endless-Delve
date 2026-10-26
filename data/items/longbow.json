@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "longbow",
+	"display_name": "Longbow",
+	"kind": "weapon",
+	"description": "A martial ranged weapon (150/600 ft) that fires arrows.",
+	"weight": 2,
+	"value_gp": 50,
+	"stackable": true,
+	"weapon_id": "longbow",
+	"ammo_id": "arrows"
+}

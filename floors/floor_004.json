@@ -177,5 +177,25 @@
 				]
 			]
 		}
+	],
+	"chests": [
+		{
+			"id": "f4_stairs",
+			"position": [
+				64,
+				34
+			],
+			"table": "starter_gear",
+			"hidden": false
+		},
+		{
+			"id": "f4_hidden",
+			"position": [
+				47,
+				38
+			],
+			"table": "hidden_cache",
+			"hidden": true
+		}
 	]
 }

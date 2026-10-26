@@ -1,0 +1,24 @@
+{
+	"schema_version": 1,
+	"id": "hidden_cache",
+	"description": "A hidden chest in a floor's side area: better than the stair chest, worth the detour.",
+	"rolls": 2,
+	"entries": [
+		{ "item": "potion_of_healing", "weight": 5, "qty": [1, 2] },
+		{ "item": "potion_of_greater_healing", "weight": 1 },
+		{ "item": "gold", "weight": 5, "qty": [15, 50] },
+		{ "item": "studded_leather_armor", "weight": 2 },
+		{ "item": "chain_shirt", "weight": 2 },
+		{ "item": "scale_mail", "weight": 1 },
+		{ "item": "breastplate", "weight": 1 },
+		{ "item": "shield", "weight": 1 },
+		{ "item": "rapier", "weight": 1 },
+		{ "item": "scimitar", "weight": 1 },
+		{ "item": "battleaxe", "weight": 1 },
+		{ "item": "warhammer", "weight": 1 },
+		{ "item": "longbow", "weight": 1 },
+		{ "item": "shortbow", "weight": 1 },
+		{ "item": "arrows", "weight": 1, "qty": [10, 20] },
+		{ "item": "javelin", "weight": 1, "qty": [2, 4] }
+	]
+}

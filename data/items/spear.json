@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "spear",
+	"display_name": "Spear",
+	"kind": "weapon",
+	"description": "A simple weapon that can be thrown (20/60 ft); a thrown one is lost.",
+	"weight": 3,
+	"value_gp": 1,
+	"stackable": true,
+	"weapon_id": "spear"
+}

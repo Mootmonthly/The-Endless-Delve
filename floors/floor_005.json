@@ -210,5 +210,25 @@
 				]
 			]
 		}
+	],
+	"chests": [
+		{
+			"id": "f5_stairs",
+			"position": [
+				66,
+				8
+			],
+			"table": "starter_gear",
+			"hidden": false
+		},
+		{
+			"id": "f5_hidden",
+			"position": [
+				66,
+				29
+			],
+			"table": "hidden_cache",
+			"hidden": true
+		}
 	]
 }

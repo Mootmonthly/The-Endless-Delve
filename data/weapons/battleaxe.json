@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "battleaxe",
+	"display_name": "Battleaxe",
+	"category": "martial",
+	"damage": "1d8",
+	"damage_type": "slashing",
+	"properties": ["versatile"],
+	"versatile_damage": "1d10"
+}

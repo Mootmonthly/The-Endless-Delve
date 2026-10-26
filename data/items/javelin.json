@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "javelin",
+	"display_name": "Javelin",
+	"kind": "weapon",
+	"description": "A simple weapon that can be thrown (30/120 ft); a thrown one is lost.",
+	"weight": 2,
+	"value_gp": 0.5,
+	"stackable": true,
+	"weapon_id": "javelin"
+}
