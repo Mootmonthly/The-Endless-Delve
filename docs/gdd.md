@@ -375,6 +375,14 @@ Clearing floor 100 ends the main journey "for now". The player may then:
     100 players per instance?
 18. **Voice moderation:** how long is the server-side voice buffer kept for reports, who reviews it, and what
     are the privacy and regional-law implications of recording player voice at all?
+19. **Solo difficulty on floor 1 and the party-wipe rule:** measured on 2026-10-26 with a naive bot
+    (attacks when adjacent, otherwise closes distance, never Dodges) playing a level 1 human Fighter on
+    floor_001: one giant rat 19/20 wins, two giant rats 11/20, goblin + giant rat 9/20, two goblins + giant
+    rat 2/20. M1 ships zone 1 as two giant rats and keeps the crypt (two skeletons + zombie) as an optional
+    side room off the main route. Because a lone player at 0 hp is a party wipe, solo play never sees death
+    saves: the first hit to 0 is a full reset. Decide the intended solo experience (tutorial-grade first
+    fight, or packs tuned for parties with solo accepted as hard mode) and whether solo players should get
+    death saves before the wipe is declared.
 
 ## 15. Glossary
 

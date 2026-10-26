@@ -32,7 +32,7 @@ func test_build_floor_001_draws_every_cell() -> void:
 	var ground: TileMapLayer = view.get_node("Ground")
 	var overlay: TileMapLayer = view.get_node("Overlay")
 	var wall_count := _wall_count(f)
-	assert_eq(wall_count, 850)
+	assert_eq(wall_count, 854)
 	assert_eq(walls.get_used_cells().size(), wall_count)
 	assert_eq(ground.get_used_cells().size(), f.walk_map.width * f.walk_map.height - wall_count)
 	assert_eq(overlay.get_cell_atlas_coords(f.arrival), Vector2i(FloorView.TILE_ARRIVAL, 0))

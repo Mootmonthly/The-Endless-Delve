@@ -17,6 +17,8 @@ each item.
 
 ## M0 - Bootstrap
 
+**Status: done (2026-10-26).**
+
 - **Goal:** a repository that any contributor (human or agent) can clone, understand and test.
 - **In scope:** `project.godot` (Godot 4.5, `gl_compatibility`), repo hygiene files, `CLAUDE.md`, these
   docs and ADRs, `src/core` rng, dice, abilities, proficiency, character sheet basics, initiative and a
@@ -32,6 +34,12 @@ each item.
   errors; first CI run is the real check.
 
 ## M1 - One Floor Offline
+
+**Status: playable vertical slice landed 2026-10-26** (character creator, floor_001, real-time walking,
+intent-driven encounters with move/Attack/Dash/Dodge/Disengage/opportunity attacks/death saves, monster AI,
+stairs, short rest, in-process server over LocalTransport, replay test). Remaining before M1 exits: human
+playtest of feel and balance, monster health bars, cleared-zone display, and the owner decisions in GDD
+open question 19.
 
 - **Goal:** prove the core feel: walk a floor in real time, drop into a 5e fight, win, take the stairs.
 - **In scope:** minimal character creator (wave-1 class, SRD ancestry, standard array, name); one

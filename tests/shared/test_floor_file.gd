@@ -36,7 +36,7 @@ func test_floor_001_layout() -> void:
 	var z2: EncounterZoneData = f.encounter_zones[1]
 	assert_eq(z1.id, "z1")
 	assert_eq(z1.rect, Rect2i(17, 2, 12, 9))
-	assert_eq(z1.monster_ids, ["goblin", "goblin", "giant_rat"] as Array[String])
+	assert_eq(z1.monster_ids, ["giant_rat", "giant_rat"] as Array[String])
 	assert_eq(z1.spawn_points.size(), 3)
 	assert_eq(z2.monster_ids, ["skeleton", "skeleton", "zombie"] as Array[String])
 
@@ -48,7 +48,7 @@ func test_floor_001_monsters_exist_in_data() -> void:
 		return
 	var monsters := ContentLoader.load_monsters()
 	for zone in f.encounter_zones:
-		assert_eq(zone.monster_ids.size(), zone.spawn_points.size(), "zone %s: one spawn point per monster" % zone.id)
+		assert_true(zone.spawn_points.size() >= zone.monster_ids.size(), "zone %s: at least one spawn point per monster" % zone.id)
 		for mid in zone.monster_ids:
 			assert_true(monsters.has(mid), "unknown monster id '%s'" % mid)
 

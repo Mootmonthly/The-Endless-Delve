@@ -76,8 +76,8 @@ func _play(sheet: CharacterSheet, instance_seed: int) -> ClientState:
 	server.run_tick()
 	assert_eq(st.mode, ClientState.Mode.EXPLORING)
 	assert_eq(st.player_position(), floor_data.arrival)
-	assert_eq(st.entities.size(), 7, "the player and six monsters")
-	assert_eq(st.display_name("z1_goblin_0"), "Goblin", "names come from EXPLORE_STATE")
+	assert_eq(st.entities.size(), 6, "the player and five monsters")
+	assert_eq(st.display_name("z1_giant_rat_0"), "Giant Rat", "names come from EXPLORE_STATE")
 	var stairs_sent := false
 	var walk_sent_tick := -100
 	for t in range(MAX_TICKS):

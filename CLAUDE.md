@@ -111,3 +111,12 @@ Append one entry per working session (newest last).
   the pure `src/core/` engine (RNG, dice, rules, combat, content loaders), the
   SRD data subset and the in-house test runner. Godot was not runnable in the
   sandbox, so CI is the first real execution.
+- **2026-10-26 — M1 vertical slice.** Owner authorised running Godot in the
+  sandbox (`/opt/godot/godot`). Phase A: intent-driven `Encounter` with event
+  stream and replay, grid movement, `MonsterBrain`, ancestries/weapons/armor,
+  `FloorData`; shared `Messages`/`Transport`/`LocalTransport`, JSON floor files,
+  placeholder tileset, `FloorView`. Phase B: `InstanceServer` (20 Hz, zone
+  triggers, monster turns, stairs, short rest, game over) and the client
+  (`ClientState`, `CharacterDraft`, creator UI, `GameScene`, HUD). Balance pass
+  found the stairs route crossed the crypt zone; walled it off and set zone 1 to
+  two giant rats (see GDD open question 19). Suite: 258 tests green.
