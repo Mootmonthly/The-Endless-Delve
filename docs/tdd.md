@@ -223,6 +223,13 @@ Out of scope for M0-M2 beyond local offline saves.
 
 ## 11. Floor authoring
 
+**M1 decision (2026-10-26):** floors are authored as JSON text files (`floors/floor_NNN.json`) holding an ASCII
+tile grid (`#` wall, `.` floor, `A` arrival, `S` stairs) plus marker data (encounter zones with monster ids and
+spawn points). `FloorFile` in `src/shared` turns a file into `FloorData`, and `FloorView` builds the
+`TileMapLayer`s from it at load. This keeps floors diffable and lets the headless validator run without the editor.
+Hand-placed `TileMapLayer` scenes, as described below, remain the plan once the content pipeline (M6) justifies an
+editor workflow; the proposal below is kept for that stage.
+
 - Each floor is a handcrafted scene: `floors/floor_NNN.tscn` (proposal), built from `TileMapLayer`
   nodes (ground, walls, decoration) sharing a common `TileSet` with 16x16 or 32x32 px tiles.
 - Gameplay markers are child nodes with editor-visible gizmos: `ArrivalLanding`, `Staircase`,
