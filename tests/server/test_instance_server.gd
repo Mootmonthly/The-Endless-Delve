@@ -175,6 +175,54 @@ func _send_player_choice(enc: Encounter, me: Combatant) -> void:
 	_send(Messages.END_TURN)
 
 
+## Answers LEVEL_UP_AVAILABLE offers like a simple bot: average HP, the first
+## valid cantrips / spells from the offer, +2 to the first ability below 19 when
+## an ASI is offered, preparation unchanged. Keeps answering while the server
+## re-offers (bounded).
+func _answer_level_up_offers(max_levels: int = 20) -> void:
+	var answered := 0
+	var seen := _of_kind(Messages.LEVEL_UP_AVAILABLE).size()
+	while answered < max_levels:
+		var offers := _of_kind(Messages.LEVEL_UP_AVAILABLE)
+		var me := server.get_entity("p1")
+		if offers.is_empty() or me.in_combat() or me.sheet.pending_levels() <= 0:
+			return
+		var offer: Dictionary = offers.back()
+		if answered > 0 and offers.size() == seen:
+			return  # no new offer after the last answer
+		seen = offers.size()
+		_send(Messages.LEVEL_UP, {"choices": _bot_level_choices(offer["choices"])})
+		_tick()
+		_flush()
+		answered += 1
+
+
+func _bot_level_choices(offer: Dictionary) -> Dictionary:
+	var spells: Dictionary = ContentLoader.cache()["spells"]
+	var cantrips: Array = []
+	var leveled: Array = []
+	for id_v: Variant in (offer.get("spell_options", []) as Array):
+		var spell: SpellDefinition = spells.get(str(id_v))
+		if spell == null:
+			continue
+		if spell.level == 0:
+			cantrips.append(str(id_v))
+		else:
+			leveled.append(str(id_v))
+	var made := {
+		"hp": "average",
+		"learn_cantrips": cantrips.slice(0, int(offer.get("cantrips_to_learn", 0))),
+		"learn_spells": leveled.slice(0, int(offer.get("spells_to_learn", 0))),
+	}
+	if bool(offer.get("asi", false)):
+		var sheet := server.get_entity("p1").sheet
+		for ability: String in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+			if sheet.abilities.get_score(Ability.from_string(ability)) <= 18:
+				made["asi"] = {ability: 2}
+				break
+	return made
+
+
 # --- tests --------------------------------------------------------------------------
 
 func test_add_player_sends_floor_character_and_explore_state() -> void:
@@ -564,7 +612,7 @@ func test_downed_solo_player_rolls_death_saves_before_game_over() -> void:
 	assert_true(server.get_entity("p1").sheet.is_dead())
 
 
-func test_winning_awards_xp_and_levels_up() -> void:
+func test_winning_awards_xp_and_offers_a_level_up() -> void:
 	var sheet := _fighter()
 	sheet.max_hp = 200
 	sheet.current_hp = 200
@@ -575,15 +623,31 @@ func test_winning_awards_xp_and_levels_up() -> void:
 	assert_true(server.is_zone_cleared("z1"))
 	var p1 := server.get_entity("p1")
 	assert_eq(p1.sheet.xp, 315)
-	assert_eq(p1.sheet.level, 2)
-	assert_eq(p1.sheet.max_hp, 200 + 8, "average fighter level-up: d10 avg 6 + CON 2")
+	assert_eq(p1.sheet.level, 1, "levels are never applied automatically")
 	var states := _of_kind(Messages.CHARACTER_STATE)
 	var award: Dictionary = states[states.size() - 1]
 	assert_eq(int(award["xp_gained"]), 25)
-	assert_eq(int(award["levels_gained"]), 1)
-	assert_eq(int(award["sheet"]["level"]), 2)
+	assert_eq(int(award["levels_pending"]), 1)
+	assert_false(award.has("levels_gained"))
+	assert_eq(int(award["sheet"]["level"]), 1)
 	assert_eq(int(award["sheet"]["xp"]), 315)
 	assert_eq(Messages.validate_result(award), "")
+	var offers := _of_kind(Messages.LEVEL_UP_AVAILABLE)
+	assert_eq(offers.size(), 1, "one offer once the fight is over")
+	assert_eq(Messages.validate_result(offers[0]), "")
+	assert_eq(str(offers[0]["entity_id"]), "p1")
+	assert_eq(int(offers[0]["choices"]["new_level"]), 2)
+	assert_eq(int(offers[0]["choices"]["hp"]["average"]), 8)
+	assert_eq(str(results[results.size() - 1]["kind"]), Messages.LEVEL_UP_AVAILABLE, "the offer comes last")
+	# The bot answers with average HP and the first valid options.
+	_answer_level_up_offers()
+	assert_eq(p1.sheet.level, 2)
+	assert_eq(p1.sheet.max_hp, 200 + 8, "average fighter level-up: d10 avg 6 + CON 2")
+	var last: Dictionary = _of_kind(Messages.CHARACTER_STATE).back()
+	assert_eq(int(last["leveled_to"]), 2)
+	assert_eq(int(last["levels_pending"]), 0)
+	assert_eq(int(last["sheet"]["level"]), 2)
+	assert_eq(_of_kind(Messages.LEVEL_UP_AVAILABLE).size(), 1, "no further offer")
 
 
 func test_no_xp_when_the_monsters_win() -> void:
@@ -704,8 +768,11 @@ func test_two_floor_set_descends_and_clears_the_set() -> void:
 	assert_true(server.get_entity("p1") == p1, "same player entity")
 	assert_eq(p1.sheet.current_hp, 150, "HP damage carries over")
 	assert_eq(p1.sheet.hit_dice_remaining, hit_dice_before)
-	assert_eq(p1.sheet.xp, 25, "XP carries over")
+	assert_eq(p1.sheet.xp, 25 + InstanceServer.FLOOR_CLEAR_XP, "XP carries over, plus the floor-clear bonus")
 	assert_eq(int(results[2]["sheet"]["current_hp"]), 150)
+	assert_eq(int(results[2]["xp_gained"]), 100, "floor-clear XP rides on the floor's CHARACTER_STATE")
+	assert_eq(int(results[2]["floor_clear_xp"]), 100)
+	assert_eq(int(results[2]["sheet"]["xp"]), 125)
 	assert_eq(_pos("p1"), Vector2i(1, 1))
 	assert_false(server.is_zone_cleared("z1"), "floor B's z1 is a fresh zone")
 	assert_false(server.is_floor_cleared())
@@ -727,6 +794,8 @@ func test_two_floor_set_descends_and_clears_the_set() -> void:
 		assert_eq(Messages.validate_result(r), "", "well-formed %s" % str(r["kind"]))
 	assert_eq(kinds, [Messages.FLOOR_CLEARED, Messages.CHARACTER_STATE, Messages.SET_CLEARED] as Array[String])
 	assert_true(results[1]["long_rest"] == true)
+	assert_eq(int(results[1]["floor_clear_xp"]), 100, "the last floor pays its bonus too")
+	assert_eq(p1.sheet.xp, 225)
 	assert_eq(int(results[1]["sheet"]["current_hp"]), p1.sheet.max_hp, "long rest: full HP")
 	assert_eq(p1.sheet.current_hp, p1.sheet.max_hp)
 	assert_eq(str(results[2]["set_id"]), "set_test")
@@ -742,6 +811,10 @@ func test_two_floor_set_descends_and_clears_the_set() -> void:
 	assert_eq(errors.size(), 3, "intents after SET_CLEARED are rejected")
 	assert_has(str(errors[0]["message"]), "set is cleared")
 	assert_eq(_of_kind(Messages.SET_CLEARED).size(), 0, "SET_CLEARED only once")
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "average"}})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR)["message"]), "no level-up pending", "level_up still reaches the server")
 	assert_eq(_pos("p1"), Vector2i(8, 1))
 
 
@@ -777,6 +850,7 @@ func test_set_01_walkthrough_with_a_strong_character() -> void:
 			_walk_to(floor_data.stairs, 2000)
 			if server.get_entity("p1").in_combat():
 				_play_fight(8000)
+				_answer_level_up_offers()
 			elif _pos("p1") == floor_data.stairs:
 				break
 		assert_eq(_pos("p1"), floor_data.stairs, "reached the stairs of %s" % floor_data.id)
@@ -786,10 +860,439 @@ func test_set_01_walkthrough_with_a_strong_character() -> void:
 		if server.get_floor_index() == index and not server.is_set_cleared():
 			fail("could not leave %s" % floor_data.id)
 			return
+		if server.get_entity("p1").in_combat():
+			_play_fight(8000)
+		_answer_level_up_offers()
 	assert_true(server.is_set_cleared(), "set_01 cleared")
+	assert_eq(server.get_entity("p1").sheet.pending_levels(), 0, "every offer was answered")
+	for err in _of_kind(Messages.ERROR):
+		assert_false(str(err["message"]).begins_with("level_up"), "level-up choices accepted: %s" % str(err["message"]))
 	assert_eq(_of_kind(Messages.SET_CLEARED).size(), 1)
 	assert_eq(_of_kind(Messages.FLOOR_LOADED).size(), ids.size())
 	assert_false(server.is_game_over())
 	assert_true(server.get_entity("p1").sheet.level > 1, "levelled up along the way")
 	for r in results:
 		assert_eq(Messages.validate_result(r), "", "every result is well formed")
+
+
+# --- items, chests, loot, level-up (M2) -------------------------------------------
+
+## _floor() plus a visible chest c1 at (3,1) and a hidden chest h1 at (3,4).
+func _chest_floor() -> FloorData:
+	var f := FloorData.from_dict({
+		"schema_version": 1, "id": "chest_floor", "display_name": "Chest Floor",
+		"rows": ROWS, "arrival": [1, 1], "stairs": [10, 4],
+		"encounter_zones": [{"id": "z1", "rect": [6, 1, 3, 4], "monster_ids": ["giant_rat"], "spawn_points": [[8, 2]]}],
+		"chests": [
+			{"id": "c1", "position": [3, 1], "table": "starter_gear"},
+			{"id": "h1", "position": [3, 4], "table": "hidden_cache", "hidden": true},
+		],
+	})
+	assert_eq(f.validate(ContentLoader.cache()["loot_tables"]), [] as Array[String], "chest floor is valid")
+	return f
+
+
+func _class_sheet(class_id: String, char_name: String = "Hero") -> CharacterSheet:
+	var scores := AbilityScores.new()
+	scores.set_all([10, 14, 13, 15, 12, 8] as Array[int])
+	var skills: Array[int] = []
+	var sheet := CharacterBuilder.create(char_name, ContentLoader.load_classes()[class_id],
+			ContentLoader.load_ancestries()["human"], scores, skills)
+	sheet.max_hp = 200
+	sheet.current_hp = 200
+	return sheet
+
+
+## Ticks (ending the player's turns only when end_turns) until it is p1's turn.
+func _wait_for_my_turn(max_ticks: int = 200) -> Encounter:
+	for _i in range(max_ticks):
+		var enc := server.get_encounter_for("p1")
+		if enc == null:
+			return null
+		if enc.current_actor() != null and enc.current_actor().id == "p1":
+			_flush()
+			return enc
+		_tick()
+	return null
+
+
+func _last(kind: String) -> Dictionary:
+	var list := _of_kind(kind)
+	return list.back() if not list.is_empty() else {}
+
+
+func test_equip_unequip_drop_and_use_item_out_of_combat() -> void:
+	_setup()
+	var sheet := server.get_entity("p1").sheet
+	assert_eq(sheet.equipped_item("armor"), "chain_mail")
+	var ac_before := sheet.armor_class()
+	_send(Messages.UNEQUIP, {"slot": "armor"})
+	_tick()
+	_flush()
+	var st := _last(Messages.CHARACTER_STATE)
+	assert_eq(st["unequipped"], {"item": "chain_mail", "slot": "armor"})
+	assert_eq(str(st["sheet"]["equipped"]["armor"]), "")
+	assert_true(sheet.armor_class() < ac_before, "unarmored AC is lower")
+	assert_true(sheet.has_item("chain_mail"), "the armor stays in the inventory")
+	_send(Messages.EQUIP, {"item": "chain_mail", "slot": "armor"})
+	_tick()
+	_flush()
+	st = _last(Messages.CHARACTER_STATE)
+	assert_eq(st["equipped"], {"item": "chain_mail", "slot": "armor"})
+	assert_eq(sheet.armor_class(), ac_before)
+	# Invalid equips are errors and change nothing.
+	_send(Messages.EQUIP, {"item": "rations", "slot": "main_hand"})
+	_send(Messages.EQUIP, {"item": "greataxe", "slot": "main_hand"})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 2, "not a weapon / not carried")
+	# Potion out of combat: heals, is used up, rolled by the server.
+	sheet.current_hp = 3
+	var potions := sheet.count_item("potion_of_healing")
+	_send(Messages.USE_ITEM, {"item": "potion_of_healing"})
+	_tick()
+	_flush()
+	st = _last(Messages.CHARACTER_STATE)
+	assert_eq(str(st["item_used"]), "potion_of_healing")
+	assert_in_range(int(st["healed"]), 4, 10, "2d4+2")
+	assert_eq(sheet.current_hp, 3 + int(st["healed"]))
+	assert_eq(sheet.count_item("potion_of_healing"), potions - 1)
+	_send(Messages.USE_ITEM, {"item": "rations"})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 3, "rations have no use")
+	# Drop: removed from the inventory, nothing on the floor.
+	_send(Messages.DROP_ITEM, {"item": "rations", "qty": 2})
+	_tick()
+	_flush()
+	st = _last(Messages.CHARACTER_STATE)
+	assert_eq(st["dropped"], {"item": "rations", "qty": 2})
+	assert_eq(sheet.count_item("rations"), 3)
+	_send(Messages.DROP_ITEM, {"item": "rations", "qty": 9})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 4, "cannot drop more than carried")
+	assert_eq(sheet.count_item("rations"), 3)
+	for r in results:
+		assert_eq(Messages.validate_result(r), "")
+
+
+func test_inventory_intents_in_combat() -> void:
+	_setup()
+	_walk_to(Vector2i(10, 1))
+	assert_true(server.get_entity("p1").in_combat())
+	_send(Messages.UNEQUIP, {"slot": "armor"})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR)["message"]), "in combat", "equipment changes are exploration-only")
+
+
+func test_open_chest_needs_adjacency_and_opens_once() -> void:
+	server.configure(transport, _chest_floor(), SEED)
+	server.add_player(LocalTransport.PEER_ID, _fighter())
+	_flush()
+	var loaded := _of_kind(Messages.FLOOR_LOADED)[0]
+	assert_eq(loaded["chests"], [{"id": "c1", "position": [3, 1], "hidden": false, "opened": false}],
+			"only the visible chest is listed")
+	assert_eq(loaded["floor"]["chests"], loaded["chests"], "the floor dict hides it too")
+	# (1,1) is two tiles from (3,1): too far.
+	_send(Messages.OPEN_CHEST, {"chest_id": "c1"})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR)["message"]), "not next to")
+	assert_false(server.is_chest_opened("c1"))
+	_walk_to(Vector2i(2, 2))
+	var sheet := server.get_entity("p1").sheet
+	var before := sheet.inventory.duplicate(true)
+	results.clear()
+	_send(Messages.OPEN_CHEST, {"chest_id": "c1"})
+	_tick()
+	_flush()
+	var kinds: Array[String] = []
+	for r in results:
+		kinds.append(str(r["kind"]))
+		assert_eq(Messages.validate_result(r), "")
+	assert_eq(kinds, [Messages.CHEST_OPENED, Messages.LOOT_GAINED, Messages.CHARACTER_STATE] as Array[String])
+	assert_eq(str(results[0]["chest_id"]), "c1")
+	assert_eq(str(results[0]["entity_id"]), "p1")
+	assert_eq(str(results[1]["source"]), "chest")
+	assert_eq(str(results[1]["chest_id"]), "c1")
+	var table: LootTable = ContentLoader.cache()["loot_tables"]["starter_gear"]
+	var rolled: Array[Dictionary] = table.roll(Rng.new(SEED).fork(InstanceServer.LOOT_STREAM))
+	assert_eq(results[1]["items"], rolled, "rolled with the floor's loot stream")
+	for entry: Variant in (results[1]["items"] as Array):
+		var item := str((entry as Dictionary)["item"])
+		var had := 0
+		for b: Variant in before:
+			if str((b as Dictionary)["item"]) == item:
+				had = int((b as Dictionary)["qty"])
+		assert_eq(sheet.count_item(item), had + int((entry as Dictionary)["qty"]), "%s added" % item)
+	assert_true(server.is_chest_opened("c1"))
+	# A second open is rejected; unknown ids too.
+	_send(Messages.OPEN_CHEST, {"chest_id": "c1"})
+	_send(Messages.OPEN_CHEST, {"chest_id": "nope"})
+	_tick()
+	_flush()
+	var errors := _of_kind(Messages.ERROR)
+	assert_has(str(errors[errors.size() - 2]["message"]), "already open")
+	assert_has(str(errors[errors.size() - 1]["message"]), "no chest")
+
+
+func test_hidden_chest_is_revealed_within_one_tile() -> void:
+	server.configure(transport, _chest_floor(), SEED)
+	server.add_player(LocalTransport.PEER_ID, _fighter())
+	_flush()
+	assert_false(server.is_chest_revealed("h1"))
+	# Not revealed yet: answers like an unknown chest.
+	_send(Messages.OPEN_CHEST, {"chest_id": "h1"})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR)["message"]), "no chest")
+	_walk_to(Vector2i(1, 3))
+	assert_eq(_of_kind(Messages.CHEST_REVEALED).size(), 0, "two tiles away: still hidden")
+	_walk_to(Vector2i(2, 3))
+	var revealed := _of_kind(Messages.CHEST_REVEALED)
+	assert_eq(revealed.size(), 1, "revealed once within 1 tile")
+	assert_eq(revealed[0]["chest"], {"id": "h1", "position": [3, 4], "hidden": true, "opened": false})
+	assert_eq(Messages.validate_result(revealed[0]), "")
+	assert_true(server.is_chest_revealed("h1"))
+	_walk_to(Vector2i(3, 3))
+	assert_eq(_of_kind(Messages.CHEST_REVEALED).size(), 1, "sent only once")
+	_send(Messages.OPEN_CHEST, {"chest_id": "h1"})
+	_tick()
+	_flush()
+	assert_true(server.is_chest_opened("h1"))
+	assert_eq(str(_last(Messages.LOOT_GAINED)["chest_id"]), "h1")
+
+
+func test_monster_drops_arrive_after_a_win() -> void:
+	server.configure(transport, _floor(), SEED)
+	var rat_def: MonsterDefinition = server._monster_defs["giant_rat"]
+	rat_def.loot_table = "boss"  # three rolls, never empty
+	var sheet := _fighter()
+	sheet.max_hp = 200
+	sheet.current_hp = 200
+	server.add_player(LocalTransport.PEER_ID, sheet)
+	_walk_to(Vector2i(10, 1))
+	_play_fight()
+	assert_true(server.is_zone_cleared("z1"))
+	var loot := _of_kind(Messages.LOOT_GAINED)
+	assert_eq(loot.size(), 1)
+	assert_eq(Messages.validate_result(loot[0]), "")
+	assert_eq(str(loot[0]["source"]), "monster")
+	assert_eq(str(loot[0]["entity_id"]), "p1")
+	var items: Array = loot[0]["items"]
+	assert_false(items.is_empty())
+	var boss: LootTable = ContentLoader.cache()["loot_tables"]["boss"]
+	assert_eq(items, boss.roll(Rng.new(SEED).fork(InstanceServer.LOOT_STREAM)), "deterministic drop")
+	# LOOT_GAINED comes right before the CHARACTER_STATE that carries it.
+	var i := results.find(loot[0])
+	assert_eq(str(results[i + 1]["kind"]), Messages.CHARACTER_STATE)
+	assert_true(results[i + 1].has("xp_gained"))
+	var p1 := server.get_entity("p1")
+	for entry: Variant in items:
+		assert_true(p1.sheet.has_item(str((entry as Dictionary)["item"])))
+
+
+func test_no_drops_when_the_monsters_win() -> void:
+	server.configure(transport, _floor(), SEED)
+	var rat_def: MonsterDefinition = server._monster_defs["giant_rat"]
+	rat_def.loot_table = "boss"
+	var sheet := _fighter()
+	sheet.max_hp = 1
+	sheet.current_hp = 1
+	sheet.armor_base = 1
+	sheet.armor_max_dex = 0
+	server.add_player(LocalTransport.PEER_ID, sheet)
+	_walk_to(Vector2i(10, 1))
+	for _i in range(2000):
+		if server.is_game_over():
+			break
+		var enc := server.get_encounter_for("p1")
+		if enc != null and enc.current_actor() != null and enc.current_actor().id == "p1":
+			_send(Messages.END_TURN)
+		_tick()
+	_flush()
+	assert_true(server.is_game_over())
+	assert_eq(_of_kind(Messages.LOOT_GAINED).size(), 0)
+
+
+func test_use_stairs_awards_floor_clear_xp() -> void:
+	_setup(true)
+	_walk_to(Vector2i(10, 4))
+	assert_eq(_pos("p1"), Vector2i(10, 4))
+	results.clear()
+	_send(Messages.USE_STAIRS)
+	_tick()
+	_flush()
+	var kinds: Array[String] = []
+	for r in results:
+		kinds.append(str(r["kind"]))
+	assert_eq(kinds, [Messages.FLOOR_CLEARED, Messages.CHARACTER_STATE] as Array[String])
+	assert_eq(int(results[1]["xp_gained"]), InstanceServer.FLOOR_CLEAR_XP)
+	assert_eq(int(results[1]["floor_clear_xp"]), 100)
+	assert_eq(int(results[1]["levels_pending"]), 0)
+	assert_eq(server.get_entity("p1").sheet.xp, 100)
+
+
+func test_floor_clear_xp_can_offer_a_level_up() -> void:
+	var sheet := _fighter()
+	sheet.xp = 250
+	_setup(true, sheet)
+	_walk_to(Vector2i(10, 4))
+	results.clear()
+	_send(Messages.USE_STAIRS)
+	_tick()
+	_flush()
+	var kinds: Array[String] = []
+	for r in results:
+		kinds.append(str(r["kind"]))
+	assert_eq(kinds, [Messages.FLOOR_CLEARED, Messages.CHARACTER_STATE, Messages.LEVEL_UP_AVAILABLE] as Array[String])
+	assert_eq(int(results[1]["levels_pending"]), 1)
+	assert_eq(server.get_entity("p1").sheet.level, 1)
+
+
+func test_level_up_round_trip_with_errors_and_re_offer() -> void:
+	var sheet := _fighter()
+	sheet.xp = 900  # levels 2 and 3 banked
+	_setup(true, sheet)
+	_flush()
+	var offers := _of_kind(Messages.LEVEL_UP_AVAILABLE)
+	assert_eq(offers.size(), 1, "a sheet joining with banked XP gets an offer")
+	assert_eq(int(offers[0]["choices"]["new_level"]), 2)
+	assert_eq(int(offers[0]["choices"]["levels_pending"]), 2)
+	var p1 := server.get_entity("p1")
+	# Invalid choices: ERROR, nothing changes.
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "max"}})
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "average", "asi": {"STR": 2}}})
+	_tick()
+	_flush()
+	var errors := _of_kind(Messages.ERROR)
+	assert_eq(errors.size(), 2)
+	assert_has(str(errors[0]["message"]), "hp must be")
+	assert_has(str(errors[1]["message"]), "no ability score improvement")
+	assert_eq(p1.sheet.level, 1)
+	# A valid answer: CHARACTER_STATE with leveled_to, then the next offer.
+	results.clear()
+	var hp_before := p1.sheet.max_hp
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "average"}})
+	_tick()
+	_flush()
+	var kinds: Array[String] = []
+	for r in results:
+		kinds.append(str(r["kind"]))
+		assert_eq(Messages.validate_result(r), "")
+	assert_eq(kinds, [Messages.CHARACTER_STATE, Messages.LEVEL_UP_AVAILABLE] as Array[String])
+	assert_eq(int(results[0]["leveled_to"]), 2)
+	assert_eq(int(results[0]["levels_pending"]), 1)
+	assert_eq(p1.sheet.max_hp, hp_before + 8)
+	assert_eq(int(results[1]["choices"]["new_level"]), 3)
+	# Rolled HP: d10 + CON 2, from the server's level stream.
+	results.clear()
+	hp_before = p1.sheet.max_hp
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "roll"}})
+	_tick()
+	_flush()
+	assert_eq(int(results[0]["leveled_to"]), 3)
+	assert_in_range(p1.sheet.max_hp - hp_before, 3, 12)
+	assert_eq(_of_kind(Messages.LEVEL_UP_AVAILABLE).size(), 0, "nothing pending: no offer")
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "average"}})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR)["message"]), "no level-up pending")
+	assert_eq(p1.sheet.level, 3)
+
+
+func test_level_up_offer_waits_for_the_encounter_to_end() -> void:
+	# The arrival tile is inside z1: the player starts in combat.
+	var f := FloorData.from_dict({
+		"schema_version": 1, "id": "ambush", "display_name": "Ambush",
+		"rows": ROWS, "arrival": [1, 1], "stairs": [10, 4],
+		"encounter_zones": [{"id": "z1", "rect": [1, 1, 3, 3], "monster_ids": ["giant_rat"], "spawn_points": [[3, 3]]}],
+	})
+	server.configure(transport, f, SEED)
+	var sheet := _fighter()
+	sheet.max_hp = 200
+	sheet.current_hp = 200
+	sheet.xp = 300
+	server.add_player(LocalTransport.PEER_ID, sheet)
+	_flush()
+	assert_true(server.get_entity("p1").in_combat())
+	assert_eq(_of_kind(Messages.LEVEL_UP_AVAILABLE).size(), 0, "no offer in combat")
+	_wait_for_my_turn()
+	_send(Messages.LEVEL_UP, {"choices": {"hp": "average"}})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR)["message"]), "in combat")
+	assert_eq(server.get_entity("p1").sheet.level, 1)
+	_play_fight()
+	assert_false(server.get_entity("p1").in_combat())
+	var offers := _of_kind(Messages.LEVEL_UP_AVAILABLE)
+	assert_eq(offers.size(), 1, "offered once the encounter ended")
+	assert_eq(int(offers[0]["choices"]["new_level"]), 2)
+
+
+func test_cast_intent_reaches_the_encounter() -> void:
+	_setup(false, _class_sheet("wizard", "Mage"))
+	_walk_to(Vector2i(10, 1))
+	var enc := _wait_for_my_turn()
+	assert_not_null(enc)
+	results.clear()
+	_send(Messages.CAST, {"spell": "fire_bolt", "target": RAT})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0)
+	assert_true(_has_event("cast", "spell", "fire_bolt"), "cast event broadcast")
+	assert_true(_has_event("attack", "attack_kind", "spell"), "fire bolt is a spell attack")
+	# Unprepared or unknown spells are rejected by the encounter.
+	_send(Messages.CAST, {"spell": "cure_wounds", "target": "p1"})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 1)
+
+
+func test_ranged_attack_and_combat_item_and_feature() -> void:
+	_setup()
+	var rat := server.get_entity(RAT).sheet
+	rat.max_hp = 500
+	rat.current_hp = 500  # survives the whole test
+	_walk_to(Vector2i(10, 1))
+	var enc := _wait_for_my_turn()
+	assert_not_null(enc)
+	var sheet := server.get_entity("p1").sheet
+	var thrown := -1
+	for i in range(sheet.attacks.size()):
+		if str(sheet.attacks[i].get("kind", "")) == "thrown":
+			thrown = i
+	assert_true(thrown >= 0, "the fighter's handaxes are thrown attacks")
+	var axes := sheet.count_item("handaxe")
+	results.clear()
+	_send(Messages.ATTACK, {"target": RAT, "attack_index": thrown})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0)
+	assert_true(_has_event("attack", "attack_kind", "thrown"))
+	assert_true(_has_event("attack", "consumed", "handaxe"))
+	assert_eq(sheet.count_item("handaxe"), axes - 1, "the thrown axe is gone")
+	# Bonus action: second wind; then a potion is refused (action already used).
+	var potions := sheet.count_item("potion_of_healing")
+	_send(Messages.USE_FEATURE, {"feature": "second_wind"})
+	_send(Messages.USE_ITEM, {"item": "potion_of_healing"})
+	_tick()
+	_flush()
+	assert_true(_has_event("feature_used", "feature", "second_wind"))
+	assert_eq(_of_kind(Messages.ERROR).size(), 1, "the potion needs the action already spent")
+	assert_eq(sheet.count_item("potion_of_healing"), potions, "rejected use keeps the potion")
+	_send(Messages.END_TURN)
+	_tick()
+	assert_not_null(_wait_for_my_turn(), "still fighting")
+	_send(Messages.USE_ITEM, {"item": "potion_of_healing"})
+	_tick()
+	_flush()
+	assert_true(_has_event("item_used", "item", "potion_of_healing"), "in combat use_item goes to the encounter")
+	assert_eq(sheet.count_item("potion_of_healing"), potions - 1)
+	# Bonus attack flag passes through: no Martial Arts for a fighter.
+	_send(Messages.ATTACK, {"target": RAT, "attack_index": 0, "bonus": true})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 2, "the encounter judged the bonus attack")

@@ -10,20 +10,41 @@ extends RefCounted
 ## Intents (all carry "actor": the combatant / character id the sender
 ## wants to act as; the server checks it belongs to the sending peer):
 ##   move        {"path": [[x, y], ...]}              encounter movement
-##   attack      {"target": id, "attack_index": int}
+##   attack      {"target": id, "attack_index": int, "bonus"?: bool}
+##   cast        {"spell": id, "target"?: id, "slot_level"?: int >= 0}
+##   use_feature {"feature": id, "target"?: id, "amount"?: int >= 0}
 ##   dash, dodge, disengage, end_turn                 no extra fields
+##   use_item    {"item": id, "target"?: id}          BOTH: resolved by the encounter
+##                                                    when the actor is in one, else
+##                                                    out of combat by the server
 ##   explore_move {"target": [x, y]}                  real-time walking
 ##   use_stairs                                       no extra fields
 ##   short_rest  {"hit_dice": int >= 0}
+##   equip       {"item": id, "slot": "main_hand"|"off_hand"|"armor"}
+##   unequip     {"slot": "main_hand"|"off_hand"|"armor"}
+##   open_chest  {"chest_id": id}                     on or adjacent to the chest
+##   drop_item   {"item": id, "qty": int >= 1}        discarded (nothing on the floor in M2)
+##   level_up    {"choices": {"hp": "average"|"roll", "asi"?: {ABILITY: int},
+##                "learn_cantrips"?: [id], "learn_spells"?: [id], "prepared"?: [id]}}
 ## Results:
 ##   encounter_events {"events": [event dicts, each with "kind"]}
 ##   explore_state    {"entities": [{"id", "position": [x, y], "kind"}], "tick": int}
 ##   error            {"message": String}
 ##   floor_loaded     {"floor": FloorData.to_dict()}    sent again for every new floor
 ##                    extras: "entity_id", "cleared_zones", "set_id", "set_name",
-##                    "floor_index" (0-based in the set), "floor_count"
+##                    "floor_index" (0-based in the set), "floor_count",
+##                    "chests": [{"id", "position": [x, y], "hidden": bool, "opened": bool}]
+##                    (hidden chests are listed only once revealed or opened)
 ##   character_state  {"sheet": CharacterSheet.to_dict()}
-##                    extras: "entity_id", "healed", "xp_gained", "levels_gained", "long_rest"
+##                    extras: "entity_id", "healed", "xp_gained", "floor_clear_xp",
+##                    "leveled_to" (after a level_up intent), "long_rest", "item_used",
+##                    "equipped", "unequipped", "dropped"
+##   loot_gained      {"entity_id", "items": [{"item", "qty"}], "source": "chest"|"monster"|"floor"}
+##                    extras: "chest_id" (chest loot)
+##   chest_opened     {"chest_id": id}                  extras: "entity_id" (the opener)
+##   chest_revealed   {"chest": {"id", "position", "hidden", "opened"}}
+##   level_up_available {"entity_id", "choices": LevelUp.choices(...)}  one level at a
+##                    time, only out of combat; answer with the level_up intent
 ##   game_over        {}                                the party is wiped out
 ##   floor_cleared    {"floor_id": String}              stairs taken / floor done
 ##   set_cleared      {"set_id": String}                last floor's stairs taken: the
@@ -44,11 +65,27 @@ const END_TURN := "end_turn"
 const EXPLORE_MOVE := "explore_move"
 const USE_STAIRS := "use_stairs"
 const SHORT_REST := "short_rest"
+const CAST := "cast"
+const USE_ITEM := "use_item"
+const USE_FEATURE := "use_feature"
+const EQUIP := "equip"
+const UNEQUIP := "unequip"
+const OPEN_CHEST := "open_chest"
+const DROP_ITEM := "drop_item"
+const LEVEL_UP := "level_up"
+
+## Equipment slot names accepted by equip / unequip (CharacterSheet.SLOTS).
+const EQUIP_SLOTS: Array[String] = ["main_hand", "off_hand", "armor"]
 
 ## Intents resolved by an Encounter (Encounter.submit).
-const ENCOUNTER_INTENTS: Array[String] = [MOVE, ATTACK, DASH, DODGE, DISENGAGE, END_TURN]
-## Intents resolved by the real-time floor simulation.
-const EXPLORE_INTENTS: Array[String] = [EXPLORE_MOVE, USE_STAIRS, SHORT_REST]
+const ENCOUNTER_INTENTS: Array[String] = [
+	MOVE, ATTACK, DASH, DODGE, DISENGAGE, END_TURN, CAST, USE_ITEM, USE_FEATURE,
+]
+## Intents resolved by the real-time floor simulation. USE_ITEM is in both
+## lists: the server routes it to the encounter when the actor is in one.
+const EXPLORE_INTENTS: Array[String] = [
+	EXPLORE_MOVE, USE_STAIRS, SHORT_REST, EQUIP, UNEQUIP, USE_ITEM, OPEN_CHEST, DROP_ITEM, LEVEL_UP,
+]
 
 # --- Result kinds (server -> client) ---
 const ENCOUNTER_EVENTS := "encounter_events"
@@ -59,10 +96,19 @@ const CHARACTER_STATE := "character_state"
 const GAME_OVER := "game_over"
 const FLOOR_CLEARED := "floor_cleared"
 const SET_CLEARED := "set_cleared"
+const LOOT_GAINED := "loot_gained"
+const CHEST_OPENED := "chest_opened"
+const CHEST_REVEALED := "chest_revealed"
+const LEVEL_UP_AVAILABLE := "level_up_available"
+
+## LOOT_GAINED "source" values.
+const LOOT_SOURCE_CHEST := "chest"
+const LOOT_SOURCE_MONSTER := "monster"
+const LOOT_SOURCE_FLOOR := "floor"
 
 const RESULT_KINDS: Array[String] = [
 	ENCOUNTER_EVENTS, EXPLORE_STATE, ERROR, FLOOR_LOADED, CHARACTER_STATE, GAME_OVER, FLOOR_CLEARED,
-	SET_CLEARED,
+	SET_CLEARED, LOOT_GAINED, CHEST_OPENED, CHEST_REVEALED, LEVEL_UP_AVAILABLE,
 ]
 
 
@@ -92,8 +138,17 @@ static func is_intent_type(type: String) -> bool:
 	return ENCOUNTER_INTENTS.has(type) or EXPLORE_INTENTS.has(type)
 
 
+## True for intents only an Encounter resolves. USE_ITEM is NOT included (it is
+## valid both in and out of combat; see is_dual_intent).
 static func is_encounter_intent(d: Dictionary) -> bool:
-	return ENCOUNTER_INTENTS.has(str(d.get("type", "")))
+	var type := str(d.get("type", ""))
+	return ENCOUNTER_INTENTS.has(type) and not EXPLORE_INTENTS.has(type)
+
+
+## True for intents valid both in an encounter and out of combat (use_item).
+static func is_dual_intent(d: Dictionary) -> bool:
+	var type := str(d.get("type", ""))
+	return ENCOUNTER_INTENTS.has(type) and EXPLORE_INTENTS.has(type)
 
 
 ## "" when d is a well-formed intent, else a short description of the first problem.
@@ -127,6 +182,48 @@ static func validate_intent(d: Dictionary) -> String:
 				return "attack: 'attack_index' must be an int"
 			if Messages._as_int(d["attack_index"]) < 0:
 				return "attack: 'attack_index' must be >= 0"
+			if d.has("bonus") and typeof(d["bonus"]) != TYPE_BOOL:
+				return "attack: 'bonus' must be a bool"
+		CAST:
+			if not Messages._is_non_empty_string(d.get("spell")):
+				return "cast: missing or empty 'spell'"
+			if d.has("target") and not Messages._is_non_empty_string(d["target"]):
+				return "cast: 'target' must be a non-empty string"
+			if d.has("slot_level"):
+				if not Messages._is_int_like(d["slot_level"]) or Messages._as_int(d["slot_level"]) < 0:
+					return "cast: 'slot_level' must be an int >= 0"
+		USE_ITEM:
+			if not Messages._is_non_empty_string(d.get("item")):
+				return "use_item: missing or empty 'item'"
+			if d.has("target") and not Messages._is_non_empty_string(d["target"]):
+				return "use_item: 'target' must be a non-empty string"
+		USE_FEATURE:
+			if not Messages._is_non_empty_string(d.get("feature")):
+				return "use_feature: missing or empty 'feature'"
+			if d.has("target") and not Messages._is_non_empty_string(d["target"]):
+				return "use_feature: 'target' must be a non-empty string"
+			if d.has("amount"):
+				if not Messages._is_int_like(d["amount"]) or Messages._as_int(d["amount"]) < 0:
+					return "use_feature: 'amount' must be an int >= 0"
+		EQUIP:
+			if not Messages._is_non_empty_string(d.get("item")):
+				return "equip: missing or empty 'item'"
+			if not EQUIP_SLOTS.has(str(d.get("slot", ""))) or typeof(d.get("slot")) != TYPE_STRING:
+				return "equip: 'slot' must be one of %s" % str(EQUIP_SLOTS)
+		UNEQUIP:
+			if not EQUIP_SLOTS.has(str(d.get("slot", ""))) or typeof(d.get("slot")) != TYPE_STRING:
+				return "unequip: 'slot' must be one of %s" % str(EQUIP_SLOTS)
+		OPEN_CHEST:
+			if not Messages._is_non_empty_string(d.get("chest_id")):
+				return "open_chest: missing or empty 'chest_id'"
+		DROP_ITEM:
+			if not Messages._is_non_empty_string(d.get("item")):
+				return "drop_item: missing or empty 'item'"
+			if not Messages._is_int_like(d.get("qty")) or Messages._as_int(d["qty"]) < 1:
+				return "drop_item: 'qty' must be an int >= 1"
+		LEVEL_UP:
+			if typeof(d.get("choices")) != TYPE_DICTIONARY:
+				return "level_up: 'choices' must be a dictionary"
 		EXPLORE_MOVE:
 			if not Messages.is_position(d.get("target")):
 				return "explore_move: 'target' must be [x, y]"
@@ -184,6 +281,38 @@ static func validate_result(d: Dictionary) -> String:
 		CHARACTER_STATE:
 			if typeof(d.get("sheet")) != TYPE_DICTIONARY:
 				return "character_state: 'sheet' must be a dictionary"
+		LOOT_GAINED:
+			if not Messages._is_non_empty_string(d.get("entity_id")):
+				return "loot_gained: missing or empty 'entity_id'"
+			if typeof(d.get("items")) != TYPE_ARRAY:
+				return "loot_gained: 'items' must be an array"
+			var loot: Array = d["items"]
+			for it: Variant in loot:
+				if typeof(it) != TYPE_DICTIONARY:
+					return "loot_gained: every item must be a dictionary"
+				var entry: Dictionary = it
+				if not Messages._is_non_empty_string(entry.get("item")):
+					return "loot_gained: item without an 'item' id"
+				if not Messages._is_int_like(entry.get("qty")):
+					return "loot_gained: item '%s' has no int 'qty'" % str(entry.get("item"))
+			if not [LOOT_SOURCE_CHEST, LOOT_SOURCE_MONSTER, LOOT_SOURCE_FLOOR].has(str(d.get("source", ""))):
+				return "loot_gained: 'source' must be chest, monster or floor"
+		CHEST_OPENED:
+			if not Messages._is_non_empty_string(d.get("chest_id")):
+				return "chest_opened: missing or empty 'chest_id'"
+		CHEST_REVEALED:
+			if typeof(d.get("chest")) != TYPE_DICTIONARY:
+				return "chest_revealed: 'chest' must be a dictionary"
+			var chest: Dictionary = d["chest"]
+			if not Messages._is_non_empty_string(chest.get("id")):
+				return "chest_revealed: chest without an 'id'"
+			if not Messages.is_position(chest.get("position")):
+				return "chest_revealed: chest '%s' has no [x, y] position" % str(chest.get("id"))
+		LEVEL_UP_AVAILABLE:
+			if not Messages._is_non_empty_string(d.get("entity_id")):
+				return "level_up_available: missing or empty 'entity_id'"
+			if typeof(d.get("choices")) != TYPE_DICTIONARY:
+				return "level_up_available: 'choices' must be a dictionary"
 		FLOOR_CLEARED:
 			if not Messages._is_non_empty_string(d.get("floor_id")):
 				return "floor_cleared: missing or empty 'floor_id'"
