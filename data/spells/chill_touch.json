@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "chill_touch",
 	"display_name": "Chill Touch",
 	"level": 0,
@@ -13,12 +14,21 @@
 		"damage": "1d8",
 		"damage_type": "necrotic",
 		"scaling": { "5": "2d8", "11": "3d8", "17": "4d8" },
-		"on_hit": { "no_healing": true, "undead_disadvantage_vs_caster": true, "until": "caster_next_turn_start" }
+		"on_hit": {
+			"no_healing": true,
+			"undead_disadvantage_vs_caster": true,
+			"until": "caster_next_turn_start"
+		}
 	},
 	"duration": "1 round",
 	"concentration": false,
 	"components": ["V", "S"],
 	"classes": ["sorcerer", "warlock", "wizard"],
 	"source": "SRD 5.1",
-	"description": "A ghostly skeletal hand: a ranged spell attack for 1d8 necrotic damage; the target cannot regain hit points until the start of your next turn, and undead hit have disadvantage on attacks against you until then (riders not implemented yet)."
+	"description": "A ghostly skeletal hand: a ranged spell attack for 1d8 necrotic damage; the target cannot regain hit points until the start of your next turn, and undead hit have disadvantage on attacks against you until then (riders not implemented yet).",
+	"ritual": false,
+	"subclasses": ["lore"],
+	"damage_by_character_level": { "1": "1d8", "5": "2d8", "11": "3d8", "17": "4d8" },
+	"damage_type": "necrotic",
+	"srd_description": "You create a ghostly, skeletal hand in the space of a creature within range. Make a ranged spell attack against the creature to assail it with the chill of the grave. On a hit, the target takes 1d8 necrotic damage, and it can't regain hit points until the start of your next turn. Until then, the hand clings to the target.\nIf you hit an undead target, it also has disadvantage on attack rolls against you until the end of your next turn.\nThis spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8)."
 }

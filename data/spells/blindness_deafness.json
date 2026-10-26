@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "blindness_deafness",
+	"display_name": "Blindness/Deafness",
+	"level": 2,
+	"school": "necromancy",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "no direct damage roll" },
+	"duration": "1 minute",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V"],
+	"classes": ["bard", "cleric", "sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You can blind or deafen a foe. Choose one creature that you can see within range to make a constitution saving throw. If it fails, the target is either blinded or deafened (your choice) for the duration. At the end of each of its turns, the target can make a constitution saving throw. On a success, the spell ends.",
+	"higher_level": "When you cast this spell using a spell slot of 3rd level or higher, you can target one additional creature for each slot level above 2nd.",
+	"subclasses": ["fiend", "lore"],
+	"saving_throw": { "ability": "CON", "on_success": "none" }
+}

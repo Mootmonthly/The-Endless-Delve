@@ -1,0 +1,40 @@
+{
+	"schema_version": 1,
+	"id": "fireball",
+	"display_name": "Fireball",
+	"level": 3,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 150,
+	"target": "creature",
+	"effect": {
+		"type": "area_save",
+		"save": "DEX",
+		"damage": "8d6",
+		"damage_type": "fire",
+		"on_save": "half",
+		"per_slot_level_above": "1d6"
+	},
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "A bright streak flashes from your pointing finger to a point you choose within range and then blossoms with a low roar into an explosion of flame. Each creature in a 20-foot-radius sphere centered on that point must make a dexterity saving throw. A target takes 8d6 fire damage on a failed save, or half as much damage on a successful one.\nThe fire spreads around corners. It ignites flammable objects in the area that aren't being worn or carried.",
+	"material": "A tiny ball of bat guano and sulfur.",
+	"higher_level": "When you cast this spell using a spell slot of 4th level or higher, the damage increases by 1d6 for each slot level above 3rd.",
+	"subclasses": ["fiend", "lore"],
+	"area": { "shape": "sphere", "size_ft": 20 },
+	"saving_throw": { "ability": "DEX", "on_success": "half" },
+	"damage_by_slot": {
+		"3": "8d6",
+		"4": "9d6",
+		"5": "10d6",
+		"6": "11d6",
+		"7": "12d6",
+		"8": "13d6",
+		"9": "14d6"
+	},
+	"damage_type": "fire"
+}

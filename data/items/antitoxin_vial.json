@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "antitoxin_vial",
+	"display_name": "Antitoxin (vial)",
+	"kind": "misc",
+	"description": "A creature that drinks this vial of liquid gains advantage on saving throws against poison for 1 hour. It confers no benefit to undead or constructs.",
+	"weight": 0,
+	"value_gp": 50.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

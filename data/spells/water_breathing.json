@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "water_breathing",
+	"display_name": "Water Breathing",
+	"level": 3,
+	"school": "transmutation",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "24 hours",
+	"concentration": false,
+	"ritual": true,
+	"components": ["V", "S", "M"],
+	"classes": ["druid", "ranger", "sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "This spell gives a maximum of ten willing creatures within range and you can see, the ability to breathe underwater until the end of its term. Affected creatures also retain their normal breathing pattern.",
+	"material": "A short piece of reed or straw.",
+	"subclasses": ["land", "lore"]
+}

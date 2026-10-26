@@ -1,0 +1,72 @@
+{
+	"schema_version": 1,
+	"id": "knight",
+	"display_name": "Knight",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any alignment",
+	"armor_class": 18,
+	"armor_note": "plate armor",
+	"hit_points": 52,
+	"hit_dice": "8d8+16",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 16, "DEX": 11, "CON": 14, "INT": 11, "WIS": 11, "CHA": 15 },
+	"saving_throws": { "CON": 4, "WIS": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "any one language (usually Common)",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Brave",
+			"kind": "trait",
+			"description": "The knight has advantage on saving throws against being frightened.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Leadership",
+			"kind": "action",
+			"description": "For 1 minute, the knight can utter a special command or warning whenever a nonhostile creature that it can see within 30 ft. of it makes an attack roll or a saving throw. The creature can add a d4 to its roll provided it can hear and understand the knight. A creature can benefit from only one Leadership die at a time. This effect ends if the knight is incapacitated.",
+			"usage": { "rest_types": ["short", "long"], "type": "recharge after rest" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Parry",
+			"kind": "reaction",
+			"description": "The knight adds 2 to its AC against one melee attack that would hit it. To do so, the knight must see the attacker and be wielding a melee weapon.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Greatsword", "Greatsword"],
+	"multiattack_text": "The knight makes two melee attacks.",
+	"attacks": [
+		{
+			"name": "Greatsword",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "2d6+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage."
+		},
+		{
+			"name": "Heavy Crossbow",
+			"kind": "ranged",
+			"range_ft": [100, 400],
+			"to_hit": 2,
+			"damage": "1d10",
+			"damage_type": "piercing",
+			"description": "Ranged Weapon Attack: +2 to hit, range 100/400 ft., one target. Hit: 5 (1d10) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,75 @@
+{
+	"schema_version": 1,
+	"id": "bearded_devil",
+	"display_name": "Bearded Devil",
+	"size": "medium",
+	"creature_type": "fiend",
+	"subtype": "devil",
+	"alignment": "lawful evil",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 52,
+	"hit_dice": "8d8+16",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 16, "DEX": 15, "CON": 15, "INT": 9, "WIS": 11, "CHA": 11 },
+	"saving_throws": { "STR": 5, "CON": 4, "WIS": 2 },
+	"damage_resistances": [
+		"cold",
+		"bludgeoning, piercing, and slashing from nonmagical weapons that aren't silvered"
+	],
+	"damage_immunities": ["fire", "poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["poisoned"],
+	"senses": "darkvision 120 ft., passive Perception 10",
+	"languages": "Infernal, telepathy 120 ft.",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "bugbear",
+	"traits": [
+		{
+			"name": "Devil's Sight",
+			"kind": "trait",
+			"description": "Magical darkness doesn't impede the devil's darkvision.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Magic Resistance",
+			"kind": "trait",
+			"description": "The devil has advantage on saving throws against spells and other magical effects.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Steadfast",
+			"kind": "trait",
+			"description": "The devil can't be frightened while it can see an allied creature within 30 feet of it.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Beard", "Glaive"],
+	"multiattack_text": "The devil makes two attacks: one with its beard and one with its glaive.",
+	"attacks": [
+		{
+			"name": "Beard",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d8+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one creature. Hit: 6 (1d8 + 2) piercing damage, and the target must succeed on a DC 12 Constitution saving throw or be poisoned for 1 minute. While poisoned in this way, the target can't regain hit points. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success."
+		},
+		{
+			"name": "Glaive",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 5,
+			"damage": "1d10+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 10 ft., one target. Hit: 8 (1d10 + 3) slashing damage. If the target is a creature other than an undead or a construct, it must succeed on a DC 12 Constitution saving throw or lose 5 (1d10) hit points at the start of each of its turns due to an infernal wound. Each time the devil hits the wounded target with this attack, the damage dealt by the wound increases by 5 (1d10). Any creature can take an action to stanch the wound with a successful DC 12 Wisdom (Medicine) check. The wound also closes if the target receives magical healing."
+		}
+	],
+	"source": "SRD 5.1"
+}

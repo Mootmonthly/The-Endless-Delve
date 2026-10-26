@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "commune",
+	"display_name": "Commune",
+	"level": 5,
+	"school": "divination",
+	"casting_time": "1_minute",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "1 minute",
+	"concentration": false,
+	"ritual": true,
+	"components": ["V", "S", "M"],
+	"classes": ["cleric"],
+	"source": "SRD 5.1",
+	"description": "You contact your deity or a divine proxy and ask up to three questions that can be answered with a yes or no. You must ask your questions before the spell ends. You receive a correct answer for each question.\nDivine beings aren't necessarily omniscient, so you might receive \"unclear\" as an answer if a question pertains to information that lies beyond the deity's knowledge. In a case where a one-word answer could be misleading or contrary to the deity's interests, the GM might offer a short phrase as an answer instead.\nIf you cast the spell two or more times before finishing your next long rest, there is a cumulative 25 percent chance for each casting after the first that you get no answer. The GM makes this roll in secret.",
+	"casting_time_text": "1 minute",
+	"material": "Incense and a vial of holy or unholy water.",
+	"subclasses": ["devotion"]
+}

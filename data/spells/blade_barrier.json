@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"id": "blade_barrier",
+	"display_name": "Blade Barrier",
+	"level": 6,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 90,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "lingering effect" },
+	"duration": "up to 10 minutes",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["cleric"],
+	"source": "SRD 5.1",
+	"description": "You create a vertical wall of whirling, razor-sharp blades made of magical energy. The wall appears within range and lasts for the duration. You can make a straight wall up to 100 feet long, 20 feet high, and 5 feet thick, or a ringed wall up to 60 feet in diameter, 20 feet high, and 5 feet thick. The wall provides three-quarters cover to creatures behind it, and its space is difficult terrain.\nWhen a creature enters the wall's area for the first time on a turn or starts its turn there, the creature must make a dexterity saving throw. On a failed save, the creature takes 6d10 slashing damage. On a successful save, the creature takes half as much damage.",
+	"area": { "shape": "line", "size_ft": 100 },
+	"saving_throw": { "ability": "DEX", "on_success": "half" },
+	"damage_by_slot": { "6": "6d10" },
+	"damage_type": "slashing"
+}

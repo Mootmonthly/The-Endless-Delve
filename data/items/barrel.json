@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "barrel",
+	"display_name": "Barrel",
+	"kind": "misc",
+	"description": "Standard Gear: Barrel.",
+	"weight": 70,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

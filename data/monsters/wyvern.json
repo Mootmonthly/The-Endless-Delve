@@ -1,0 +1,62 @@
+{
+	"schema_version": 1,
+	"id": "wyvern",
+	"display_name": "Wyvern",
+	"size": "large",
+	"creature_type": "dragon",
+	"alignment": "unaligned",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 110,
+	"hit_dice": "13d10+39",
+	"speed": 20,
+	"speeds": { "fly": 80, "walk": 20 },
+	"abilities": { "STR": 19, "DEX": 10, "CON": 16, "INT": 5, "WIS": 12, "CHA": 6 },
+	"skills": { "PERCEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 14",
+	"languages": "",
+	"challenge_rating": 6,
+	"proficiency_bonus": 3,
+	"xp": 2300,
+	"loot_table": "boss",
+	"icon": "kobold",
+	"traits": [],
+	"multiattack": ["Bite", "Stinger"],
+	"multiattack_text": "The wyvern makes two attacks: one with its bite and one with its stinger. While flying, it can use its claws in place of one other attack.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 7,
+			"damage": "2d6+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one creature. Hit: 11 (2d6 + 4) piercing damage."
+		},
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 7,
+			"damage": "2d8+4",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) slashing damage."
+		},
+		{
+			"name": "Stinger",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 7,
+			"damage": "2d6+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one creature. Hit: 11 (2d6 + 4) piercing damage. The target must make a DC 15 Constitution saving throw, taking 24 (7d6) poison damage on a failed save, or half as much damage on a successful one."
+		}
+	],
+	"source": "SRD 5.1"
+}

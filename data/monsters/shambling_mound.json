@@ -1,0 +1,55 @@
+{
+	"schema_version": 1,
+	"id": "shambling_mound",
+	"display_name": "Shambling Mound",
+	"size": "large",
+	"creature_type": "plant",
+	"alignment": "unaligned",
+	"armor_class": 15,
+	"armor_note": "natural",
+	"hit_points": 136,
+	"hit_dice": "16d10+48",
+	"speed": 20,
+	"speeds": { "swim": 20, "walk": 20 },
+	"abilities": { "STR": 18, "DEX": 8, "CON": 16, "INT": 5, "WIS": 10, "CHA": 5 },
+	"skills": { "STEALTH": 2 },
+	"damage_resistances": ["cold", "fire"],
+	"damage_immunities": ["lightning"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["blinded", "exhaustion"],
+	"senses": "blindsight 60 ft. (blind beyond this radius), passive Perception 10",
+	"languages": "",
+	"challenge_rating": 5,
+	"proficiency_bonus": 3,
+	"xp": 1800,
+	"loot_table": "boss",
+	"icon": "giant_centipede",
+	"traits": [
+		{
+			"name": "Lightning Absorption",
+			"kind": "trait",
+			"description": "Whenever the shambling mound is subjected to lightning damage, it takes no damage and regains a number of hit points equal to the lightning damage dealt.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Engulf",
+			"kind": "action",
+			"description": "The shambling mound engulfs a Medium or smaller creature grappled by it. The engulfed target is blinded, restrained, and unable to breathe, and it must succeed on a DC 14 Constitution saving throw at the start of each of the mound's turns or take 13 (2d8 + 4) bludgeoning damage. If the mound moves, the engulfed target moves with it. The mound can have only one creature engulfed at a time.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Slam", "Slam"],
+	"multiattack_text": "The shambling mound makes two slam attacks. If both attacks hit a Medium or smaller target, the target is grappled (escape DC 14), and the shambling mound uses its Engulf on it.",
+	"attacks": [
+		{
+			"name": "Slam",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 7,
+			"damage": "2d8+4",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

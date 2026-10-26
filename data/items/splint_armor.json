@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "splint_armor",
 	"display_name": "Splint Armor",
 	"kind": "armor",
@@ -7,5 +8,12 @@
 	"weight": 60,
 	"value_gp": 200,
 	"stackable": false,
-	"armor": { "base": 17, "max_dex": 0, "category": "heavy", "stealth_disadvantage": true, "strength": 15 }
+	"armor": {
+		"base": 17,
+		"max_dex": 0,
+		"category": "heavy",
+		"stealth_disadvantage": true,
+		"strength": 15
+	},
+	"source": "SRD 5.1"
 }

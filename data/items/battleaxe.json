@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "battleaxe",
 	"display_name": "Battleaxe",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 4,
 	"value_gp": 10,
 	"stackable": true,
-	"weapon_id": "battleaxe"
+	"weapon_id": "battleaxe",
+	"source": "SRD 5.1"
 }

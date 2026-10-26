@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_invisibility",
+	"display_name": "Ring of Invisibility",
+	"kind": "misc",
+	"description": "While wearing this ring, you can turn invisible as an action. Anything you are wearing or carrying is invisible with you. You remain invisible until the ring is removed, until you attack or cast a spell, or until you use a bonus action to become visible again.",
+	"weight": 0,
+	"value_gp": 50001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, legendary (requires attunement)",
+	"rarity": "legendary",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

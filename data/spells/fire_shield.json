@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"id": "fire_shield",
+	"display_name": "Fire Shield",
+	"level": 4,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "10 minutes",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["wizard"],
+	"source": "SRD 5.1",
+	"description": "Thin and vaporous flame surround your body for the duration of the spell, radiating a bright light bright light in a 10-foot radius and dim light for an additional 10 feet. You can end the spell using an action to make it disappear.\nThe flames are around you a heat shield or cold, your choice. The heat shield gives you cold damage resistance and the cold resistance to fire damage.\nIn addition, whenever a creature within 5 feet of you hits you with a melee attack, flames spring from the shield. The attacker then suffers 2d8 points of fire damage or cold, depending on the model.",
+	"material": "A little phosphorus or a firefly.",
+	"subclasses": ["fiend"],
+	"area": { "shape": "sphere", "size_ft": 5 },
+	"damage_by_slot": { "4": "2d8" },
+	"damage_type": "fire"
+}

@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "boots_of_the_winterlands",
+	"display_name": "Boots of the Winterlands",
+	"kind": "misc",
+	"description": "These furred boots are snug and feel quite warm. While you wear them, you gain the following benefits:\n* You have resistance to cold damage.\n* You ignore difficult terrain created by ice or snow.\n* You can tolerate temperatures as low as -50 degrees Fahrenheit without any additional protection. If you wear heavy clothes, you can tolerate temperatures as low as -100 degrees Fahrenheit.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon (requires attunement)",
+	"rarity": "uncommon",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

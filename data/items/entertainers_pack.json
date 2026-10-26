@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "entertainers_pack",
+	"display_name": "Entertainer's Pack",
+	"kind": "misc",
+	"description": "Equipment Packs: Entertainer's Pack.",
+	"weight": 0,
+	"value_gp": 40.0,
+	"stackable": false,
+	"gear_category": "equipment-packs",
+	"contents": [
+		{ "item": "backpack", "qty": 1 },
+		{ "item": "bedroll", "qty": 1 },
+		{ "item": "clothes_costume", "qty": 2 },
+		{ "item": "candle", "qty": 5 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "waterskin", "qty": 1 },
+		{ "item": "disguise_kit", "qty": 1 }
+	],
+	"source": "SRD 5.1"
+}

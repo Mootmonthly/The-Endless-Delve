@@ -83,8 +83,14 @@ resolved by the owner on 2026-10-26 (GDD 5.4, 8.3, 9.3).
   Barbarian, Bard, Druid, Monk, Paladin, Ranger, Sorcerer and Warlock join the wave-1 four with their
   level-1 fight mechanics (Rage, Unarmored Defense, Martial Arts, Lay on Hands, Bardic Inspiration, Pact
   Magic, Sneak Attack, Second Wind) and spells; the remaining features are flavour until M4.
-- **Out of scope:** full spell lists, area and condition spells, subclasses, class features above level 1
-  (listed as flavour), multiplayer, trading.
+- **Progression to 20, round A (owner decision, 2026-10-26):** every class's full SRD progression is in
+  the data now, imported by `tools/import_srd.py` (GDD 8.2, 8.7): features 1-20 for all twelve classes
+  and their SRD subclass, slot tables to 20, 320 spells, invocations, metamagic, fighting styles, every
+  SRD monster with an attack roll, all SRD equipment and magic items. Mechanics land in tiers; this round
+  is the shared systems (conditions, concentration, multiple attacks, areas, upcasting) and every feature
+  through level 5. Features above that say "not yet modelled" (`"mechanic": "unsupported"`).
+- **Out of scope:** multiplayer, trading. (Full spell lists, areas, conditions and subclasses moved into
+  the progression-to-20 work above.)
 - **Exit criteria:**
   - A party can play floors 1-5 and reach safe zone 1, leveling from XP on the way (GDD 5.4 expects a
     full-clear solo to reach level 4 and a party of three level 3).
@@ -114,7 +120,9 @@ resolved by the owner on 2026-10-26 (GDD 5.4, 8.3, 9.3).
 - **In scope:** spellcasting system (concentration, areas, conditions; slots, saving throws and the
   twelve classes at level-1 depth landed early in M2); subclasses and class features above level 1;
   Paladin and Ranger spellcasting; levels 1-20 data; SRD magic items, attunement, loot tables,
-  secret loot rooms; merchant in safe zones.
+  secret loot rooms; merchant in safe zones. Already landed: the levels 1-20 data, subclass data and the
+  SRD magic item records (round A of progression to 20, M2 above); features above level 5, magic item
+  effects and attunement remain.
 - **Out of scope:** PVP, trading between players.
 - **Exit criteria:**
   - All twelve SRD classes can be created and levelled 1-20 in a headless test.

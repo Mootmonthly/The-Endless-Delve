@@ -1,0 +1,52 @@
+{
+	"schema_version": 1,
+	"id": "hunter_shark",
+	"display_name": "Hunter Shark",
+	"size": "large",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 45,
+	"hit_dice": "6d10+12",
+	"speed": 0,
+	"speeds": { "swim": 40 },
+	"abilities": { "STR": 18, "DEX": 13, "CON": 15, "INT": 1, "WIS": 10, "CHA": 4 },
+	"skills": { "PERCEPTION": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 30 ft., passive Perception 12",
+	"languages": "",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Blood Frenzy",
+			"kind": "trait",
+			"description": "The shark has advantage on melee attack rolls against any creature that doesn't have all its hit points.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Water Breathing",
+			"kind": "trait",
+			"description": "The shark can breathe only underwater.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d8+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

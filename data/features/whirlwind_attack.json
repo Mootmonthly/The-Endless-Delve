@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "whirlwind_attack",
+	"display_name": "Multiattack: Whirlwind Attack",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 11,
+	"description": "You can use your action to make a melee attack against any number of creatures within 5 feet of you, with a separate attack roll for each target.",
+	"option_of": "multiattack",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

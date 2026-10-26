@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "trident",
+	"display_name": "Trident",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 1d6 piercing (thrown, versatile), range 20/60 ft.",
+	"weight": 4,
+	"value_gp": 5.0,
+	"stackable": true,
+	"weapon_id": "trident",
+	"source": "SRD 5.1"
+}

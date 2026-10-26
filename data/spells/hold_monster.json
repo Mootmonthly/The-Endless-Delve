@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "hold_monster",
+	"display_name": "Hold Monster",
+	"level": 5,
+	"school": "enchantment",
+	"casting_time": "action",
+	"range_ft": 90,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "no direct damage roll" },
+	"duration": "up to 1 minute",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "sorcerer", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "Choose a creature you can see and reach. The target must make a saving throw of Wisdom or be paralyzed for the duration of the spell. This spell has no effect against the undead. At the end of each round, the target can make a new saving throw of Wisdom. If successful, the spell ends for the creature.",
+	"material": "A small piece of iron.",
+	"higher_level": "When you cast this spell using a level 6 or higher location, you can target an additional creature for each level of location beyond the fifth. The creatures must be within 30 feet o f each other when you target them.",
+	"saving_throw": { "ability": "WIS", "on_success": "none" }
+}

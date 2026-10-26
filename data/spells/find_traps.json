@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "find_traps",
+	"display_name": "Find Traps",
+	"level": 2,
+	"school": "divination",
+	"casting_time": "action",
+	"range_ft": 120,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["cleric", "druid", "ranger"],
+	"source": "SRD 5.1",
+	"description": "You sense the presence of any trap within range that is within line of sight. A trap, for the purpose of this spell, includes anything that would inflict a sudden or unexpected effect you consider harmful or undesirable, which was specifically intended as such by its creator. Thus, the spell would sense an area affected by the alarm spell, a glyph of warding, or a mechanical pit trap, but it would not reveal a natural weakness in the floor, an unstable ceiling, or a hidden sinkhole.\nThis spell merely reveals that a trap is present. You don't learn the location of each trap, but you do learn the general nature of the danger posed by a trap you sense.",
+	"subclasses": ["lore"]
+}

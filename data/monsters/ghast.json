@@ -1,0 +1,61 @@
+{
+	"schema_version": 1,
+	"id": "ghast",
+	"display_name": "Ghast",
+	"size": "medium",
+	"creature_type": "undead",
+	"alignment": "chaotic evil",
+	"armor_class": 13,
+	"hit_points": 36,
+	"hit_dice": "8d8",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 16, "DEX": 17, "CON": 10, "INT": 11, "WIS": 10, "CHA": 8 },
+	"damage_resistances": ["necrotic"],
+	"damage_immunities": ["poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["poisoned", "charmed", "exhaustion"],
+	"senses": "darkvision 60 ft., passive Perception 10",
+	"languages": "Common",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "skeleton",
+	"traits": [
+		{
+			"name": "Stench",
+			"kind": "trait",
+			"description": "Any creature that starts its turn within 5 ft. of the ghast must succeed on a DC 10 Constitution saving throw or be poisoned until the start of its next turn. On a successful saving throw, the creature is immune to the ghast's Stench for 24 hours.",
+			"dc": { "ability": "CON", "value": 10, "on_success": "none" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Turn Defiance",
+			"kind": "trait",
+			"description": "The ghast and any ghouls within 30 ft. of it have advantage on saving throws against effects that turn undead.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "2d8+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 12 (2d8 + 3) piercing damage."
+		},
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "2d6+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage. If the target is a creature other than an undead, it must succeed on a DC 10 Constitution saving throw or be paralyzed for 1 minute. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "lands_stride",
+	"display_name": "Land's Stride",
+	"class": "ranger",
+	"classes": ["druid", "ranger"],
+	"subclass_by_class": { "druid": "land" },
+	"level": 6,
+	"levels": [6, 8],
+	"levels_by_class": { "druid": [6], "ranger": [8] },
+	"description": "Starting at 8th level, moving through nonmagical difficult terrain costs you no extra movement. You can also pass through nonmagical plants without being slowed by them and without taking damage from them if they have thorns, spines, or a similar hazard.\nIn addition, you have advantage on saving throws against plants that are magically created or manipulated to impede movement, such those created by the entangle spell.",
+	"description_by_class": {
+		"druid": "Starting at 6th level, moving through nonmagical difficult terrain costs you no extra movement. You can also pass through nonmagical plants without being slowed by them and without taking damage from them if they have thorns, spines, or a similar hazard.\nIn addition, you have advantage on saving throws against plants that are magically created or manipulated to impede movement, such those created by the entangle spell.",
+		"ranger": "Starting at 8th level, moving through nonmagical difficult terrain costs you no extra movement. You can also pass through nonmagical plants without being slowed by them and without taking damage from them if they have thorns, spines, or a similar hazard.\nIn addition, you have advantage on saving throws against plants that are magically created or manipulated to impede movement, such those created by the entangle spell."
+	},
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

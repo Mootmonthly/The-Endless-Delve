@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "fire_bolt",
 	"display_name": "Fire Bolt",
 	"level": 0,
@@ -19,5 +20,9 @@
 	"components": ["V", "S"],
 	"classes": ["sorcerer", "wizard"],
 	"source": "SRD 5.1",
-	"description": "Hurl a mote of fire: a ranged spell attack that deals 1d10 fire damage on a hit."
+	"description": "Hurl a mote of fire: a ranged spell attack that deals 1d10 fire damage on a hit.",
+	"ritual": false,
+	"damage_by_character_level": { "1": "1d10", "5": "2d10", "11": "3d10", "17": "4d10" },
+	"damage_type": "fire",
+	"srd_description": "You hurl a mote of fire at a creature or object within range. Make a ranged spell attack against the target. On a hit, the target takes 1d10 fire damage. A flammable object hit by this spell ignites if it isn't being worn or carried.\nThis spell's damage increases by 1d10 when you reach 5th level (2d10), 11th level (3d10), and 17th level (4d10)."
 }

@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "gloves_of_missile_snaring",
+	"display_name": "Gloves of Missile Snaring",
+	"kind": "misc",
+	"description": "These gloves seem to almost meld into your hands when you don them. When a ranged weapon attack hits you while you're wearing them, you can use your reaction to reduce the damage by 1d10 + your Dexterity modifier, provided that you have a free hand. If you reduce the damage to 0, you can catch the missile if it is small enough for you to hold in that hand.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon (requires attunement)",
+	"rarity": "uncommon",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

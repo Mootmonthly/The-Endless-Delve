@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "aura_improvements",
+	"display_name": "Aura improvements",
+	"class": "paladin",
+	"level": 18,
+	"description": "At 18th level, the range of your auras increase to 30 feet.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

@@ -387,41 +387,370 @@ class, speed, features, spell slots, equipment and attunement.
 **Proposal (needs owner sign-off):** ability scores use the SRD standard array or point buy only; no
 rolled stats online (avoids rerolling abuse and keeps PVP fair). Offline mode may allow rolled stats.
 
-### 8.2 Classes at launch
+### 8.2 Classes
 
-**Owner request (playtest round 1):** all twelve SRD classes are playable from M2 at level-1 depth. The
-original plan shipped Fighter, Rogue, Cleric and Wizard first (M1-M3) and the other eight in M4; wave 2
-landed early, with each class's level-1 features that matter in a fight implemented and the rest listed
-as flavour until later milestones. Class data lives in `data/classes/<id>.json` (SRD 5.1 hit dice, saves,
-proficiencies and skill lists); every class also starts with 2 potions of healing, 5 rations and 10 gp.
+**Owner decision (progression to 20):** every class gets its full SRD 5.1 progression to level 20. All
+of the data is in place (`tools/import_srd.py` imports it, 8.7); the rules engine implements it in tiers.
+Tier 1 (this round) is the shared systems (conditions, concentration, multiple attacks, areas of effect,
+slots to 9th level and upcasting, fighting styles) plus every class and subclass feature through level 5.
+Anything not modelled yet is still listed: its `data/features/<id>.json` says `"mechanic": "unsupported"`
+and the level-up screen labels it "not yet modelled". `"implemented"` is set only for ids in
+`Features.IMPLEMENTED` (`src/core/rules/features.gd`); at the time of writing 98 of 192
+feature records are implemented.
 
-| Class | Hit die | Saves | Starting gear (equipped; carried) | M2 level-1 mechanics | Deferred |
+Class data lives in `data/classes/<id>.json`: hit dice, saves, proficiencies and skill lists, the
+hand-tuned starter kit (every class also starts with 2 potions of healing, 5 rations and 10 gp), and the
+imported progression (`features_by_level` 1-20, `asi_levels`, `subclass`, `spell_slots`, `cantrips_known`,
+`spells_known`, `spell_list`, `fighting_styles`, `expertise_levels`, `invocations_known`,
+`metamagic_known`, and per-level `tables` such as `rage_uses`, `sneak_attack_dice`, `ki_points`).
+
+| Class | Hit die | Saves | Starting gear (equipped; carried) | Spellcasting | Subclass (level) |
 |---|---|---|---|---|---|
-| Barbarian | d12 | STR, CON | greataxe, no armor; 2 handaxes | Rage (bonus action, 2 per long rest, until the encounter ends: +2 damage on Strength melee attacks, resistance to bludgeoning, piercing and slashing); Unarmored Defense (AC 10 + DEX + CON, shield allowed) | Reckless Attack, Danger Sense (2), Primal Path (3) |
-| Bard | d8 | DEX, CHA | rapier, leather armor; dagger | Spellcasting (CHA, known caster): Vicious Mockery, Healing Word, Cure Wounds; Bardic Inspiration (bonus action, CHA-modifier uses per long rest, a d6 added to an ally's next attack roll within 60 ft) | Inspiration on checks and saves, Jack of All Trades, Song of Rest (2), College, Expertise (3) |
-| Cleric | d8 | WIS, CHA | mace, scale mail, shield; light crossbow, 20 bolts, holy symbol | Spellcasting (WIS, prepared): Sacred Flame, Cure Wounds, Healing Word, Guiding Bolt | Divine Domain features, Channel Divinity (2) |
-| Druid | d8 | INT, WIS | scimitar, leather armor, shield | Spellcasting (WIS, prepared): Produce Flame, Cure Wounds, Healing Word | Druidic, Wild Shape and Druid Circle (2) |
-| Fighter | d10 | STR, CON | longsword, chain mail; 2 handaxes | Second Wind (bonus action, 1d10 + level hit points, once per short or long rest) | Fighting Style, Action Surge (2), Martial Archetype (3) |
-| Monk | d8 | STR, DEX | shortsword, no armor; 10 darts | Unarmored Defense (AC 10 + DEX + WIS, no shield); Martial Arts (unarmed strike 1d4, DEX for unarmed and monk weapons, a bonus-action unarmed strike after the Attack action) | Ki, Unarmored Movement (2), Monastic Tradition, Deflect Missiles (3) |
-| Paladin | d10 | WIS, CHA | longsword, chain mail, shield; holy symbol | Lay on Hands (action, pool of 5 x level hit points per long rest, touch, can bring a dying ally up); Divine Sense (flavour) | Spellcasting (CHA, prepared, from level 2), Fighting Style, Divine Smite (2), Sacred Oath (3) |
-| Ranger | d10 | STR, DEX | shortsword, leather armor; second shortsword, longbow, 20 arrows | Favored Enemy and Natural Explorer (flavour) | Spellcasting (WIS, known, from level 2), Fighting Style (2), Archetype (3) |
-| Rogue | d8 | DEX, INT | shortsword, leather armor; 4 daggers, thieves' tools | Sneak Attack (once per turn, +1d6 per two levels rounded up, finesse or ranged weapon, with advantage or an ally adjacent to the target and no disadvantage) | Expertise, Thieves' Cant, Cunning Action (2), Archetype (3) |
-| Sorcerer | d6 | CON, CHA | dagger; second dagger, light crossbow, 20 bolts, component pouch | Spellcasting (CHA, known caster): Fire Bolt, Ray of Frost, Magic Missile, Mage Armor | Sorcerous Origin, Font of Magic (2), Metamagic (3) |
-| Warlock | d8 | WIS, CHA | dagger, leather armor; light crossbow, 20 bolts, component pouch | Pact Magic (CHA, known caster, slots recover on a short rest): Eldritch Blast (one beam at level 1), Chill Touch, Hex (bonus action: +1d6 necrotic on the caster's hits against the target until the encounter ends) | Otherworldly Patron, Eldritch Invocations (2), Pact Boon (3) |
-| Wizard | d6 | INT, WIS | quarterstaff; 2 daggers, spellbook, component pouch | Spellcasting (INT, prepared from a spellbook of six): Fire Bolt, Ray of Frost, Magic Missile, Mage Armor | Arcane Recovery, Arcane Tradition (2), ritual casting |
+| Barbarian | d12 | STR, CON | greataxe, no armor; 2 handaxes | none | Path of the Berserker (3) |
+| Bard | d8 | DEX, CHA | rapier, leather armor; dagger | CHA, known, full caster | College of Lore (3) |
+| Cleric | d8 | WIS, CHA | mace, scale mail, shield; light crossbow, 20 bolts, holy symbol | WIS, prepared, full caster | Life Domain (1) |
+| Druid | d8 | INT, WIS | scimitar, leather armor, shield | WIS, prepared, full caster | Circle of the Land (2) |
+| Fighter | d10 | STR, CON | longsword, chain mail; 2 handaxes | none | Champion (3) |
+| Monk | d8 | STR, DEX | shortsword, no armor; 10 darts | none | Way of the Open Hand (3) |
+| Paladin | d10 | WIS, CHA | longsword, chain mail, shield; holy symbol | CHA, prepared, half caster from 2 | Oath of Devotion (3) |
+| Ranger | d10 | STR, DEX | shortsword, leather armor; second shortsword, longbow, 20 arrows | WIS, known, half caster from 2 | Hunter (3) |
+| Rogue | d8 | DEX, INT | shortsword, leather armor; 4 daggers, thieves' tools | none | Thief (3) |
+| Sorcerer | d6 | CON, CHA | dagger; second dagger, light crossbow, 20 bolts, component pouch | CHA, known, full caster | Draconic Bloodline (1) |
+| Warlock | d8 | WIS, CHA | dagger, leather armor; light crossbow, 20 bolts, component pouch | CHA, known, pact magic | The Fiend (1) |
+| Wizard | d6 | INT, WIS | quarterstaff; 2 daggers, spellbook, component pouch | INT, prepared from a spellbook, full caster | School of Evocation (2) |
 
-Notes:
+**Subclasses.** The SRD 5.1 has exactly one subclass per class (the table above), so the subclass
+"choice" at the class's subclass level has one option. Its features sit in `subclass.features_by_level`;
+domain, oath and circle spells in `subclass.spells_by_level` (always prepared; the Fiend's list is an
+expanded list instead), and the Circle of the Land's spells by terrain in `subclass.spells_by_terrain`.
+Other subclasses are not in the SRD and must not be added (`docs/licensing.md`).
 
-- Spell slots per level follow the SRD tables (full casters 2, 3, 4+2, 4+3, 4+3+2 for levels 1-5; the
-  warlock's pact slots 1, 2, then 2 of 2nd level, then 2 of 3rd level at 5). Paladin and Ranger have no
-  spells at level 1 in the SRD; their level-2 spellcasting is a later task (their spell lists are already
-  in the data for the level-up screen, 8.6).
-- Hex is the only SRD 5.2 spell in the data (`"source": "SRD 5.2"`); everything else is SRD 5.1. See
-  `docs/licensing.md` for the two attribution statements.
-- Armor proficiency is not enforced in M2; shields need an empty off hand.
-- Subclasses: each class gets its SRD subclass when its subclass level is implemented.
+**Spells known and prepared.**
 
-Multiclassing: **Proposal (needs owner sign-off):** not at launch; reconsider after Early Access.
+- Known casters (Bard, Ranger, Sorcerer, Warlock) know `spells_known[level]` spells from their
+  `spell_list`, any level they have a slot for, and may swap one known spell when they gain a level.
+  The Ranger knows none at level 1 and learns 2 at level 2.
+- Prepared casters (Cleric, Druid, Wizard) prepare spellcasting modifier + class level spells (minimum 1)
+  after each long rest; the Paladin prepares CHA modifier + half its paladin level (rounded down,
+  minimum 1). Domain, oath and circle spells are always prepared and do not count against that number.
+  The Wizard prepares from its spellbook (six 1st-level spells at level 1, two more per level).
+- Cantrips known grow at levels 4 and 10 (`cantrips_known`); Paladin and Ranger learn no cantrips.
+- Slots follow the SRD tables to 20 (`spell_slots`): full casters reach 4/3/3/3/3/2/2/1/1 at 20, the
+  Paladin and Ranger 4/3/3/3/2 (from level 2), and the Warlock's pact slots are all of one level (four
+  5th-level slots at 17-20) and return on a short rest; Mystic Arcanum gives one 6th-9th level spell each
+  per long rest.
+- Hex is the only SRD 5.2 spell in the data (`"source": "SRD 5.2"`); everything else is SRD 5.1.
+
+Armor proficiency is not enforced yet; shields need an empty off hand. Multiclassing: **Proposal (needs
+owner sign-off):** not at launch; reconsider after Early Access.
+
+#### Progression to level 20
+
+One table per class: class features and subclass features by level, with the spell slot row for casters
+(slots per spell level, 1st first). *(not yet)* marks a feature whose mechanic is not modelled; a repeated
+name is the SRD improvement of an earlier feature (more uses, a bigger die, a higher CR). The data in
+`data/classes` and `data/features` is authoritative; regenerate this list when `Features.IMPLEMENTED`
+grows.
+
+#### Barbarian (subclass: Berserker, Primal Path 3)
+
+| Lv | Features | Berserker features |
+|---|---|---|
+| 1 | Rage, Unarmored Defense | - |
+| 2 | Reckless Attack, Danger Sense | - |
+| 3 | Primal Path | Frenzy |
+| 4 | Ability Score Improvement | - |
+| 5 | Extra Attack, Fast Movement | - |
+| 6 | - | Mindless Rage *(not yet)* |
+| 7 | Feral Instinct *(not yet)* | - |
+| 8 | Ability Score Improvement | - |
+| 9 | Brutal Critical *(not yet)* | - |
+| 10 | - | Intimidating Presence *(not yet)* |
+| 11 | Relentless Rage *(not yet)* | - |
+| 12 | Ability Score Improvement | - |
+| 13 | Brutal Critical *(not yet)* | - |
+| 14 | - | Retaliation *(not yet)* |
+| 15 | Persistent Rage *(not yet)* | - |
+| 16 | Ability Score Improvement | - |
+| 17 | Brutal Critical *(not yet)* | - |
+| 18 | Indomitable Might *(not yet)* | - |
+| 19 | Ability Score Improvement | - |
+| 20 | Primal Champion *(not yet)* | - |
+
+#### Bard (subclass: Lore, Bard College 3)
+
+| Lv | Features | Lore features | Slots |
+|---|---|---|---|
+| 1 | Spellcasting, Bardic Inspiration | - | 2 |
+| 2 | Jack of All Trades *(not yet)*, Song of Rest | - | 3 |
+| 3 | Expertise, Bard College | Bonus Proficiencies, Cutting Words *(not yet)* | 4/2 |
+| 4 | Ability Score Improvement | - | 4/3 |
+| 5 | Bardic Inspiration (improves), Font of Inspiration | - | 4/3/2 |
+| 6 | Countercharm *(not yet)* | Additional Magical Secrets *(not yet)* | 4/3/3 |
+| 7 | - | - | 4/3/3/1 |
+| 8 | Ability Score Improvement | - | 4/3/3/2 |
+| 9 | Song of Rest (improves) | - | 4/3/3/3/1 |
+| 10 | Expertise (improves), Bardic Inspiration (improves), Magical Secrets *(not yet)* | - | 4/3/3/3/2 |
+| 11 | - | - | 4/3/3/3/2/1 |
+| 12 | Ability Score Improvement | - | 4/3/3/3/2/1 |
+| 13 | Song of Rest (improves) | - | 4/3/3/3/2/1/1 |
+| 14 | Magical Secrets *(not yet)* | Peerless Skill *(not yet)* | 4/3/3/3/2/1/1 |
+| 15 | Bardic Inspiration (improves) | - | 4/3/3/3/2/1/1/1 |
+| 16 | Ability Score Improvement | - | 4/3/3/3/2/1/1/1 |
+| 17 | Song of Rest (improves) | - | 4/3/3/3/2/1/1/1/1 |
+| 18 | Magical Secrets *(not yet)* | - | 4/3/3/3/3/1/1/1/1 |
+| 19 | Ability Score Improvement | - | 4/3/3/3/3/2/1/1/1 |
+| 20 | Superior Inspiration *(not yet)* | - | 4/3/3/3/3/2/2/1/1 |
+
+#### Cleric (subclass: Life, Divine Domain 1)
+
+| Lv | Features | Life features | Slots |
+|---|---|---|---|
+| 1 | Spellcasting, Divine Domain | Domain Spells, Bonus Proficiency, Disciple of Life | 2 |
+| 2 | Channel Divinity, CD: Turn Undead | CD: Preserve Life | 3 |
+| 3 | - | - | 4/2 |
+| 4 | Ability Score Improvement | - | 4/3 |
+| 5 | Destroy Undead | - | 4/3/2 |
+| 6 | Channel Divinity (improves) | Blessed Healer *(not yet)* | 4/3/3 |
+| 7 | - | - | 4/3/3/1 |
+| 8 | Ability Score Improvement, Destroy Undead (improves) | Divine Strike *(not yet)* | 4/3/3/2 |
+| 9 | - | - | 4/3/3/3/1 |
+| 10 | Divine Intervention *(not yet)* | - | 4/3/3/3/2 |
+| 11 | Destroy Undead (improves) | - | 4/3/3/3/2/1 |
+| 12 | Ability Score Improvement | - | 4/3/3/3/2/1 |
+| 13 | - | - | 4/3/3/3/2/1/1 |
+| 14 | Destroy Undead (improves) | - | 4/3/3/3/2/1/1 |
+| 15 | - | - | 4/3/3/3/2/1/1/1 |
+| 16 | Ability Score Improvement | - | 4/3/3/3/2/1/1/1 |
+| 17 | Destroy Undead (improves) | Supreme Healing *(not yet)* | 4/3/3/3/2/1/1/1/1 |
+| 18 | Channel Divinity (improves) | - | 4/3/3/3/3/1/1/1/1 |
+| 19 | Ability Score Improvement | - | 4/3/3/3/3/2/1/1/1 |
+| 20 | Divine Intervention *(not yet)* | - | 4/3/3/3/3/2/2/1/1 |
+
+#### Druid (subclass: Land, Druid Circle 2)
+
+| Lv | Features | Land features | Slots |
+|---|---|---|---|
+| 1 | Spellcasting, Druidic | - | 2 |
+| 2 | Wild Shape *(not yet)*, Druid Circle | Bonus Cantrip, Natural Recovery | 3 |
+| 3 | - | Circle Spells | 4/2 |
+| 4 | Wild Shape *(not yet)*, Ability Score Improvement | - | 4/3 |
+| 5 | - | - | 4/3/2 |
+| 6 | - | Land's Stride *(not yet)* | 4/3/3 |
+| 7 | - | - | 4/3/3/1 |
+| 8 | Wild Shape *(not yet)*, Ability Score Improvement | - | 4/3/3/2 |
+| 9 | - | - | 4/3/3/3/1 |
+| 10 | - | Nature's Ward *(not yet)* | 4/3/3/3/2 |
+| 11 | - | - | 4/3/3/3/2/1 |
+| 12 | Ability Score Improvement | - | 4/3/3/3/2/1 |
+| 13 | - | - | 4/3/3/3/2/1/1 |
+| 14 | - | Nature's Sanctuary *(not yet)* | 4/3/3/3/2/1/1 |
+| 15 | - | - | 4/3/3/3/2/1/1/1 |
+| 16 | Ability Score Improvement | - | 4/3/3/3/2/1/1/1 |
+| 17 | - | - | 4/3/3/3/2/1/1/1/1 |
+| 18 | Timeless Body *(not yet)*, Beast Spells *(not yet)* | - | 4/3/3/3/3/1/1/1/1 |
+| 19 | Ability Score Improvement | - | 4/3/3/3/3/2/1/1/1 |
+| 20 | Archdruid *(not yet)* | - | 4/3/3/3/3/2/2/1/1 |
+
+#### Fighter (subclass: Champion, Martial Archetype 3)
+
+| Lv | Features | Champion features |
+|---|---|---|
+| 1 | Fighting Style, Second Wind | - |
+| 2 | Action Surge | - |
+| 3 | Martial Archetype | Improved Critical |
+| 4 | Ability Score Improvement | - |
+| 5 | Extra Attack | - |
+| 6 | Ability Score Improvement | - |
+| 7 | - | Remarkable Athlete *(not yet)* |
+| 8 | Ability Score Improvement | - |
+| 9 | Indomitable *(not yet)* | - |
+| 10 | - | Additional Fighting Style *(not yet)* |
+| 11 | Extra Attack (improves) | - |
+| 12 | Ability Score Improvement | - |
+| 13 | Indomitable *(not yet)* | - |
+| 14 | Ability Score Improvement | - |
+| 15 | - | Superior Critical *(not yet)* |
+| 16 | Ability Score Improvement | - |
+| 17 | Action Surge (improves), Indomitable *(not yet)* | - |
+| 18 | - | Survivor *(not yet)* |
+| 19 | Ability Score Improvement | - |
+| 20 | Extra Attack (improves) | - |
+
+#### Monk (subclass: Open Hand, Monastic Tradition 3)
+
+| Lv | Features | Open Hand features |
+|---|---|---|
+| 1 | Unarmored Defense, Martial Arts | - |
+| 2 | Ki, Flurry of Blows, Patient Defense, Step of the Wind, Unarmored Movement | - |
+| 3 | Monastic Tradition, Deflect Missiles | Open Hand Technique |
+| 4 | Ability Score Improvement, Slow Fall *(not yet)* | - |
+| 5 | Extra Attack, Stunning Strike | - |
+| 6 | Ki Empowered Strikes *(not yet)* | Wholeness of Body *(not yet)* |
+| 7 | Evasion *(not yet)*, Stillness of Mind *(not yet)* | - |
+| 8 | Ability Score Improvement | - |
+| 9 | Unarmored Movement (improves) | - |
+| 10 | Purity of Body *(not yet)* | - |
+| 11 | - | Tranquility *(not yet)* |
+| 12 | Ability Score Improvement | - |
+| 13 | Tongue of the Sun and Moon *(not yet)* | - |
+| 14 | Diamond Soul *(not yet)* | - |
+| 15 | Timeless Body *(not yet)* | - |
+| 16 | Ability Score Improvement | - |
+| 17 | - | Quivering Palm *(not yet)* |
+| 18 | Empty Body *(not yet)* | - |
+| 19 | Ability Score Improvement | - |
+| 20 | Perfect Self *(not yet)* | - |
+
+#### Paladin (subclass: Devotion, Sacred Oath 3)
+
+| Lv | Features | Devotion features | Slots |
+|---|---|---|---|
+| 1 | Divine Sense, Lay on Hands | - | - |
+| 2 | Fighting Style, Spellcasting, Divine Smite | - | 2 |
+| 3 | Divine Health, Sacred Oath, Channel Divinity | Oath Spells, CD: Sacred Weapon, CD: Turn the Unholy | 3 |
+| 4 | Ability Score Improvement | - | 3 |
+| 5 | Extra Attack | - | 4/2 |
+| 6 | Aura of Protection *(not yet)* | - | 4/2 |
+| 7 | - | Aura of Devotion *(not yet)* | 4/3 |
+| 8 | Ability Score Improvement | - | 4/3 |
+| 9 | - | - | 4/3/2 |
+| 10 | Aura of Courage *(not yet)* | - | 4/3/2 |
+| 11 | Improved Divine Smite *(not yet)* | - | 4/3/3 |
+| 12 | Ability Score Improvement | - | 4/3/3 |
+| 13 | - | - | 4/3/3/1 |
+| 14 | Cleansing Touch *(not yet)* | - | 4/3/3/1 |
+| 15 | - | Purity of Spirit *(not yet)* | 4/3/3/2 |
+| 16 | Ability Score Improvement | - | 4/3/3/2 |
+| 17 | - | - | 4/3/3/3/1 |
+| 18 | Aura improvements *(not yet)* | - | 4/3/3/3/1 |
+| 19 | Ability Score Improvement | - | 4/3/3/3/2 |
+| 20 | - | Holy Nimbus *(not yet)* | 4/3/3/3/2 |
+
+#### Ranger (subclass: Hunter, Ranger Archetype 3)
+
+| Lv | Features | Hunter features | Slots |
+|---|---|---|---|
+| 1 | Favored Enemy, Natural Explorer | - | - |
+| 2 | Fighting Style, Spellcasting | - | 2 |
+| 3 | Ranger Archetype, Primeval Awareness *(not yet)* | Hunter's Prey | 3 |
+| 4 | Ability Score Improvement | - | 3 |
+| 5 | Extra Attack | - | 4/2 |
+| 6 | Favored Enemy (improves), Natural Explorer (improves) | - | 4/2 |
+| 7 | - | Defensive Tactics *(not yet)* | 4/3 |
+| 8 | Ability Score Improvement, Land's Stride *(not yet)* | - | 4/3 |
+| 9 | - | - | 4/3/2 |
+| 10 | Natural Explorer (improves), Hide in Plain Sight *(not yet)* | - | 4/3/2 |
+| 11 | - | Multiattack *(not yet)* | 4/3/3 |
+| 12 | Ability Score Improvement | - | 4/3/3 |
+| 13 | - | - | 4/3/3/1 |
+| 14 | Favored Enemy (improves), Vanish *(not yet)* | - | 4/3/3/1 |
+| 15 | - | Superior Hunter's Defense *(not yet)* | 4/3/3/2 |
+| 16 | Ability Score Improvement | - | 4/3/3/2 |
+| 17 | - | - | 4/3/3/3/1 |
+| 18 | Feral Senses *(not yet)* | - | 4/3/3/3/1 |
+| 19 | Ability Score Improvement | - | 4/3/3/3/2 |
+| 20 | Foe Slayer *(not yet)* | - | 4/3/3/3/2 |
+
+#### Rogue (subclass: Thief, Roguish Archetype 3)
+
+| Lv | Features | Thief features |
+|---|---|---|
+| 1 | Expertise, Sneak Attack, Thieves' Cant | - |
+| 2 | Cunning Action | - |
+| 3 | Roguish Archetype | Fast Hands, Second-Story Work |
+| 4 | Ability Score Improvement | - |
+| 5 | Uncanny Dodge | - |
+| 6 | Expertise (improves) | - |
+| 7 | Evasion *(not yet)* | - |
+| 8 | Ability Score Improvement | - |
+| 9 | - | Supreme Sneak *(not yet)* |
+| 10 | Ability Score Improvement | - |
+| 11 | Reliable Talent *(not yet)* | - |
+| 12 | Ability Score Improvement | - |
+| 13 | - | Use Magic Device *(not yet)* |
+| 14 | Blindsense *(not yet)* | - |
+| 15 | Slippery Mind *(not yet)* | - |
+| 16 | Ability Score Improvement | - |
+| 17 | - | Thief's Reflexes *(not yet)* |
+| 18 | Elusive *(not yet)* | - |
+| 19 | Ability Score Improvement | - |
+| 20 | Stroke of Luck *(not yet)* | - |
+
+#### Sorcerer (subclass: Draconic, Sorcerous Origin 1)
+
+| Lv | Features | Draconic features | Slots |
+|---|---|---|---|
+| 1 | Spellcasting, Sorcerous Origin | Dragon Ancestor, Draconic Resilience | 2 |
+| 2 | Font of Magic | - | 3 |
+| 3 | Metamagic | - | 4/2 |
+| 4 | Ability Score Improvement | - | 4/3 |
+| 5 | - | - | 4/3/2 |
+| 6 | - | Elemental Affinity *(not yet)* | 4/3/3 |
+| 7 | - | - | 4/3/3/1 |
+| 8 | Ability Score Improvement | - | 4/3/3/2 |
+| 9 | - | - | 4/3/3/3/1 |
+| 10 | Metamagic (improves) | - | 4/3/3/3/2 |
+| 11 | - | - | 4/3/3/3/2/1 |
+| 12 | Ability Score Improvement | - | 4/3/3/3/2/1 |
+| 13 | - | - | 4/3/3/3/2/1/1 |
+| 14 | - | Dragon Wings *(not yet)* | 4/3/3/3/2/1/1 |
+| 15 | - | - | 4/3/3/3/2/1/1/1 |
+| 16 | Ability Score Improvement | - | 4/3/3/3/2/1/1/1 |
+| 17 | Metamagic (improves) | - | 4/3/3/3/2/1/1/1/1 |
+| 18 | - | Draconic Presence *(not yet)* | 4/3/3/3/3/1/1/1/1 |
+| 19 | Ability Score Improvement | - | 4/3/3/3/3/2/1/1/1 |
+| 20 | Sorcerous Restoration *(not yet)* | - | 4/3/3/3/3/2/2/1/1 |
+
+#### Warlock (subclass: Fiend, Otherworldly Patron 1)
+
+| Lv | Features | Fiend features | Slots |
+|---|---|---|---|
+| 1 | Otherworldly Patron, Pact Magic | Expanded Spell List, Dark One's Blessing | 1 |
+| 2 | Eldritch Invocations | - | 2 |
+| 3 | Pact Boon | - | 0/2 |
+| 4 | Ability Score Improvement | - | 0/2 |
+| 5 | - | - | 0/0/2 |
+| 6 | - | Dark One's Own Luck *(not yet)* | 0/0/2 |
+| 7 | - | - | 0/0/0/2 |
+| 8 | Ability Score Improvement | - | 0/0/0/2 |
+| 9 | - | - | 0/0/0/0/2 |
+| 10 | - | Fiendish Resilience *(not yet)* | 0/0/0/0/2 |
+| 11 | Mystic Arcanum *(not yet)* | - | 0/0/0/0/3 |
+| 12 | Ability Score Improvement | - | 0/0/0/0/3 |
+| 13 | Mystic Arcanum *(not yet)* | - | 0/0/0/0/3 |
+| 14 | - | Hurl Through Hell *(not yet)* | 0/0/0/0/3 |
+| 15 | Mystic Arcanum *(not yet)* | - | 0/0/0/0/3 |
+| 16 | Ability Score Improvement | - | 0/0/0/0/3 |
+| 17 | Mystic Arcanum *(not yet)* | - | 0/0/0/0/4 |
+| 18 | - | - | 0/0/0/0/4 |
+| 19 | Ability Score Improvement | - | 0/0/0/0/4 |
+| 20 | Eldritch Master *(not yet)* | - | 0/0/0/0/4 |
+
+#### Wizard (subclass: Evocation, Arcane Tradition 2)
+
+| Lv | Features | Evocation features | Slots |
+|---|---|---|---|
+| 1 | Spellcasting, Arcane Recovery | - | 2 |
+| 2 | Arcane Tradition | Evocation Savant, Sculpt Spells | 3 |
+| 3 | - | - | 4/2 |
+| 4 | Ability Score Improvement | - | 4/3 |
+| 5 | - | - | 4/3/2 |
+| 6 | - | Potent Cantrip *(not yet)* | 4/3/3 |
+| 7 | - | - | 4/3/3/1 |
+| 8 | Ability Score Improvement | - | 4/3/3/2 |
+| 9 | - | - | 4/3/3/3/1 |
+| 10 | - | Empowered Evocation *(not yet)* | 4/3/3/3/2 |
+| 11 | - | - | 4/3/3/3/2/1 |
+| 12 | Ability Score Improvement | - | 4/3/3/3/2/1 |
+| 13 | - | - | 4/3/3/3/2/1/1 |
+| 14 | - | Overchannel *(not yet)* | 4/3/3/3/2/1/1 |
+| 15 | - | - | 4/3/3/3/2/1/1/1 |
+| 16 | Ability Score Improvement | - | 4/3/3/3/2/1/1/1 |
+| 17 | - | - | 4/3/3/3/2/1/1/1/1 |
+| 18 | Spell Mastery *(not yet)* | - | 4/3/3/3/3/1/1/1/1 |
+| 19 | Ability Score Improvement | - | 4/3/3/3/3/2/1/1/1 |
+| 20 | Signature Spell *(not yet)* | - | 4/3/3/3/3/2/2/1/1 |
 
 ### 8.3 Leveling pace
 
@@ -499,13 +828,52 @@ with defaults until they are confirmed.
   (`cantrips_known`). Prepared casters (Cleric, Druid, Paladin, Wizard) re-pick their prepared list
   (casting modifier + level, or + half level for the Paladin) after every long rest, not only on level up.
   The Wizard adds `spellbook_learn_per_level` (2) spells of a level it can cast to its spellbook each level
-  and prepares from the book (it starts with six level-1 spells). Spells marked unsupported (area and
-  condition spells) are shown greyed out with "coming later".
+  and prepares from the book (it starts with six level-1 spells). Spells whose effect is `unsupported`
+  (summons, lingering zones, most condition and utility spells) and spells with a casting time longer
+  than a bonus action are shown greyed out with "not yet modelled" (8.2).
 - **Ability Score Improvement** at levels 4, 8, 12, 16 and 19 (Fighter also 6 and 14, Rogue also 10):
   +2 to one ability or +1 to two, maximum 20. The SRD 5.1 has one feat (Grappler), so feats are deferred.
-- **Features:** the list from `features_by_level` for the new level with a one-line summary; features
-  without M2 mechanics say so.
+- **Features:** the list from `features_by_level` (and `subclass.features_by_level`) for the new level
+  with its SRD text; a feature whose `mechanic` is `unsupported` is labelled "not yet modelled".
+- **Choices** the class data drives: the subclass at its level (one SRD option), a fighting style
+  (`fighting_styles`: Fighter 1, Paladin and Ranger 2, Champion 10), expertise (`expertise_levels`:
+  Rogue 1 and 6, Bard 3 and 10, two proficient skills each), eldritch invocations (`invocations_known`,
+  prerequisites in `data/invocations`), metamagic (`metamagic_known`, `data/metamagic`), cantrips and
+  spells (above).
 - The screen confirms everything at once; the server validates the choices against the class data.
+
+### 8.7 SRD content import
+
+`tools/import_srd.py` (stdlib Python; `python3 -I tools/import_srd.py`) converts the SRD 5.1 dataset of
+the public 5e SRD API (https://www.dnd5eapi.co/api/2014/, CC-BY-4.0, see `docs/licensing.md`) into
+`data/`. Raw API JSON is cached in `tools/srd_cache/` (gitignored) so re-runs are offline and
+deterministic; `--check` re-converts twice and compares with `data/`, `--sync-mechanics` refreshes the
+`mechanic` fields from `Features.IMPLEMENTED`. Files marked `"hand_edited": true` keep every key they
+have (the importer only adds missing descriptive fields; for classes it rewrites only the progression
+keys). Text that names non-SRD terms or setting characters is replaced with generic wording.
+
+Imported content (counts at the time of writing):
+
+| Content | Count | Notes |
+|---|---|---|
+| Classes | 12 | progression 1-20, one subclass each |
+| Features (`data/features`) | 192 | every class and subclass feature, plus 31 subfeature options (hunter choices, pact boons, dragon ancestors, land terrains) |
+| Eldritch invocations | 32 | |
+| Metamagic options | 8 | |
+| Fighting styles | 6 | |
+| Spells | 320 | every spell on a class list (319 SRD 5.1 + Hex from SRD 5.2); 38 castable in combat now |
+| Monsters | 329 | every SRD stat block with an attack roll; 11 hand-tuned. Left out (no attack roll): frog, rug of smothering, sea horse, shrieker, vampire mist form |
+| Weapons | 36 | every SRD weapon that deals damage (the net is a misc item) |
+| Items | 540 | 199 mundane (armor, weapons, gear, ammunition, tools, packs) and 341 magic items |
+
+Monsters get `creature_type`, `size`, `alignment`, `speeds`, senses, languages, skill and save bonuses,
+resistances and immunities, `multiattack` (attack names) and a loot table by challenge rating
+(CR 0-1/4 `monster_small`, 1/2-2 `monster_medium`, 3+ `boss`); actions with an attack roll become
+attacks, everything else (spellcasting, breath weapons, legendary actions, reactions) is a descriptive
+`traits` entry with `"mechanic": "unsupported"`. Magic items carry `rarity`, `requires_attunement` and
+`mechanic` (`implemented` for the healing potions, `bonus` for plain +1/+2/+3 weapons, armor and
+ammunition, which the engine can apply later, `unsupported` otherwise); their `value_gp` is the lower
+bound of the SRD rarity band. Mounts and vehicles are not imported.
 
 ## 9. Death and reset
 

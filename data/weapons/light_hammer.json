@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "light_hammer",
+	"display_name": "Light hammer",
+	"category": "simple",
+	"damage": "1d4",
+	"damage_type": "bludgeoning",
+	"properties": ["light", "thrown", "monk"],
+	"range_ft": [20, 60],
+	"source": "SRD 5.1"
+}

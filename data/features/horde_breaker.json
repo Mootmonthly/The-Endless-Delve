@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "horde_breaker",
+	"display_name": "Hunter's Prey: Horde Breaker",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 3,
+	"description": "Once on each of your turns when you make a weapon attack, you can make another attack with the same weapon against a different creature that is within 5 feet of the original target and within range of your weapon.",
+	"option_of": "hunters_prey",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

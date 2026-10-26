@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "brooch_of_shielding",
+	"display_name": "Brooch of Shielding",
+	"kind": "misc",
+	"description": "While wearing this brooch, you have resistance to force damage, and you have immunity to damage from the magic missile spell.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon (requires attunement)",
+	"rarity": "uncommon",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

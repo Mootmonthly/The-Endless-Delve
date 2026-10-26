@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "signal_whistle",
+	"display_name": "Signal whistle",
+	"kind": "misc",
+	"description": "Standard Gear: Signal whistle.",
+	"weight": 0,
+	"value_gp": 0.05,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

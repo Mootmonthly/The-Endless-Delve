@@ -1,0 +1,48 @@
+{
+	"schema_version": 1,
+	"id": "cultist",
+	"display_name": "Cultist",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any non-good alignment",
+	"armor_class": 12,
+	"armor_note": "leather armor",
+	"hit_points": 9,
+	"hit_dice": "2d8",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 11, "DEX": 12, "CON": 10, "INT": 10, "WIS": 11, "CHA": 10 },
+	"skills": { "DECEPTION": 2, "RELIGION": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "any one language (usually Common)",
+	"challenge_rating": 0.125,
+	"proficiency_bonus": 2,
+	"xp": 25,
+	"loot_table": "monster_small",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Dark Devotion",
+			"kind": "trait",
+			"description": "The cultist has advantage on saving throws against being charmed or frightened.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Scimitar",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d6+1",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 4 (1d6 + 1) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

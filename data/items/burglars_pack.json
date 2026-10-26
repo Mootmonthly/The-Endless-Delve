@@ -1,0 +1,28 @@
+{
+	"schema_version": 1,
+	"id": "burglars_pack",
+	"display_name": "Burglar's Pack",
+	"kind": "misc",
+	"description": "Equipment Packs: Burglar's Pack.",
+	"weight": 0,
+	"value_gp": 16.0,
+	"stackable": false,
+	"gear_category": "equipment-packs",
+	"contents": [
+		{ "item": "backpack", "qty": 1 },
+		{ "item": "ball_bearings_bag_of_1000", "qty": 1 },
+		{ "item": "string_10_feet", "qty": 1 },
+		{ "item": "bell", "qty": 1 },
+		{ "item": "candle", "qty": 5 },
+		{ "item": "crowbar", "qty": 1 },
+		{ "item": "hammer", "qty": 1 },
+		{ "item": "piton", "qty": 10 },
+		{ "item": "lantern_hooded", "qty": 1 },
+		{ "item": "oil_flask", "qty": 2 },
+		{ "item": "rations", "qty": 5 },
+		{ "item": "tinderbox", "qty": 1 },
+		{ "item": "waterskin", "qty": 1 },
+		{ "item": "rope_hempen_50_feet", "qty": 1 }
+	],
+	"source": "SRD 5.1"
+}

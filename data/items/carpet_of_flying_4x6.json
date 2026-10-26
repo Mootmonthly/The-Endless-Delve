@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "carpet_of_flying_4x6",
+	"display_name": "Carpet of Flying (4 ft. × 6 ft.)",
+	"kind": "misc",
+	"description": "You can speak the carpet's command word as an  action to make the carpet hover and fly. It moves according to your spoken directions, provided that you are within 30 feet of it.\nThis carpet is 4 feet by 6 feet and has a flying speed of 60 feet. It can carry up to 800 pounds, but its flying speed becomes 30 feet while carrying over 400 pounds.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, very rare",
+	"rarity": "very rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

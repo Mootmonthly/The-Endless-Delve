@@ -1,0 +1,63 @@
+{
+	"schema_version": 1,
+	"id": "young_blue_dragon",
+	"display_name": "Young Blue Dragon",
+	"size": "large",
+	"creature_type": "dragon",
+	"alignment": "lawful evil",
+	"armor_class": 18,
+	"armor_note": "natural",
+	"hit_points": 152,
+	"hit_dice": "16d10+64",
+	"speed": 40,
+	"speeds": { "burrow": 20, "fly": 80, "walk": 40 },
+	"abilities": { "STR": 21, "DEX": 10, "CON": 19, "INT": 14, "WIS": 13, "CHA": 17 },
+	"saving_throws": { "DEX": 4, "CON": 8, "WIS": 5, "CHA": 7 },
+	"skills": { "PERCEPTION": 9, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": ["lightning"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 30 ft., darkvision 120 ft., passive Perception 19",
+	"languages": "Common, Draconic",
+	"challenge_rating": 9,
+	"proficiency_bonus": 4,
+	"xp": 5000,
+	"loot_table": "boss",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Lightning Breath",
+			"kind": "action",
+			"description": "The dragon exhales lightning in a 60-foot line that is 5 feet wide. Each creature in that line must make a DC 16 Dexterity saving throw, taking 55 (10d10) lightning damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 16, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Claw", "Claw"],
+	"multiattack_text": "The dragon makes three attacks: one with its bite and two with its claws.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 9,
+			"damage": "2d10+5",
+			"damage_type": "piercing",
+			"extra_damage": [{ "damage": "1d10", "damage_type": "lightning" }],
+			"description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 16 (2d10 + 5) piercing damage plus 5 (1d10) lightning damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 9,
+			"damage": "2d6+5",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 12 (2d6 + 5) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,65 @@
+{
+	"schema_version": 1,
+	"id": "satyr",
+	"display_name": "Satyr",
+	"size": "medium",
+	"creature_type": "fey",
+	"alignment": "chaotic neutral",
+	"armor_class": 14,
+	"armor_note": "leather armor",
+	"hit_points": 31,
+	"hit_dice": "7d8",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 12, "DEX": 16, "CON": 11, "INT": 12, "WIS": 10, "CHA": 14 },
+	"skills": { "PERCEPTION": 2, "PERFORMANCE": 6, "STEALTH": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 12",
+	"languages": "Common, Elvish, Sylvan",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Magic Resistance",
+			"kind": "trait",
+			"description": "The satyr has advantage on saving throws against spells and other magical effects.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Ram",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "2d4+1",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 6 (2d4 + 1) bludgeoning damage."
+		},
+		{
+			"name": "Shortsword",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d6+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) piercing damage."
+		},
+		{
+			"name": "Shortbow",
+			"kind": "ranged",
+			"range_ft": [80, 320],
+			"to_hit": 5,
+			"damage": "1d6+3",
+			"damage_type": "piercing",
+			"description": "Ranged Weapon Attack: +5 to hit, range 80/320 ft., one target. Hit: 6 (1d6 + 3) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

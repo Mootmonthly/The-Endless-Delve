@@ -1,0 +1,70 @@
+{
+	"schema_version": 1,
+	"id": "xorn",
+	"display_name": "Xorn",
+	"size": "medium",
+	"creature_type": "elemental",
+	"alignment": "neutral",
+	"armor_class": 19,
+	"armor_note": "natural",
+	"hit_points": 73,
+	"hit_dice": "7d8+42",
+	"speed": 20,
+	"speeds": { "burrow": 20, "walk": 20 },
+	"abilities": { "STR": 17, "DEX": 10, "CON": 22, "INT": 11, "WIS": 10, "CHA": 11 },
+	"skills": { "PERCEPTION": 6, "STEALTH": 3 },
+	"damage_resistances": ["piercing and slashing from nonmagical weapons that aren't adamantine"],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., tremorsense 60 ft., passive Perception 16",
+	"languages": "Terran",
+	"challenge_rating": 5,
+	"proficiency_bonus": 3,
+	"xp": 1800,
+	"loot_table": "boss",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Earth Glide",
+			"kind": "trait",
+			"description": "The xorn can burrow through nonmagical, unworked earth and stone. While doing so, the xorn doesn't disturb the material it moves through.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Stone Camouflage",
+			"kind": "trait",
+			"description": "The xorn has advantage on Dexterity (Stealth) checks made to hide in rocky terrain.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Treasure Sense",
+			"kind": "trait",
+			"description": "The xorn can pinpoint, by scent, the location of precious metals and stones, such as coins and gems, within 60 ft. of it.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Claw", "Claw", "Claw", "Bite"],
+	"multiattack_text": "The xorn makes three claw attacks and one bite attack.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "3d6+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (3d6 + 3) piercing damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "1d6+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

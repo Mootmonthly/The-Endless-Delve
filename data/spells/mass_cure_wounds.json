@@ -1,0 +1,28 @@
+{
+	"schema_version": 1,
+	"id": "mass_cure_wounds",
+	"display_name": "Mass Cure Wounds",
+	"level": 5,
+	"school": "conjuration",
+	"casting_time": "action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "area healing" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["bard", "cleric", "druid"],
+	"source": "SRD 5.1",
+	"description": "A wave of healing energy washes out from a point of your choice within range. Choose up to six creatures in a 30-foot-radius sphere centered on that point. Each target regains hit points equal to 3d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs.",
+	"higher_level": "When you cast this spell using a spell slot of 6th level or higher, the healing increases by 1d8 for each slot level above 5th.",
+	"subclasses": ["life"],
+	"area": { "shape": "sphere", "size_ft": 30 },
+	"heal_by_slot": {
+		"5": "3d8+MOD",
+		"6": "4d8+MOD",
+		"7": "5d8+MOD",
+		"8": "6d8+MOD",
+		"9": "7d8+MOD"
+	}
+}

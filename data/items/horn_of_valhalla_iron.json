@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "horn_of_valhalla_iron",
+	"display_name": "Iron Horn of Valhalla",
+	"kind": "misc",
+	"description": "You can use an action to blow this horn. In response, 5d4 + 5 warrior spirits from the Valhalla appear within 60 feet of you. They use the statistics of a berserker. They return to Valhalla after 1 hour or when they drop to 0 hit points. Once you use the horn, it can't be used again until 7 days have passed.\nIf you blow the horn without having proficiency with all martial weapons, the summoned berserkers attack you. If you meet the requirement, they are friendly to you and your companions and follow your commands.",
+	"weight": 0,
+	"value_gp": 50001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, legendary",
+	"rarity": "legendary",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

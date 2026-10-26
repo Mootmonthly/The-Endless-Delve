@@ -1,0 +1,109 @@
+{
+	"schema_version": 1,
+	"id": "androsphinx",
+	"display_name": "Androsphinx",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "lawful neutral",
+	"armor_class": 17,
+	"armor_note": "natural",
+	"hit_points": 199,
+	"hit_dice": "19d10+95",
+	"speed": 40,
+	"speeds": { "fly": 60, "walk": 40 },
+	"abilities": { "STR": 22, "DEX": 10, "CON": 20, "INT": 16, "WIS": 18, "CHA": 23 },
+	"saving_throws": { "DEX": 6, "CON": 11, "INT": 9, "WIS": 10 },
+	"skills": { "ARCANA": 9, "PERCEPTION": 10, "RELIGION": 15 },
+	"damage_resistances": [],
+	"damage_immunities": ["psychic", "bludgeoning, piercing, and slashing from nonmagical weapons"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["charmed", "frightened"],
+	"senses": "truesight 120 ft., passive Perception 20",
+	"languages": "Common, Sphinx",
+	"challenge_rating": 17,
+	"proficiency_bonus": 6,
+	"xp": 18000,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Inscrutable",
+			"kind": "trait",
+			"description": "The sphinx is immune to any effect that would sense its emotions or read its thoughts, as well as any divination spell that it refuses. Wisdom (Insight) checks made to ascertain the sphinx's intentions or sincerity have disadvantage.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Magic Weapons",
+			"kind": "trait",
+			"description": "The sphinx's weapon attacks are magical.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Spellcasting",
+			"kind": "trait",
+			"description": "The sphinx is a 12th-level spellcaster. Its spellcasting ability is Wisdom (spell save DC 18, +10 to hit with spell attacks). It requires no material components to cast its spells. The sphinx has the following cleric spells prepared:\n\n- Cantrips (at will): sacred flame, spare the dying, thaumaturgy\n- 1st level (4 slots): command, detect evil and good, detect magic\n- 2nd level (3 slots): lesser restoration, zone of truth\n- 3rd level (3 slots): dispel magic, tongues\n- 4th level (3 slots): banishment, freedom of movement\n- 5th level (2 slots): flame strike, greater restoration\n- 6th level (1 slot): heroes' feast",
+			"spellcasting": {
+				"ability": "WIS",
+				"dc": 18,
+				"modifier": 10,
+				"spells": [
+					"banishment",
+					"command",
+					"detect_evil_and_good",
+					"detect_magic",
+					"dispel_magic",
+					"flame_strike",
+					"freedom_of_movement",
+					"greater_restoration",
+					"heroes_feast",
+					"lesser_restoration",
+					"sacred_flame",
+					"spare_the_dying",
+					"thaumaturgy",
+					"tongues",
+					"zone_of_truth"
+				]
+			},
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Roar",
+			"kind": "action",
+			"description": "The sphinx emits a magical roar. Each time it roars before finishing a long rest, the roar is louder and the effect is different, as detailed below. Each creature within 500 feet of the sphinx and able to hear the roar must make a saving throw.\n\nFirst Roar. Each creature that fails a DC 18 Wisdom saving throw is frightened for 1 minute. A frightened creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.\n\nSecond Roar. Each creature that fails a DC 18 Wisdom saving throw is deafened and frightened for 1 minute. A frightened creature is paralyzed and can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.\n\nThird Roar. Each creature makes a DC 18 Constitution saving throw. On a failed save, a creature takes 44 (8d10) thunder damage and is knocked prone. On a successful save, the creature takes half as much damage and isn't knocked prone.",
+			"usage": { "times": 3, "type": "per day" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Claw Attack",
+			"kind": "legendary_action",
+			"description": "The sphinx makes one claw attack.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Teleport (Costs 2 Actions)",
+			"kind": "legendary_action",
+			"description": "The sphinx magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied space it can see.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Cast a Spell (Costs 3 Actions)",
+			"kind": "legendary_action",
+			"description": "The sphinx casts a spell from its list of prepared spells, using a spell slot as normal.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Claw", "Claw"],
+	"multiattack_text": "The sphinx makes two claw attacks.",
+	"attacks": [
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 12,
+			"damage": "2d10+6",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +12 to hit, reach 5 ft., one target. Hit: 17 (2d10 + 6) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

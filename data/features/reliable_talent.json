@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "reliable_talent",
+	"display_name": "Reliable Talent",
+	"class": "rogue",
+	"level": 11,
+	"description": "By 11th level, you have refined your chosen skills until they approach perfection. Whenever you make an ability check that lets you add your proficiency bonus, you can treat a d20 roll of 9 or lower as a 10.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

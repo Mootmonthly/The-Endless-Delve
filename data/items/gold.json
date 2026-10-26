@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "gold",
 	"display_name": "Gold Pieces",
 	"kind": "gold",

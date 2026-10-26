@@ -1,0 +1,57 @@
+{
+	"schema_version": 1,
+	"id": "black_dragon_wyrmling",
+	"display_name": "Black Dragon Wyrmling",
+	"size": "medium",
+	"creature_type": "dragon",
+	"alignment": "chaotic evil",
+	"armor_class": 17,
+	"armor_note": "natural",
+	"hit_points": 33,
+	"hit_dice": "6d8+6",
+	"speed": 30,
+	"speeds": { "fly": 60, "swim": 30, "walk": 30 },
+	"abilities": { "STR": 15, "DEX": 14, "CON": 13, "INT": 10, "WIS": 11, "CHA": 13 },
+	"saving_throws": { "DEX": 4, "CON": 3, "WIS": 2, "CHA": 3 },
+	"skills": { "PERCEPTION": 4, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": ["acid"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 14",
+	"languages": "Draconic",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Amphibious",
+			"kind": "trait",
+			"description": "The dragon can breathe air and water.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Acid Breath",
+			"kind": "action",
+			"description": "The dragon exhales acid in a 15-foot line that is 5 feet wide. Each creature in that line must make a DC 11 Dexterity saving throw, taking 22 (5d8) acid damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 11, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d10+2",
+			"damage_type": "piercing",
+			"extra_damage": [{ "damage": "1d4", "damage_type": "acid" }],
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (1d10 + 2) piercing damage plus 2 (1d4) acid damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,8 @@
+{
+	"schema_version": 1,
+	"id": "misty_visions",
+	"display_name": "Misty Visions",
+	"description": "You can cast silent image at will, without expending a spell slot or material components.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

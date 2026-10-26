@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "giant_slayer",
+	"display_name": "Giant Slayer",
+	"kind": "misc",
+	"description": "You gain a +1 bonus to attack and damage rolls made with this magic weapon.\nWhen you hit a giant with it, the giant takes an extra 2d6 damage of the weapon's type and must succeed on a DC 15 Strength saving throw or fall prone. For the purpose of this weapon, \"giant\" refers to any creature with the giant type, including ettins and trolls.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "weapon",
+	"item_line": "Weapon (any axe or sword), rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

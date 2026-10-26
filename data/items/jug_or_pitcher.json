@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "jug_or_pitcher",
+	"display_name": "Jug or pitcher",
+	"kind": "misc",
+	"description": "Standard Gear: Jug or pitcher.",
+	"weight": 4,
+	"value_gp": 0.02,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "candle",
+	"display_name": "Candle",
+	"kind": "misc",
+	"description": "For 1 hour, a candle sheds bright light in a 5-foot radius and dim light for an additional 5 feet.",
+	"weight": 0,
+	"value_gp": 0.01,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

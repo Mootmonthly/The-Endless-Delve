@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "lesser_restoration",
 	"display_name": "Lesser Restoration",
 	"level": 2,
@@ -14,5 +15,11 @@
 	"classes": ["bard", "cleric", "druid", "paladin", "ranger"],
 	"source": "SRD 5.1",
 	"description": "You touch a creature and end one disease or one condition afflicting it: blinded, deafened, paralyzed or poisoned.",
-	"planned_effect": { "type": "cure", "conditions": ["blinded", "deafened", "paralyzed", "poisoned"] }
+	"planned_effect": {
+		"type": "cure",
+		"conditions": ["blinded", "deafened", "paralyzed", "poisoned"]
+	},
+	"ritual": false,
+	"subclasses": ["devotion", "life", "lore"],
+	"srd_description": "You touch a creature and can end either one disease or one condition afflicting it. The condition can be blinded, deafened, paralyzed, or poisoned."
 }

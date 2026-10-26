@@ -1,0 +1,67 @@
+{
+	"schema_version": 1,
+	"id": "swarm_of_bats",
+	"display_name": "Swarm of Bats",
+	"size": "medium",
+	"creature_type": "beast",
+	"swarm": true,
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 22,
+	"hit_dice": "5d8",
+	"speed": 0,
+	"speeds": { "fly": 30, "walk": 0 },
+	"abilities": { "STR": 5, "DEX": 15, "CON": 10, "INT": 2, "WIS": 12, "CHA": 4 },
+	"damage_resistances": ["bludgeoning", "piercing", "slashing"],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [
+		"charmed",
+		"frightened",
+		"grappled",
+		"paralyzed",
+		"petrified",
+		"prone",
+		"restrained",
+		"stunned"
+	],
+	"senses": "blindsight 60 ft., passive Perception 11",
+	"languages": "",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Echolocation",
+			"kind": "trait",
+			"description": "The swarm can't use its blindsight while deafened.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Keen Hearing",
+			"kind": "trait",
+			"description": "The swarm has advantage on Wisdom (Perception) checks that rely on hearing.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Swarm",
+			"kind": "trait",
+			"description": "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny bat. The swarm can't regain hit points or gain temporary hit points.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bites",
+			"kind": "melee",
+			"reach_ft": 0,
+			"to_hit": 4,
+			"damage": "2d4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 0 ft., one creature in the swarm's space. Hit: 5 (2d4) piercing damage, or 2 (1d4) piercing damage if the swarm has half of its hit points or fewer."
+		}
+	],
+	"source": "SRD 5.1"
+}

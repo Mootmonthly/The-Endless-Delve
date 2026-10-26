@@ -1,0 +1,107 @@
+{
+	"schema_version": 1,
+	"id": "ancient_blue_dragon",
+	"display_name": "Ancient Blue Dragon",
+	"size": "gargantuan",
+	"creature_type": "dragon",
+	"alignment": "lawful evil",
+	"armor_class": 22,
+	"armor_note": "natural",
+	"hit_points": 481,
+	"hit_dice": "26d20+208",
+	"speed": 40,
+	"speeds": { "burrow": 40, "fly": 80, "walk": 40 },
+	"abilities": { "STR": 29, "DEX": 10, "CON": 27, "INT": 18, "WIS": 17, "CHA": 21 },
+	"saving_throws": { "DEX": 7, "CON": 15, "WIS": 10, "CHA": 12 },
+	"skills": { "PERCEPTION": 17, "STEALTH": 7 },
+	"damage_resistances": [],
+	"damage_immunities": ["lightning"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 27",
+	"languages": "Common, Draconic",
+	"challenge_rating": 23,
+	"proficiency_bonus": 7,
+	"xp": 50000,
+	"loot_table": "boss",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Legendary Resistance",
+			"kind": "trait",
+			"description": "If the dragon fails a saving throw, it can choose to succeed instead.",
+			"usage": { "rest_types": [], "times": 3, "type": "per day" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Frightful Presence",
+			"kind": "action",
+			"description": "Each creature of the dragon's choice that is within 120 feet of the dragon and aware of it must succeed on a DC 20 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours.",
+			"dc": { "ability": "WIS", "value": 20, "on_success": "none" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Lightning Breath",
+			"kind": "action",
+			"description": "The dragon exhales lightning in a 120-foot line that is 10 feet wide. Each creature in that line must make a DC 23 Dexterity saving throw, taking 88 (16d10) lightning damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 23, "on_success": "half" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Detect",
+			"kind": "legendary_action",
+			"description": "The dragon makes a Wisdom (Perception) check.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Tail Attack",
+			"kind": "legendary_action",
+			"description": "The dragon makes a tail attack.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Wing Attack (Costs 2 Actions)",
+			"kind": "legendary_action",
+			"description": "The dragon beats its wings. Each creature within 15 ft. of the dragon must succeed on a DC 24 Dexterity saving throw or take 16 (2d6 + 9) bludgeoning damage and be knocked prone. The dragon can then fly up to half its flying speed.",
+			"dc": { "ability": "DEX", "value": 24, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Claw", "Claw"],
+	"multiattack_text": "The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 15,
+			"range_ft": [15, 15],
+			"to_hit": 16,
+			"damage": "2d10+9",
+			"damage_type": "piercing",
+			"extra_damage": [{ "damage": "2d10", "damage_type": "lightning" }],
+			"description": "Melee Weapon Attack: +16 to hit, reach 15 ft., one target. Hit: 20 (2d10 + 9) piercing damage plus 11 (2d10) lightning damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 16,
+			"damage": "2d6+9",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +16 to hit, reach 10 ft., one target. Hit: 16 (2d6 + 9) slashing damage."
+		},
+		{
+			"name": "Tail",
+			"kind": "melee",
+			"reach_ft": 20,
+			"range_ft": [20, 20],
+			"to_hit": 16,
+			"damage": "2d8+9",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +16 to hit, reach 20 ft., one target. Hit: 18 (2d8 + 9) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

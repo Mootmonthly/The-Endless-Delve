@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "potion_of_clairvoyance",
+	"display_name": "Potion of Clairvoyance",
+	"kind": "misc",
+	"description": "When you drink this potion, you gain the effect of the clairvoyance spell. An eyeball bobs in this yellowish liquid but vanishes when the potion is opened.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "potion",
+	"item_line": "Potion, rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,80 @@
+{
+	"schema_version": 1,
+	"id": "vrock",
+	"display_name": "Vrock",
+	"size": "large",
+	"creature_type": "fiend",
+	"subtype": "demon",
+	"alignment": "chaotic evil",
+	"armor_class": 15,
+	"armor_note": "natural",
+	"hit_points": 104,
+	"hit_dice": "11d10+44",
+	"speed": 40,
+	"speeds": { "fly": 60, "walk": 40 },
+	"abilities": { "STR": 17, "DEX": 15, "CON": 18, "INT": 8, "WIS": 13, "CHA": 8 },
+	"saving_throws": { "DEX": 5, "WIS": 4, "CHA": 2 },
+	"damage_resistances": [
+		"cold",
+		"fire",
+		"lightning",
+		"bludgeoning, piercing, and slashing from nonmagical weapons"
+	],
+	"damage_immunities": ["poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["poisoned"],
+	"senses": "darkvision 120 ft., passive Perception 11",
+	"languages": "Abyssal, telepathy 120 ft.",
+	"challenge_rating": 6,
+	"proficiency_bonus": 3,
+	"xp": 2300,
+	"loot_table": "boss",
+	"icon": "bugbear",
+	"traits": [
+		{
+			"name": "Magic Resistance",
+			"kind": "trait",
+			"description": "The vrock has advantage on saving throws against spells and other magical effects.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Spores",
+			"kind": "action",
+			"description": "A 15-foot-radius cloud of toxic spores extends out from the vrock. The spores spread around corners. Each creature in that area must succeed on a DC 14 Constitution saving throw or become poisoned. While poisoned in this way, a target takes 5 (1d10) poison damage at the start of each of its turns. A target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. Emptying a vial of holy water on the target also ends the effect on it.",
+			"usage": { "dice": "1d6", "min_value": 6, "type": "recharge on roll" },
+			"dc": { "ability": "CON", "value": 14, "on_success": "none" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Stunning Screech",
+			"kind": "action",
+			"description": "The vrock emits a horrific screech. Each creature within 20 feet of it that can hear it and that isn't a demon must succeed on a DC 14 Constitution saving throw or be stunned until the end of the vrock's next turn .",
+			"usage": { "times": 1, "type": "per day" },
+			"dc": { "ability": "CON", "value": 14, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Beak", "Talons"],
+	"multiattack_text": "The vrock makes two attacks: one with its beak and one with its talons.",
+	"attacks": [
+		{
+			"name": "Beak",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d6+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) piercing damage."
+		},
+		{
+			"name": "Talons",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d10+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 14 (2d10 + 3) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

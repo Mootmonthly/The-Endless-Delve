@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "stone_of_good_luck_luckstone",
+	"display_name": "Stone of Good Luck (Luckstone)",
+	"kind": "misc",
+	"description": "While this polished agate is on your person, you gain a +1 bonus to ability checks and saving throws.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon (requires attunement)",
+	"rarity": "uncommon",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

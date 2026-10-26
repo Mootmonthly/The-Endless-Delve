@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "robes",
+	"display_name": "Robes",
+	"kind": "misc",
+	"description": "Standard Gear: Robes.",
+	"weight": 4,
+	"value_gp": 1.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

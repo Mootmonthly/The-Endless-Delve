@@ -1,0 +1,48 @@
+{
+	"schema_version": 1,
+	"id": "death_dog",
+	"display_name": "Death Dog",
+	"size": "medium",
+	"creature_type": "monstrosity",
+	"alignment": "neutral evil",
+	"armor_class": 12,
+	"hit_points": 39,
+	"hit_dice": "6d8+12",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 15, "DEX": 14, "CON": 14, "INT": 3, "WIS": 13, "CHA": 6 },
+	"skills": { "PERCEPTION": 5, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 120 ft., passive Perception 15",
+	"languages": "",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Two-Headed",
+			"kind": "trait",
+			"description": "The dog has advantage on Wisdom (Perception) checks and on saving throws against being blinded, charmed, deafened, frightened, stunned, or knocked unconscious.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Bite"],
+	"multiattack_text": "The dog makes two bite attacks.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage. If the target is a creature, it must succeed on a DC 12 Constitution saving throw against disease or become poisoned until the disease is cured. Every 24 hours that elapse, the creature must repeat the saving throw, reducing its hit point maximum by 5 (1d10) on a failure. This reduction lasts until the disease is cured. The creature dies if the disease reduces its hit point maximum to 0."
+		}
+	],
+	"source": "SRD 5.1"
+}

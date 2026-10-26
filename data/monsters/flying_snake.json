@@ -1,0 +1,46 @@
+{
+	"schema_version": 1,
+	"id": "flying_snake",
+	"display_name": "Flying Snake",
+	"size": "tiny",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 14,
+	"hit_points": 5,
+	"hit_dice": "2d4",
+	"speed": 30,
+	"speeds": { "fly": 60, "swim": 30, "walk": 30 },
+	"abilities": { "STR": 4, "DEX": 18, "CON": 11, "INT": 2, "WIS": 12, "CHA": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 10 ft., passive Perception 11",
+	"languages": "",
+	"challenge_rating": 0.125,
+	"proficiency_bonus": 2,
+	"xp": 25,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Flyby",
+			"kind": "trait",
+			"description": "The snake doesn't provoke opportunity attacks when it flies out of an enemy's reach.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "1",
+			"damage_type": "piercing",
+			"extra_damage": [{ "damage": "3d4", "damage_type": "poison" }],
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 1 piercing damage plus 7 (3d4) poison damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,32 @@
+{
+	"schema_version": 1,
+	"id": "cone_of_cold",
+	"display_name": "Cone of Cold",
+	"level": 5,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": {
+		"type": "area_save",
+		"save": "CON",
+		"damage": "8d8",
+		"damage_type": "cold",
+		"on_save": "half",
+		"per_slot_level_above": "1d8"
+	},
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "A blast of cold air erupts from your hands. Each creature in a 60-foot cone must make a constitution saving throw. A creature takes 8d8 cold damage on a failed save, or half as much damage on a successful one.\nA creature killed by this spell becomes a frozen statue until it thaws.",
+	"material": "A small crystal or glass cone.",
+	"higher_level": "When you cast this spell using a spell slot of 6th level or higher, the damage increases by 1d8 for each slot level above 5th.",
+	"subclasses": ["land"],
+	"area": { "shape": "cone", "size_ft": 60 },
+	"saving_throw": { "ability": "CON", "on_success": "half" },
+	"damage_by_slot": { "5": "8d8", "6": "9d8", "7": "10d8", "8": "11d8", "9": "12d8" },
+	"damage_type": "cold"
+}

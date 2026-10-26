@@ -1,0 +1,53 @@
+{
+	"schema_version": 1,
+	"id": "giant_shark",
+	"display_name": "Giant Shark",
+	"size": "huge",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 126,
+	"hit_dice": "11d12+55",
+	"speed": 0,
+	"speeds": { "swim": 50 },
+	"abilities": { "STR": 23, "DEX": 11, "CON": 21, "INT": 1, "WIS": 10, "CHA": 5 },
+	"skills": { "PERCEPTION": 3 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 60 ft., passive Perception 13",
+	"languages": "",
+	"challenge_rating": 5,
+	"proficiency_bonus": 3,
+	"xp": 1800,
+	"loot_table": "boss",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Blood Frenzy",
+			"kind": "trait",
+			"description": "The shark has advantage on melee attack rolls against any creature that doesn't have all its hit points.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Water Breathing",
+			"kind": "trait",
+			"description": "The shark can breathe only underwater.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 9,
+			"damage": "3d10+6",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 22 (3d10 + 6) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

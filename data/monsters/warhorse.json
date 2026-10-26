@@ -1,0 +1,45 @@
+{
+	"schema_version": 1,
+	"id": "warhorse",
+	"display_name": "Warhorse",
+	"size": "large",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 11,
+	"hit_points": 19,
+	"hit_dice": "3d10+3",
+	"speed": 60,
+	"speeds": { "walk": 60 },
+	"abilities": { "STR": 18, "DEX": 12, "CON": 13, "INT": 2, "WIS": 12, "CHA": 7 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 11",
+	"languages": "",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Trampling Charge",
+			"kind": "trait",
+			"description": "If the horse moves at least 20 ft. straight toward a creature and then hits it with a hooves attack on the same turn, that target must succeed on a DC 14 Strength saving throw or be knocked prone. If the target is prone, the horse can make another attack with its hooves against it as a bonus action.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Hooves",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d6+4",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

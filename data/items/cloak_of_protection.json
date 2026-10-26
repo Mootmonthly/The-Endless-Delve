@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "cloak_of_protection",
+	"display_name": "Cloak of Protection",
+	"kind": "misc",
+	"description": "You gain a +1 bonus to AC and saving throws while you wear this cloak.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon (requires attunement)",
+	"rarity": "uncommon",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

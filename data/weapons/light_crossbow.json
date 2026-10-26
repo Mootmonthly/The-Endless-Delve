@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "light_crossbow",
 	"display_name": "Light Crossbow",
 	"category": "simple",
@@ -8,5 +9,6 @@
 	"properties": ["ammunition", "loading", "two_handed"],
 	"range_ft": [80, 320],
 	"ranged": true,
-	"ammo_id": "bolts"
+	"ammo_id": "bolts",
+	"source": "SRD 5.1"
 }

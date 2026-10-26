@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "spear",
 	"display_name": "Spear",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 3,
 	"value_gp": 1,
 	"stackable": true,
-	"weapon_id": "spear"
+	"weapon_id": "spear",
+	"source": "SRD 5.1"
 }

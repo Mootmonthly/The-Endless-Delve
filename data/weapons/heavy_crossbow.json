@@ -1,0 +1,13 @@
+{
+	"schema_version": 1,
+	"id": "heavy_crossbow",
+	"display_name": "Crossbow, heavy",
+	"category": "martial",
+	"damage": "1d10",
+	"damage_type": "piercing",
+	"properties": ["ammunition", "heavy", "loading", "two_handed"],
+	"range_ft": [100, 400],
+	"ranged": true,
+	"ammo_id": "bolts",
+	"source": "SRD 5.1"
+}

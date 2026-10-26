@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "breastplate",
 	"display_name": "Breastplate",
 	"kind": "armor",
@@ -7,5 +8,6 @@
 	"weight": 20,
 	"value_gp": 400,
 	"stackable": false,
-	"armor": { "base": 14, "max_dex": 2, "category": "medium", "stealth_disadvantage": false }
+	"armor": { "base": 14, "max_dex": 2, "category": "medium", "stealth_disadvantage": false },
+	"source": "SRD 5.1"
 }

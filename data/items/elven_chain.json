@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "elven_chain",
+	"display_name": "Elven Chain",
+	"kind": "misc",
+	"description": "You gain a +1 bonus to AC while you wear this armor. You are considered proficient with this armor even if you lack proficiency with medium armor.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (chain shirt), rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

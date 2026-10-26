@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "sacred_flame",
 	"display_name": "Sacred Flame",
 	"level": 0,
@@ -21,5 +22,11 @@
 	"components": ["V", "S"],
 	"classes": ["cleric"],
 	"source": "SRD 5.1",
-	"description": "Flame-like radiance descends on a creature you can see: Dexterity save or take 1d8 radiant damage. The target gains no benefit from cover."
+	"description": "Flame-like radiance descends on a creature you can see: Dexterity save or take 1d8 radiant damage. The target gains no benefit from cover.",
+	"ritual": false,
+	"subclasses": ["lore"],
+	"saving_throw": { "ability": "DEX", "on_success": "none" },
+	"damage_by_character_level": { "1": "1d8", "5": "2d8", "11": "3d8", "17": "4d8" },
+	"damage_type": "radiant",
+	"srd_description": "Flame-like radiance descends on a creature that you can see within range. The target must succeed on a dexterity saving throw or take 1d8 radiant damage. The target gains no benefit from cover for this saving throw.\nThe spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8)."
 }

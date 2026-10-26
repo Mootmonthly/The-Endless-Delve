@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "potion_of_healing",
 	"display_name": "Potion of Healing",
 	"kind": "consumable",
@@ -7,5 +8,13 @@
 	"weight": 0.5,
 	"value_gp": 50,
 	"stackable": true,
-	"use": { "action": "action", "effect": "heal", "dice": "2d4+2", "target": "self" }
+	"use": { "action": "action", "effect": "heal", "dice": "2d4+2", "target": "self" },
+	"magic": true,
+	"magic_category": "potion",
+	"item_line": "Potion, common",
+	"rarity": "common",
+	"requires_attunement": false,
+	"mechanic": "implemented",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
 }

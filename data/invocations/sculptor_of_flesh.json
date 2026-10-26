@@ -1,0 +1,9 @@
+{
+	"schema_version": 1,
+	"id": "sculptor_of_flesh",
+	"display_name": "Sculptor of Flesh",
+	"description": "You can cast polymorph once using a warlock spell slot. You can't do so again until you finish a long rest.",
+	"prerequisites": { "level": 7 },
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

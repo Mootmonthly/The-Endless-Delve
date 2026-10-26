@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "scimitar_of_speed",
+	"display_name": "Scimitar of Speed",
+	"kind": "misc",
+	"description": "You gain a +2 bonus to attack and damage rolls made with this magic weapon. In addition, you can make one attack with it as a bonus action on each of your turns.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "weapon",
+	"item_line": "Weapon (scimitar), very rare (requires attunement)",
+	"rarity": "very rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

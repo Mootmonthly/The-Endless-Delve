@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "light_hammer",
+	"display_name": "Light hammer",
+	"kind": "weapon",
+	"description": "Simple melee weapon: 1d4 bludgeoning (light, thrown, monk), range 20/60 ft.",
+	"weight": 2,
+	"value_gp": 2.0,
+	"stackable": true,
+	"weapon_id": "light_hammer",
+	"source": "SRD 5.1"
+}

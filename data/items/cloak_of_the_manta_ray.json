@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "cloak_of_the_manta_ray",
+	"display_name": "Cloak of the Manta Ray",
+	"kind": "misc",
+	"description": "While wearing this cloak with its hood up, you can breathe underwater, and you have a swimming speed of 60 feet. Pulling the hood up or down requires an action.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

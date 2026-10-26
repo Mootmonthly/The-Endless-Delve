@@ -1,0 +1,82 @@
+{
+	"schema_version": 1,
+	"id": "efreeti",
+	"display_name": "Efreeti",
+	"size": "large",
+	"creature_type": "elemental",
+	"alignment": "lawful evil",
+	"armor_class": 17,
+	"armor_note": "natural",
+	"hit_points": 200,
+	"hit_dice": "16d10+112",
+	"speed": 40,
+	"speeds": { "fly": 60, "walk": 40 },
+	"abilities": { "STR": 22, "DEX": 12, "CON": 24, "INT": 16, "WIS": 15, "CHA": 16 },
+	"saving_throws": { "INT": 7, "WIS": 6, "CHA": 7 },
+	"damage_resistances": [],
+	"damage_immunities": ["fire"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 120 ft., passive Perception 12",
+	"languages": "Ignan",
+	"challenge_rating": 11,
+	"proficiency_bonus": 4,
+	"xp": 7200,
+	"loot_table": "boss",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Elemental Demise",
+			"kind": "trait",
+			"description": "If the efreeti dies, its body disintegrates in a flash of fire and puff of smoke, leaving behind only equipment the djinni was wearing or carrying.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The efreeti's innate spell casting ability is Charisma (spell save DC 15, +7 to hit with spell attacks). It can innately cast the following spells, requiring no material components:\n\nAt will: detect magic\n3/day: enlarge/reduce, tongues\n1/day each: conjure elemental (fire elemental only), gaseous form, invisibility, major image, plane shift, wall of fire",
+			"spellcasting": {
+				"ability": "CHA",
+				"dc": 15,
+				"modifier": 7,
+				"spells": [
+					"conjure_elemental",
+					"detect_magic",
+					"enlarge_reduce",
+					"gaseous_form",
+					"invisibility",
+					"major_image",
+					"plane_shift",
+					"tongues",
+					"wall_of_fire"
+				]
+			},
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Scimitar", "Scimitar"],
+	"multiattack_text": "The efreeti makes two scimitar attacks or uses its Hurl Flame twice.",
+	"attacks": [
+		{
+			"name": "Scimitar",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 10,
+			"damage": "2d6+6",
+			"damage_type": "slashing",
+			"extra_damage": [{ "damage": "2d6", "damage_type": "fire" }],
+			"description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing damage plus 7 (2d6) fire damage."
+		},
+		{
+			"name": "Hurl Flame",
+			"kind": "ranged",
+			"range_ft": [120, 120],
+			"spell_attack": true,
+			"to_hit": 7,
+			"damage": "5d6",
+			"damage_type": "fire",
+			"description": "Ranged Spell Attack: +7 to hit, range 120 ft., one target. Hit: 17 (5d6) fire damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

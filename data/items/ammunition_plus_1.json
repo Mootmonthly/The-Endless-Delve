@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "ammunition_plus_1",
+	"display_name": "Ammunition, +1",
+	"kind": "ammo",
+	"description": "You have a +1 bonus to attack and damage rolls made with this piece of magic ammunition. Once it hits a target, the ammunition is no longer magical.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": true,
+	"magic": true,
+	"magic_category": "ammunition",
+	"item_line": "Weapon (any ammunition), uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"bonus": 1,
+	"bonus_applies_to": "ammunition",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

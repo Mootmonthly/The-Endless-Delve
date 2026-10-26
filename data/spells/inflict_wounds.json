@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "inflict_wounds",
 	"display_name": "Inflict Wounds",
 	"level": 1,
@@ -19,5 +20,21 @@
 	"components": ["V", "S"],
 	"classes": ["cleric"],
 	"source": "SRD 5.1",
-	"description": "A melee spell attack against a creature you can reach: 3d10 necrotic damage on a hit (+1d10 per slot level above 1st)."
+	"description": "A melee spell attack against a creature you can reach: 3d10 necrotic damage on a hit (+1d10 per slot level above 1st).",
+	"ritual": false,
+	"higher_level": "When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d10 for each slot level above 1st.",
+	"subclasses": ["lore"],
+	"damage_by_slot": {
+		"1": "3d10",
+		"2": "4d10",
+		"3": "5d10",
+		"4": "6d10",
+		"5": "7d10",
+		"6": "8d10",
+		"7": "9d10",
+		"8": "10d10",
+		"9": "11d10"
+	},
+	"damage_type": "necrotic",
+	"srd_description": "Make a melee spell attack against a creature you can reach. On a hit, the target takes 3d10 necrotic damage."
 }

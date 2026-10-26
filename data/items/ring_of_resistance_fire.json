@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_resistance_fire",
+	"display_name": "Ring of Fire Resistance",
+	"kind": "misc",
+	"description": "You have resistance to fire damage while wearing this garnet ring.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

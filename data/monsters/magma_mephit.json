@@ -1,0 +1,74 @@
+{
+	"schema_version": 1,
+	"id": "magma_mephit",
+	"display_name": "Magma Mephit",
+	"size": "small",
+	"creature_type": "elemental",
+	"alignment": "neutral evil",
+	"armor_class": 11,
+	"hit_points": 22,
+	"hit_dice": "5d6+5",
+	"speed": 30,
+	"speeds": { "fly": 30, "walk": 30 },
+	"abilities": { "STR": 8, "DEX": 12, "CON": 12, "INT": 7, "WIS": 10, "CHA": 10 },
+	"skills": { "STEALTH": 3 },
+	"damage_resistances": [],
+	"damage_immunities": ["fire", "poison"],
+	"damage_vulnerabilities": ["cold"],
+	"condition_immunities": ["poisoned"],
+	"senses": "darkvision 60 ft., passive Perception 10",
+	"languages": "Ignan, Terran",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Death Burst",
+			"kind": "trait",
+			"description": "When the mephit dies, it explodes in a burst of lava. Each creature within 5 ft. of it must make a DC 11 Dexterity saving throw, taking 7 (2d6) fire damage on a failed save, or half as much damage on a successful one.",
+			"dc": { "ability": "DEX", "value": 11, "on_success": "half" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "False Appearance",
+			"kind": "trait",
+			"description": "While the mephit remains motionless, it is indistinguishable from an ordinary mound of magma.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The mephit can innately cast heat metal (spell save DC 10), requiring no material components. Its innate spellcasting ability is Charisma.",
+			"spellcasting": {
+				"ability": "CHA",
+				"dc": 10,
+				"modifier": null,
+				"spells": ["heat_metal"]
+			},
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Fire Breath",
+			"kind": "action",
+			"description": "The mephit exhales a 15-foot cone of fire. Each creature in that area must make a DC 11 Dexterity saving throw, taking 7 (2d6) fire damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 6, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 11, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d4+1",
+			"damage_type": "slashing",
+			"extra_damage": [{ "damage": "1d4", "damage_type": "fire" }],
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 3 (1d4 + 1) slashing damage plus 2 (1d4) fire damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

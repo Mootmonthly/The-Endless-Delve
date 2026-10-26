@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "dragon_slayer",
+	"display_name": "Dragon Slayer",
+	"kind": "misc",
+	"description": "You gain a +1 bonus to attack and damage rolls made with this magic weapon.\nWhen you hit a dragon with this weapon, the dragon takes an extra 3d6 damage of the weapon's type. For the purpose of this weapon, \"dragon\" refers to any creature with the dragon type, including dragon turtles and wyverns.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "weapon",
+	"item_line": "Weapon (any sword), rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

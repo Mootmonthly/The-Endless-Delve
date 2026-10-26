@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "slow_fall",
+	"display_name": "Slow Fall",
+	"class": "monk",
+	"level": 4,
+	"description": "Beginning at 4th level, you can use your reaction when you fall to reduce any falling damage you take by an amount equal to five times your monk level.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

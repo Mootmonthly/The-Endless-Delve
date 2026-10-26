@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"id": "fear",
+	"display_name": "Fear",
+	"level": 3,
+	"school": "illusion",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "no direct damage roll" },
+	"duration": "up to 1 minute",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "sorcerer", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You project a phantasmal image of a creature's worst fears. Each creature in a 30-foot cone must succeed on a wisdom saving throw or drop whatever it is holding and become frightened for the duration.\nWhile frightened by this spell, a creature must take the Dash action and move away from you by the safest available route on each of its turns, unless there is nowhere to move. If the creature ends its turn in a location where it doesn't have line of sight to you, the creature can make a wisdom saving throw. On a successful save, the spell ends for that creature.",
+	"material": "A white feather or the heart of a hen.",
+	"subclasses": ["lore"],
+	"area": { "shape": "cone", "size_ft": 30 },
+	"saving_throw": { "ability": "WIS", "on_success": "none" }
+}

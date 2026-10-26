@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "dart",
 	"display_name": "Dart",
 	"category": "simple",
@@ -7,5 +8,6 @@
 	"damage_type": "piercing",
 	"properties": ["finesse", "thrown"],
 	"range_ft": [20, 60],
-	"ranged": true
+	"ranged": true,
+	"source": "SRD 5.1"
 }

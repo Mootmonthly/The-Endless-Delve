@@ -1,9 +1,11 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "scimitar",
 	"display_name": "Scimitar",
 	"category": "martial",
 	"damage": "1d6",
 	"damage_type": "slashing",
-	"properties": ["finesse", "light"]
+	"properties": ["finesse", "light"],
+	"source": "SRD 5.1"
 }

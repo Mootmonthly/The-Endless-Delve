@@ -1,0 +1,55 @@
+{
+	"schema_version": 1,
+	"id": "gold_dragon_wyrmling",
+	"display_name": "Gold Dragon Wyrmling",
+	"size": "medium",
+	"creature_type": "dragon",
+	"alignment": "lawful good",
+	"armor_class": 17,
+	"armor_note": "natural",
+	"hit_points": 60,
+	"hit_dice": "8d8+24",
+	"speed": 30,
+	"speeds": { "fly": 60, "swim": 30, "walk": 30 },
+	"abilities": { "STR": 19, "DEX": 14, "CON": 17, "INT": 14, "WIS": 11, "CHA": 16 },
+	"saving_throws": { "DEX": 4, "CON": 5, "WIS": 2, "CHA": 5 },
+	"skills": { "PERCEPTION": 4, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": ["fire"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 14",
+	"languages": "Draconic",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Amphibious",
+			"kind": "trait",
+			"description": "The dragon can breathe air and water.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Breath Weapons",
+			"kind": "action",
+			"description": "The dragon uses one of the following breath weapons.\nFire Breath. The dragon exhales fire in a 15-foot cone. Each creature in that area must make a DC 13 Dexterity saving throw, taking 22 (4d10) fire damage on a failed save, or half as much damage on a successful one.\nWeakening Breath. The dragon exhales gas in a 15-foot cone. Each creature in that area must succeed on a DC 13 Strength saving throw or have disadvantage on Strength-based attack rolls, Strength checks, and Strength saving throws for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "1d10+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 9 (1d10 + 4) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

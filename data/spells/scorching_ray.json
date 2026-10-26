@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "scorching_ray",
 	"display_name": "Scorching Ray",
 	"level": 2,
@@ -20,5 +21,11 @@
 	"components": ["V", "S"],
 	"classes": ["sorcerer", "wizard"],
 	"source": "SRD 5.1",
-	"description": "Three rays of fire, each a separate ranged spell attack for 2d6 fire damage. One more ray for each slot level above 2nd."
+	"description": "Three rays of fire, each a separate ranged spell attack for 2d6 fire damage. One more ray for each slot level above 2nd.",
+	"ritual": false,
+	"higher_level": "When you cast this spell using a spell slot of 3rd level or higher, you create one additional ray for each slot level above 2nd.",
+	"subclasses": ["fiend", "lore"],
+	"damage_by_slot": { "2": "2d6" },
+	"damage_type": "fire",
+	"srd_description": "You create three rays of fire and hurl them at targets within range. You can hurl them at one target or several.\nMake a ranged spell attack for each ray. On a hit, the target takes 2d6 fire damage."
 }

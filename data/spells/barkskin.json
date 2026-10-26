@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "barkskin",
 	"display_name": "Barkskin",
 	"level": 2,
@@ -14,5 +15,9 @@
 	"classes": ["druid", "ranger"],
 	"source": "SRD 5.1",
 	"description": "A willing creature's skin becomes rough and bark-like: its AC can't be less than 16 while you concentrate.",
-	"planned_effect": { "type": "buff", "buff": "barkskin", "ac_floor": 16 }
+	"planned_effect": { "type": "buff", "buff": "barkskin", "ac_floor": 16 },
+	"ritual": false,
+	"material": "A handful of oak bark.",
+	"subclasses": ["land", "lore"],
+	"srd_description": "You touch a willing creature. Until the spell ends, the target's skin has a rough, bark-like appearance, and the target's AC can't be less than 16, regardless of what kind of armor it is wearing."
 }

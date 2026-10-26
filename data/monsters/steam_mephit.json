@@ -1,0 +1,62 @@
+{
+	"schema_version": 1,
+	"id": "steam_mephit",
+	"display_name": "Steam Mephit",
+	"size": "small",
+	"creature_type": "elemental",
+	"alignment": "neutral evil",
+	"armor_class": 10,
+	"hit_points": 21,
+	"hit_dice": "6d6",
+	"speed": 30,
+	"speeds": { "fly": 30, "walk": 30 },
+	"abilities": { "STR": 5, "DEX": 11, "CON": 10, "INT": 11, "WIS": 10, "CHA": 12 },
+	"damage_resistances": [],
+	"damage_immunities": ["fire", "poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["poisoned"],
+	"senses": "darkvision 60 ft., passive Perception 10",
+	"languages": "Aquan, Ignan",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Death Burst",
+			"kind": "trait",
+			"description": "When the mephit dies, it explodes in a cloud of steam. Each creature within 5 ft. of the mephit must succeed on a DC 10 Dexterity saving throw or take 4 (1d8) fire damage.",
+			"dc": { "ability": "DEX", "value": 10, "on_success": "none" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The mephit can innately cast blur, requiring no material components. Its innate spellcasting ability is Charisma.",
+			"spellcasting": { "ability": "CHA", "dc": 11, "modifier": null, "spells": ["blur"] },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Steam Breath",
+			"kind": "action",
+			"description": "The mephit exhales a 15-foot cone of scalding steam. Each creature in that area must succeed on a DC 10 Dexterity saving throw, taking 4 (1d8) fire damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 6, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 10, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 2,
+			"damage": "1d4",
+			"damage_type": "slashing",
+			"extra_damage": [{ "damage": "1d4", "damage_type": "fire" }],
+			"description": "Melee Weapon Attack: +2 to hit, reach 5 ft., one creature. Hit: 2 (1d4) slashing damage plus 2 (1d4) fire damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

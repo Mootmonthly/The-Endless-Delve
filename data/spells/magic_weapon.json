@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "magic_weapon",
+	"display_name": "Magic Weapon",
+	"level": 2,
+	"school": "transmutation",
+	"casting_time": "bonus_action",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 1 hour",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["paladin", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You touch a nonmagical weapon. Until the spell ends, that weapon becomes a magic weapon with a +1 bonus to attack rolls and damage rolls.",
+	"higher_level": "When you cast this spell using a spell slot of 4th level or higher, the bonus increases to +2. When you use a spell slot of 6th level or higher, the bonus increases to +3.",
+	"subclasses": ["lore"]
+}

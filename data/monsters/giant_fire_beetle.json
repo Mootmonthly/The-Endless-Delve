@@ -1,0 +1,46 @@
+{
+	"schema_version": 1,
+	"id": "giant_fire_beetle",
+	"display_name": "Giant Fire Beetle",
+	"size": "small",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 4,
+	"hit_dice": "1d6+1",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 8, "DEX": 10, "CON": 12, "INT": 1, "WIS": 7, "CHA": 3 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 30 ft., passive Perception 8",
+	"languages": "",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Illumination",
+			"kind": "trait",
+			"description": "The beetle sheds bright light in a 10-foot radius and dim light for an additional 10 ft..",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 1,
+			"damage": "1d6-1",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +1 to hit, reach 5 ft., one target. Hit: 2 (1d6 - 1) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

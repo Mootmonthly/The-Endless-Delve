@@ -1,0 +1,9 @@
+{
+	"schema_version": 1,
+	"id": "visions_of_distant_realms",
+	"display_name": "Visions of Distant Realms",
+	"description": "You can cast arcane eye at will, without expending a spell slot.",
+	"prerequisites": { "level": 15 },
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

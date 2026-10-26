@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "stand_against_the_tide",
+	"display_name": "Superior Hunter's Defense: Stand Against the Tide",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 15,
+	"description": "When a hostile creature misses you with a melee attack, you can use your reaction to force that creature to repeat the same attack against another creature (other than itself) of your choice.",
+	"option_of": "superior_hunters_defense",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

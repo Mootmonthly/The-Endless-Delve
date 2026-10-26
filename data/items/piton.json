@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "piton",
+	"display_name": "Piton",
+	"kind": "misc",
+	"description": "Standard Gear: Piton.",
+	"weight": 0.25,
+	"value_gp": 0.05,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

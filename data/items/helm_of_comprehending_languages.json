@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "helm_of_comprehending_languages",
+	"display_name": "Helm of Comprehending Languages",
+	"kind": "misc",
+	"description": "While wearing this helm, you can use an action to cast the comprehend languages spell from it at will.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

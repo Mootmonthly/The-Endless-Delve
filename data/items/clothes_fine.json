@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "clothes_fine",
+	"display_name": "Clothes, fine",
+	"kind": "misc",
+	"description": "Standard Gear: Clothes, fine.",
+	"weight": 6,
+	"value_gp": 15.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

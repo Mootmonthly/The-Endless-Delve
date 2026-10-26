@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "bugbear",
 	"display_name": "Bugbear",
 	"size": "medium",
@@ -16,11 +17,42 @@
 	"xp": 200,
 	"loot_table": "monster_medium",
 	"traits": [
-		{ "name": "Brute", "description": "A melee weapon deals one extra die of its damage when the bugbear hits with it (included in the attack)." },
-		{ "name": "Surprise Attack", "description": "If the bugbear surprises a creature and hits it with an attack during the first round of combat, the target takes an extra 7 (2d6) damage from the attack." }
+		{
+			"name": "Brute",
+			"description": "A melee weapon deals one extra die of its damage when the bugbear hits with it (included in the attack)."
+		},
+		{
+			"name": "Surprise Attack",
+			"description": "If the bugbear surprises a creature and hits it with an attack during the first round of combat, the target takes an extra 7 (2d6) damage from the attack."
+		}
 	],
 	"attacks": [
-		{ "name": "Morningstar", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "2d8+2", "damage_type": "piercing" },
-		{ "name": "Javelin", "kind": "ranged", "range_ft": [30, 120], "to_hit": 4, "damage": "1d6+2", "damage_type": "piercing" }
-	]
+		{
+			"name": "Morningstar",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "2d8+2",
+			"damage_type": "piercing"
+		},
+		{
+			"name": "Javelin",
+			"kind": "ranged",
+			"range_ft": [30, 120],
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing"
+		}
+	],
+	"subtype": "goblinoid",
+	"alignment": "chaotic evil",
+	"speeds": { "walk": 30 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"languages": "Common, Goblin",
+	"proficiency_bonus": 2,
+	"icon": "goblin",
+	"source": "SRD 5.1"
 }

@@ -1,0 +1,49 @@
+{
+	"schema_version": 1,
+	"id": "bandit",
+	"display_name": "Bandit",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any non-lawful alignment",
+	"armor_class": 12,
+	"armor_note": "leather armor",
+	"hit_points": 11,
+	"hit_dice": "2d8+2",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 11, "DEX": 12, "CON": 12, "INT": 10, "WIS": 10, "CHA": 10 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "any one language (usually Common)",
+	"challenge_rating": 0.125,
+	"proficiency_bonus": 2,
+	"xp": 25,
+	"loot_table": "monster_small",
+	"icon": "goblin",
+	"traits": [],
+	"attacks": [
+		{
+			"name": "Scimitar",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d6+1",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) slashing damage."
+		},
+		{
+			"name": "Light Crossbow",
+			"kind": "ranged",
+			"range_ft": [80, 320],
+			"to_hit": 3,
+			"damage": "1d8+1",
+			"damage_type": "piercing",
+			"description": "Ranged Weapon Attack: +3 to hit, range 80/320 ft., one target. Hit: 5 (1d8 + 1) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

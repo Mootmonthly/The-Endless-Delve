@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "rapier",
 	"display_name": "Rapier",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 2,
 	"value_gp": 25,
 	"stackable": true,
-	"weapon_id": "rapier"
+	"weapon_id": "rapier",
+	"source": "SRD 5.1"
 }

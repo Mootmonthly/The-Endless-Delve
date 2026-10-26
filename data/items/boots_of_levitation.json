@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "boots_of_levitation",
+	"display_name": "Boots of Levitation",
+	"kind": "misc",
+	"description": "While you wear these boots, you can use an action to cast the levitate spell on yourself at will.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "potion_of_supreme_healing",
+	"display_name": "Potion of Supreme Healing",
+	"kind": "consumable",
+	"description": "You regain 10d4 + 20 hit points when you drink this potion. The potion's red liquid glimmers when agitated.",
+	"weight": 0.5,
+	"value_gp": 5001,
+	"stackable": true,
+	"use": { "action": "action", "effect": "heal", "dice": "10d4+20", "target": "self" },
+	"magic": true,
+	"magic_category": "potion",
+	"item_line": "Potion, very rare",
+	"rarity": "very rare",
+	"requires_attunement": false,
+	"mechanic": "implemented",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

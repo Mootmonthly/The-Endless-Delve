@@ -84,9 +84,16 @@ func test_classes_monsters_and_item_kinds_have_icons() -> void:
 	for path in ContentLoader.json_files("res://data/classes"):
 		var cid := path.get_file().get_basename()
 		assert_true(icons.has(cid), "class '%s' has an icon" % cid)
+	# Hand-made monsters have their own glyph; imported SRD monsters name a
+	# fallback glyph by creature type in "icon".
 	for path in ContentLoader.json_files("res://data/monsters"):
 		var mid := path.get_file().get_basename()
-		assert_true(icons.has(mid), "monster '%s' has an icon" % mid)
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		var raw: Dictionary = parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+		if DictUtil.to_bool(raw.get("hand_edited", false), false):
+			assert_true(icons.has(mid), "monster '%s' has an icon" % mid)
+		else:
+			assert_true(icons.has(mid) or icons.has(str(raw.get("icon", ""))), "monster '%s' has an icon or a fallback" % mid)
 	for kind in ITEM_KINDS:
 		assert_true(icons.has(kind), "item kind '%s' has an icon" % kind)
 	for extra in ["potion", "chest_closed", "chest_open"]:

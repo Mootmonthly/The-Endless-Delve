@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "studded_leather_armor",
 	"display_name": "Studded Leather Armor",
 	"kind": "armor",
@@ -7,5 +8,6 @@
 	"weight": 13,
 	"value_gp": 45,
 	"stackable": false,
-	"armor": { "base": 12, "max_dex": -1, "category": "light", "stealth_disadvantage": false }
+	"armor": { "base": 12, "max_dex": -1, "category": "light", "stealth_disadvantage": false },
+	"source": "SRD 5.1"
 }

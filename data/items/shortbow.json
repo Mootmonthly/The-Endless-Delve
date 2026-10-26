@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "shortbow",
 	"display_name": "Shortbow",
 	"kind": "weapon",
@@ -8,5 +9,6 @@
 	"value_gp": 25,
 	"stackable": true,
 	"weapon_id": "shortbow",
-	"ammo_id": "arrows"
+	"ammo_id": "arrows",
+	"source": "SRD 5.1"
 }

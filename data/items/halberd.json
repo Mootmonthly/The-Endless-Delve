@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "halberd",
+	"display_name": "Halberd",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 1d10 slashing (heavy, reach, two-handed).",
+	"weight": 6,
+	"value_gp": 20.0,
+	"stackable": true,
+	"weapon_id": "halberd",
+	"source": "SRD 5.1"
+}

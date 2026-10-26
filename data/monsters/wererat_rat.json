@@ -1,0 +1,56 @@
+{
+	"schema_version": 1,
+	"id": "wererat_rat",
+	"display_name": "Wererat, Rat Form",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "human",
+	"alignment": "lawful evil",
+	"armor_class": 12,
+	"armor_note": "natural",
+	"hit_points": 33,
+	"hit_dice": "6d8+6",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 10, "DEX": 15, "CON": 12, "INT": 11, "WIS": 10, "CHA": 8 },
+	"skills": { "PERCEPTION": 2, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [
+		"bludgeoning, piercing, and slashing from nonmagical weapons that aren't silvered"
+	],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 12",
+	"languages": "",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Shapechanger",
+			"kind": "trait",
+			"description": "The wererat can use its action to polymorph into a rat-humanoid hybrid or into a giant rat, or back into its true form, which is humanoid. Its statistics, other than its size, are the same in each form. Any equipment it is wearing or carrying isn't transformed. It reverts to its true form if it dies.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Keen Smell",
+			"kind": "trait",
+			"description": "The wererat has advantage on Wisdom (Perception) checks that rely on smell.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 4 (1d4 + 2) piercing damage. If the target is a humanoid, it must succeed on a DC 11 Constitution saving throw or be cursed with wererat lycanthropy."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "shield",
 	"display_name": "Shield",
 	"kind": "shield",
@@ -7,5 +8,6 @@
 	"weight": 6,
 	"value_gp": 10,
 	"stackable": false,
-	"shield": { "bonus": 2 }
+	"shield": { "bonus": 2 },
+	"source": "SRD 5.1"
 }

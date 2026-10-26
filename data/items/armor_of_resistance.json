@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "armor_of_resistance",
+	"display_name": "Armor of Resistance",
+	"kind": "misc",
+	"description": "You have resistance to one type of damage while you wear this armor. The GM chooses the type or determines it randomly from the options below.\n| d10 | Damage Type |\n|---|---|\n| 1 | Acid |\n| 2 | Cold |\n| 3 | Fire |\n| 4 | Force |\n| 5 | Lightning |\n| 6 | Necrotic |\n| 7 | Poison |\n| 8 | Psychic |\n| 9 | Radiant |\n| 10 | Thunder |",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (light, medium, or heavy), rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

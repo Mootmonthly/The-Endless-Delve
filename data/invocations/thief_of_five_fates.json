@@ -1,0 +1,8 @@
+{
+	"schema_version": 1,
+	"id": "thief_of_five_fates",
+	"display_name": "Thief of Five Fates",
+	"description": "You can cast bane once using a warlock spell slot. You can't do so again until you finish a long rest.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

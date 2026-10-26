@@ -1,0 +1,30 @@
+{
+	"schema_version": 1,
+	"id": "spellcasting",
+	"display_name": "Spellcasting",
+	"class": "bard",
+	"classes": ["bard", "cleric", "druid", "paladin", "ranger", "sorcerer", "wizard"],
+	"level": 1,
+	"levels": [1, 2],
+	"levels_by_class": {
+		"bard": [1],
+		"cleric": [1],
+		"druid": [1],
+		"paladin": [2],
+		"ranger": [2],
+		"sorcerer": [1],
+		"wizard": [1]
+	},
+	"description": "You have learned to untangle and reshape the fabric of reality in harmony with your wishes and music. Your spells are part of your vast repertoire, magic that you can tune to different situations.",
+	"description_by_class": {
+		"bard": "You have learned to untangle and reshape the fabric of reality in harmony with your wishes and music. Your spells are part of your vast repertoire, magic that you can tune to different situations.",
+		"cleric": "As a conduit for divine power, you can cast cleric spells.",
+		"druid": "Drawing on the divine essence of nature itself, you can cast spells to shape that essence to your will.",
+		"paladin": "By 2nd level, you have learned to draw on divine magic through meditation and prayer to cast spells as a cleric does.",
+		"ranger": "By the time you reach 2nd level, you have learned to use the magical essence of nature to cast spells, much as a druid does.",
+		"sorcerer": "An event in your past, or in the life of a parent or ancestor, left an indelible mark on you, infusing you with arcane magic. This font of magic, whatever its origin, fuels your spells.",
+		"wizard": "As a student of arcane magic, you have a spellbook containing spells that show the first glimmerings of your true power."
+	},
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

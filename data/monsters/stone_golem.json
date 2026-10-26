@@ -1,0 +1,79 @@
+{
+	"schema_version": 1,
+	"id": "stone_golem",
+	"display_name": "Stone Golem",
+	"size": "large",
+	"creature_type": "construct",
+	"alignment": "unaligned",
+	"armor_class": 17,
+	"armor_note": "natural",
+	"hit_points": 178,
+	"hit_dice": "17d10+85",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 22, "DEX": 9, "CON": 20, "INT": 3, "WIS": 11, "CHA": 1 },
+	"damage_resistances": [],
+	"damage_immunities": [
+		"poison",
+		"psychic",
+		"bludgeoning, piercing, and slashing from nonmagical weapons that aren't adamantine"
+	],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [
+		"charmed",
+		"exhaustion",
+		"frightened",
+		"paralyzed",
+		"petrified",
+		"poisoned"
+	],
+	"senses": "darkvision 120 ft., passive Perception 10",
+	"languages": "understands the languages of its creator but can't speak",
+	"challenge_rating": 10,
+	"proficiency_bonus": 4,
+	"xp": 5900,
+	"loot_table": "boss",
+	"icon": "zombie",
+	"traits": [
+		{
+			"name": "Immutable Form",
+			"kind": "trait",
+			"description": "The golem is immune to any spell or effect that would alter its form.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Magic Resistance",
+			"kind": "trait",
+			"description": "The golem has advantage on saving throws against spells and other magical effects.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Magic Weapons",
+			"kind": "trait",
+			"description": "The golem's weapon attacks are magical.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Slow",
+			"kind": "action",
+			"description": "The golem targets one or more creatures it can see within 10 ft. of it. Each target must make a DC 17 Wisdom saving throw against this magic. On a failed save, a target can't use reactions, its speed is halved, and it can't make more than one attack on its turn. In addition, the target can take either an action or a bonus action on its turn, not both. These effects last for 1 minute. A target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "WIS", "value": 17, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Slam", "Slam"],
+	"multiattack_text": "The golem makes two slam attacks.",
+	"attacks": [
+		{
+			"name": "Slam",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 10,
+			"damage": "3d8+6",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 19 (3d8 + 6) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

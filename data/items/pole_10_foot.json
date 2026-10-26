@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "pole_10_foot",
+	"display_name": "Pole (10-foot)",
+	"kind": "misc",
+	"description": "Standard Gear: Pole (10-foot).",
+	"weight": 7,
+	"value_gp": 0.05,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

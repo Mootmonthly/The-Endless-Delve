@@ -1,0 +1,13 @@
+{
+	"schema_version": 1,
+	"id": "hand_crossbow",
+	"display_name": "Crossbow, hand",
+	"category": "martial",
+	"damage": "1d6",
+	"damage_type": "piercing",
+	"properties": ["ammunition", "light", "loading"],
+	"range_ft": [30, 120],
+	"ranged": true,
+	"ammo_id": "bolts",
+	"source": "SRD 5.1"
+}

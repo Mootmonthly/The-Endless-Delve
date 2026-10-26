@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "dwarven_plate",
+	"display_name": "Dwarven Plate",
+	"kind": "misc",
+	"description": "While wearing this armor, you gain a +2 bonus to AC. In addition, if an effect moves you against your will along the ground, you can use your reaction to reduce the distance you are moved by up to 10 feet.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (plate), very rare",
+	"rarity": "very rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

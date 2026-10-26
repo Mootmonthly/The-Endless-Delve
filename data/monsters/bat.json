@@ -1,0 +1,51 @@
+{
+	"schema_version": 1,
+	"id": "bat",
+	"display_name": "Bat",
+	"size": "tiny",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 1,
+	"hit_dice": "1d4-1",
+	"speed": 5,
+	"speeds": { "fly": 30, "walk": 5 },
+	"abilities": { "STR": 2, "DEX": 15, "CON": 8, "INT": 2, "WIS": 12, "CHA": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 60 ft., passive Perception 11",
+	"languages": "",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Echolocation",
+			"kind": "trait",
+			"description": "The bat can't use its blindsight while deafened.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Keen Hearing",
+			"kind": "trait",
+			"description": "The bat has advantage on Wisdom (Perception) checks that rely on hearing.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 0,
+			"damage": "1",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +0 to hit, reach 5 ft., one creature. Hit: 1 piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

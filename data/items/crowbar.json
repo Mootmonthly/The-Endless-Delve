@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "crowbar",
+	"display_name": "Crowbar",
+	"kind": "misc",
+	"description": "Using a crowbar grants advantage to Strength checks where the crowbar's leverage can be applied.",
+	"weight": 5,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

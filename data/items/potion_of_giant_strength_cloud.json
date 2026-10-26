@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "potion_of_giant_strength_cloud",
+	"display_name": "Potion of Cloud Giant Strength",
+	"kind": "misc",
+	"description": "When you drink this potion, your Strength score changes to 27 for 1 hour. The potion has no effect on you if your Strength is equal to or greater than that score.\nThis potion's transparent liquid has floating in it a sliver of fingernail from a cloud giant.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "potion",
+	"item_line": "Potion, very rare",
+	"rarity": "very rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

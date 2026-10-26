@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "backpack",
+	"display_name": "Backpack",
+	"kind": "misc",
+	"description": "Standard Gear: Backpack.",
+	"weight": 5,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

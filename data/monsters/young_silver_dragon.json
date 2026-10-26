@@ -1,0 +1,61 @@
+{
+	"schema_version": 1,
+	"id": "young_silver_dragon",
+	"display_name": "Young Silver Dragon",
+	"size": "large",
+	"creature_type": "dragon",
+	"alignment": "lawful good",
+	"armor_class": 18,
+	"armor_note": "natural",
+	"hit_points": 168,
+	"hit_dice": "16d10+80",
+	"speed": 40,
+	"speeds": { "fly": 80, "walk": 40 },
+	"abilities": { "STR": 23, "DEX": 10, "CON": 21, "INT": 14, "WIS": 11, "CHA": 19 },
+	"saving_throws": { "DEX": 4, "CON": 9, "WIS": 4, "CHA": 8 },
+	"skills": { "ARCANA": 6, "HISTORY": 6, "PERCEPTION": 8, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": ["cold"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 30 ft., darkvision 120 ft., passive Perception 18",
+	"languages": "Common, Draconic",
+	"challenge_rating": 9,
+	"proficiency_bonus": 4,
+	"xp": 5000,
+	"loot_table": "boss",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Breath Weapons",
+			"kind": "action",
+			"description": "The dragon uses one of the following breath weapons.\nCold Breath. The dragon exhales an icy blast in a 30-foot cone. Each creature in that area must make a DC 17 Constitution saving throw, taking 54 (12d8) cold damage on a failed save, or half as much damage on a successful one.\nParalyzing Breath. The dragon exhales paralyzing gas in a 30-foot cone. Each creature in that area must succeed on a DC 17 Constitution saving throw or be paralyzed for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Claw", "Claw"],
+	"multiattack_text": "The dragon makes three attacks: one with its bite and two with its claws.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 10,
+			"damage": "2d10+6",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 17 (2d10 + 6) piercing damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 10,
+			"damage": "2d6+6",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

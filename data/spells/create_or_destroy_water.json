@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"id": "create_or_destroy_water",
+	"display_name": "Create or Destroy Water",
+	"level": 1,
+	"school": "transmutation",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["cleric", "druid"],
+	"source": "SRD 5.1",
+	"description": "You either create or destroy water.\n***Create Water.*** You create up to 10 gallons of clean water within range in an open container. Alternatively, the water falls as rain in a 30-foot cube within range.\n***Destroy Water.*** You destroy up to 10 gallons of water in an open container within range. Alternatively, you destroy fog in a 30-foot cube within range.",
+	"material": "A drop of water if creating water, or a few grains of sand if destroying it.",
+	"higher_level": "When you cast this spell using a spell slot of 2nd level or higher, you create or destroy 10 additional gallons of water, or the size of the cube increases by 5 feet, for each slot level above 1st.",
+	"subclasses": ["lore"],
+	"area": { "shape": "cube", "size_ft": 30 }
+}

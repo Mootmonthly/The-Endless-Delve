@@ -1,0 +1,38 @@
+{
+	"schema_version": 1,
+	"id": "riding_horse",
+	"display_name": "Riding Horse",
+	"size": "large",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 10,
+	"hit_points": 13,
+	"hit_dice": "2d10+2",
+	"speed": 60,
+	"speeds": { "walk": 60 },
+	"abilities": { "STR": 16, "DEX": 10, "CON": 12, "INT": 2, "WIS": 11, "CHA": 7 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [],
+	"attacks": [
+		{
+			"name": "Hooves",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "2d4+3",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (2d4 + 3) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

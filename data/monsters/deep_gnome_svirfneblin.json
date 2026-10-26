@@ -1,0 +1,75 @@
+{
+	"schema_version": 1,
+	"id": "deep_gnome_svirfneblin",
+	"display_name": "Deep Gnome (Svirfneblin)",
+	"size": "small",
+	"creature_type": "humanoid",
+	"subtype": "gnome",
+	"alignment": "neutral good",
+	"armor_class": 15,
+	"armor_note": "chain shirt",
+	"hit_points": 16,
+	"hit_dice": "3d6+6",
+	"speed": 20,
+	"speeds": { "walk": 20 },
+	"abilities": { "STR": 15, "DEX": 14, "CON": 14, "INT": 12, "WIS": 10, "CHA": 9 },
+	"skills": { "INVESTIGATION": 3, "PERCEPTION": 2, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 120 ft., passive Perception 12",
+	"languages": "Gnomish, Terran, Undercommon",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Stone Camouflage",
+			"kind": "trait",
+			"description": "The gnome has advantage on Dexterity (Stealth) checks made to hide in rocky terrain.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Gnome Cunning",
+			"kind": "trait",
+			"description": "The gnome has advantage on Intelligence, Wisdom, and Charisma saving throws against magic.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The gnome's innate spellcasting ability is Intelligence (spell save DC 11). It can innately cast the following spells, requiring no material components:\nAt will: nondetection (self only)\n1/day each: blindness/deafness, blur, disguise self",
+			"spellcasting": {
+				"ability": "INT",
+				"dc": 11,
+				"modifier": null,
+				"spells": ["blindness_deafness", "blur", "disguise_self", "nondetection"]
+			},
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "War Pick",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d8+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 6 (1d8 + 2) piercing damage."
+		},
+		{
+			"name": "Poisoned Dart",
+			"kind": "ranged",
+			"range_ft": [30, 120],
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "piercing",
+			"description": "Ranged Weapon Attack: +4 to hit, range 30/120 ft., one creature. Hit: 4 (1d4 + 2) piercing damage, and the target must succeed on a DC 12 Constitution saving throw or be poisoned for 1 minute. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success"
+		}
+	],
+	"source": "SRD 5.1"
+}

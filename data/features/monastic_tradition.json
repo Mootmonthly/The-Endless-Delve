@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "monastic_tradition",
+	"display_name": "Monastic Tradition",
+	"class": "monk",
+	"level": 3,
+	"description": "When you reach 3rd level, you commit yourself to a monastic tradition, such as the Way of the Open Hand. Your tradition grants you features at 3rd level and again at 6th, 11th, and 17th level.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

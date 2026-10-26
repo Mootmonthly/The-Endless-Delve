@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "ladder_10_foot",
+	"display_name": "Ladder (10-foot)",
+	"kind": "misc",
+	"description": "Standard Gear: Ladder (10-foot).",
+	"weight": 25,
+	"value_gp": 0.1,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

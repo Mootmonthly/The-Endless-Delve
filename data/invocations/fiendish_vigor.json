@@ -1,0 +1,8 @@
+{
+	"schema_version": 1,
+	"id": "fiendish_vigor",
+	"display_name": "Fiendish Vigor",
+	"description": "You can cast false life on yourself at will as a 1st-level spell, without expending a spell slot or material components.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

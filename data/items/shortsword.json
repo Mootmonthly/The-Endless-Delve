@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "shortsword",
 	"display_name": "Shortsword",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 2,
 	"value_gp": 10,
 	"stackable": true,
-	"weapon_id": "shortsword"
+	"weapon_id": "shortsword",
+	"source": "SRD 5.1"
 }

@@ -1,0 +1,66 @@
+{
+	"schema_version": 1,
+	"id": "stone_giant",
+	"display_name": "Stone Giant",
+	"size": "huge",
+	"creature_type": "giant",
+	"alignment": "neutral",
+	"armor_class": 17,
+	"armor_note": "natural",
+	"hit_points": 126,
+	"hit_dice": "11d12+55",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 23, "DEX": 15, "CON": 20, "INT": 10, "WIS": 12, "CHA": 9 },
+	"saving_throws": { "DEX": 5, "CON": 8, "WIS": 4 },
+	"skills": { "ATHLETICS": 12, "PERCEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 14",
+	"languages": "Giant",
+	"challenge_rating": 7,
+	"proficiency_bonus": 3,
+	"xp": 2900,
+	"loot_table": "boss",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Stone Camouflage",
+			"kind": "trait",
+			"description": "The giant has advantage on Dexterity (Stealth) checks made to hide in rocky terrain.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Rock Catching",
+			"kind": "reaction",
+			"description": "If a rock or similar object is hurled at the giant, the giant can, with a successful DC 10 Dexterity saving throw, catch the missile and take no bludgeoning damage from it.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Greatclub", "Greatclub"],
+	"multiattack_text": "The giant makes two greatclub attacks.",
+	"attacks": [
+		{
+			"name": "Greatclub",
+			"kind": "melee",
+			"reach_ft": 15,
+			"range_ft": [15, 15],
+			"to_hit": 9,
+			"damage": "3d8+6",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +9 to hit, reach 15 ft., one target. Hit: 19 (3d8 + 6) bludgeoning damage."
+		},
+		{
+			"name": "Rock",
+			"kind": "ranged",
+			"range_ft": [60, 240],
+			"to_hit": 9,
+			"damage": "4d10+6",
+			"damage_type": "bludgeoning",
+			"description": "Ranged Weapon Attack: +9 to hit, range 60/240 ft., one target. Hit: 28 (4d10 + 6) bludgeoning damage. If the target is a creature, it must succeed on a DC 17 Strength saving throw or be knocked prone."
+		}
+	],
+	"source": "SRD 5.1"
+}

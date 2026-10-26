@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "signet_ring",
+	"display_name": "Signet ring",
+	"kind": "misc",
+	"description": "Standard Gear: Signet ring.",
+	"weight": 0,
+	"value_gp": 5.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,29 @@
+{
+	"schema_version": 1,
+	"id": "mass_healing_word",
+	"display_name": "Mass Healing Word",
+	"level": 3,
+	"school": "evocation",
+	"casting_time": "bonus_action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "multi-target healing" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V"],
+	"classes": ["cleric"],
+	"source": "SRD 5.1",
+	"description": "As you call out words of restoration, up to six creatures of your choice that you can see within range regain hit points equal to 1d4 + your spellcasting ability modifier. This spell has no effect on undead or constructs.",
+	"higher_level": "When you cast this spell using a spell slot of 4th level or higher, the healing increases by 1d4 for each slot level above 3rd.",
+	"subclasses": ["lore"],
+	"heal_by_slot": {
+		"3": "1d4+MOD",
+		"4": "2d4+MOD",
+		"5": "3d4+MOD",
+		"6": "4d4+MOD",
+		"7": "5d4+MOD",
+		"8": "6d4+MOD",
+		"9": "7d4+MOD"
+	}
+}

@@ -1,0 +1,67 @@
+{
+	"schema_version": 1,
+	"id": "swarm_of_quippers",
+	"display_name": "Swarm of Quippers",
+	"size": "medium",
+	"creature_type": "beast",
+	"swarm": true,
+	"alignment": "unaligned",
+	"armor_class": 13,
+	"hit_points": 28,
+	"hit_dice": "8d8-8",
+	"speed": 0,
+	"speeds": { "swim": 40, "walk": 0 },
+	"abilities": { "STR": 13, "DEX": 16, "CON": 9, "INT": 1, "WIS": 7, "CHA": 2 },
+	"damage_resistances": ["bludgeoning", "piercing", "slashing"],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [
+		"charmed",
+		"frightened",
+		"grappled",
+		"paralyzed",
+		"petrified",
+		"prone",
+		"restrained",
+		"stunned"
+	],
+	"senses": "darkvision 60 ft., passive Perception 8",
+	"languages": "",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Blood Frenzy",
+			"kind": "trait",
+			"description": "The swarm has advantage on melee attack rolls against any creature that doesn't have all its hit points.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Swarm",
+			"kind": "trait",
+			"description": "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny quipper. The swarm can't regain hit points or gain temporary hit points.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Water Breathing",
+			"kind": "trait",
+			"description": "The swarm can breathe only underwater.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bites",
+			"kind": "melee",
+			"reach_ft": 0,
+			"to_hit": 5,
+			"damage": "4d6",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 0 ft., one creature in the swarm's space. Hit: 14 (4d6) piercing damage, or 7 (2d6) piercing damage if the swarm has half of its hit points or fewer."
+		}
+	],
+	"source": "SRD 5.1"
+}

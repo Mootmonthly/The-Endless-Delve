@@ -1,0 +1,112 @@
+{
+	"schema_version": 1,
+	"id": "adult_white_dragon",
+	"display_name": "Adult White Dragon",
+	"size": "huge",
+	"creature_type": "dragon",
+	"alignment": "chaotic evil",
+	"armor_class": 18,
+	"armor_note": "natural",
+	"hit_points": 200,
+	"hit_dice": "16d12+96",
+	"speed": 40,
+	"speeds": { "burrow": 30, "fly": 80, "swim": 40, "walk": 40 },
+	"abilities": { "STR": 22, "DEX": 10, "CON": 22, "INT": 8, "WIS": 12, "CHA": 12 },
+	"saving_throws": { "DEX": 5, "CON": 11, "WIS": 6, "CHA": 6 },
+	"skills": { "PERCEPTION": 11, "STEALTH": 5 },
+	"damage_resistances": [],
+	"damage_immunities": ["cold"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 21",
+	"languages": "Common, Draconic",
+	"challenge_rating": 13,
+	"proficiency_bonus": 5,
+	"xp": 10000,
+	"loot_table": "boss",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Ice Walk",
+			"kind": "trait",
+			"description": "The dragon can move across and climb icy surfaces without needing to make an ability check. Additionally, difficult terrain composed of ice or snow doesn't cost it extra movement.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Legendary Resistance",
+			"kind": "trait",
+			"description": "If the dragon fails a saving throw, it can choose to succeed instead.",
+			"usage": { "rest_types": [], "times": 3, "type": "per day" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Frightful Presence",
+			"kind": "action",
+			"description": "Each creature of the dragon's choice that is within 120 ft. of the dragon and aware of it must succeed on a DC 14 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours.",
+			"dc": { "ability": "WIS", "value": 14, "on_success": "none" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Cold Breath",
+			"kind": "action",
+			"description": "The dragon exhales an icy blast in a 60-foot cone. Each creature in that area must make a DC 19 Constitution saving throw, taking 54 (12d8) cold damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "CON", "value": 19, "on_success": "half" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Detect",
+			"kind": "legendary_action",
+			"description": "The dragon makes a Wisdom (Perception) check.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Tail Attack",
+			"kind": "legendary_action",
+			"description": "The dragon makes a tail attack.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Wing Attack (Costs 2 Actions)",
+			"kind": "legendary_action",
+			"description": "The dragon beats its wings. Each creature within 10 ft. of the dragon must succeed on a DC 19 Dexterity saving throw or take 13 (2d6 + 6) bludgeoning damage and be knocked prone. The dragon can then fly up to half its flying speed.",
+			"dc": { "ability": "DEX", "value": 19, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Claw", "Claw"],
+	"multiattack_text": "The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 11,
+			"damage": "2d10+6",
+			"damage_type": "piercing",
+			"extra_damage": [{ "damage": "1d8", "damage_type": "cold" }],
+			"description": "Melee Weapon Attack: +11 to hit, reach 10 ft., one target. Hit: 17 (2d10 + 6) piercing damage plus 4 (1d8) cold damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 11,
+			"damage": "2d6+6",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +11 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing damage."
+		},
+		{
+			"name": "Tail",
+			"kind": "melee",
+			"reach_ft": 15,
+			"range_ft": [15, 15],
+			"to_hit": 11,
+			"damage": "2d8+6",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +11 to hit, reach 15 ft., one target. Hit: 15 (2d8 + 6) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

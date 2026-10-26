@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "ray_of_frost",
 	"display_name": "Ray of Frost",
 	"level": 0,
@@ -20,5 +21,10 @@
 	"components": ["V", "S"],
 	"classes": ["sorcerer", "wizard"],
 	"source": "SRD 5.1",
-	"description": "A frigid beam: a ranged spell attack for 1d8 cold damage; on a hit the target's speed drops by 10 feet until the start of your next turn."
+	"description": "A frigid beam: a ranged spell attack for 1d8 cold damage; on a hit the target's speed drops by 10 feet until the start of your next turn.",
+	"ritual": false,
+	"subclasses": ["lore"],
+	"damage_by_character_level": { "1": "1d8", "5": "2d8", "11": "3d8", "17": "4d8" },
+	"damage_type": "cold",
+	"srd_description": "A frigid beam of blue-white light streaks toward a creature within range. Make a ranged spell attack against the target. On a hit, it takes 1d8 cold damage, and its speed is reduced by 10 feet until the start of your next turn.\nThe spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8)."
 }

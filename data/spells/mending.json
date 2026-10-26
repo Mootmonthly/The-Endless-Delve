@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "mending",
+	"display_name": "Mending",
+	"level": 0,
+	"school": "transmutation",
+	"casting_time": "1_minute",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "cleric", "druid", "sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "This spell repairs a single break or tear in an object you touch, such as a broken key, a torn cloak, or a leaking wineskin. As long as the break or tear is no longer than 1 foot in any dimension, you mend it, leaving no trace of the former damage.\nThis spell can physically repair a magic item or construct, but the spell can't restore magic to such an object.",
+	"casting_time_text": "1 minute",
+	"material": "Two lodestones.",
+	"subclasses": ["lore"]
+}

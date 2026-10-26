@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "deck_of_illusions",
+	"display_name": "Deck of Illusions",
+	"kind": "misc",
+	"description": "This box contains a set of parchment cards. A full deck has 34 cards. A deck found as treasure is usually missing 1d20 - 1 cards.\nThe magic of the deck functions only if cards are drawn at random (you can use an altered deck of playing cards to simulate the deck). You can use an action to draw a card at random from the deck and throw it to the ground at a point within 30 feet of you.\nAn illusion of one or more creatures forms over the thrown card and remains until dispelled. An illusory creature appears real, of the appropriate size, and behaves as if it were a real creature except that it can do no harm. While you are within 120 feet of the illusory creature and can see it, you can use an action to move it magically anywhere within 30 feet of its card. Any physical interaction with the illusory creature reveals it to be an illusion, because objects pass through it. Someone who uses an action to visually inspect the creature identifies it as illusory with a successful DC 15 Intelligence (Investigation) check. The creature then appears translucent.\nThe illusion lasts until its card is moved or the illusion is dispelled. When the illusion ends, the image on its card disappears, and that card can't be used again.\n| Playing Card | Illusion |\n|---|---|\n| Ace of hearts | Red dragon |\n| King of hearts | Knight and four guards |\n| Queen of hearts | Succubus or incubus |\n| Jack of hearts | Druid |\n| Ten of hearts | Cloud giant |\n| Nine of hearts | Ettin |\n| Eight of hearts | Bugbear |\n| Two of hearts | Goblin |\n| Ace of diamonds | Aboleth |\n| King of diamonds | Archmage and mage apprentice |\n| Queen of diamonds | Night hag |\n| Jack of diamonds | Assassin |\n| Ten of diamonds | Fire giant |\n| Nine of diamonds | Ogre mage |\n| Eight of diamonds | Gnoll |\n| Two of diamonds | Kobold |\n| Ace of spades | Lich |\n| King of spades | Priest and two acolytes |\n| Queen of spades | Medusa |\n| Jack of spades | Veteran |\n| Ten of spades | Frost giant |\n| Nine of spades | Troll |\n| Eight of spades | Hobgoblin |\n| Two of spades | Goblin |\n| Ace of clubs | Iron golem |\n| King of clubs | Bandit captain and three bandits |\n| Queen of clubs | Erinyes |\n| Jack of clubs | Berserker |\n| Ten of clubs | Hill giant |\n| Nine of clubs | Ogre |\n| Eight of clubs | Orc |\n| Two of clubs | Kobold |\n| Jokers (2) | You (the deck's owner) |",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "patient_defense",
+	"display_name": "Patient Defense",
+	"class": "monk",
+	"level": 2,
+	"description": "You can spend 1 ki point to take the Dodge action as a bonus action on your turn.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

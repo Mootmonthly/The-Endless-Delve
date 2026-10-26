@@ -1,0 +1,84 @@
+{
+	"schema_version": 1,
+	"id": "dryad",
+	"display_name": "Dryad",
+	"size": "medium",
+	"creature_type": "fey",
+	"alignment": "neutral",
+	"armor_class": 11,
+	"hit_points": 22,
+	"hit_dice": "5d8",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 10, "DEX": 12, "CON": 11, "INT": 14, "WIS": 15, "CHA": 18 },
+	"skills": { "PERCEPTION": 4, "STEALTH": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 14",
+	"languages": "Elvish, Sylvan",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The dryad's innate spellcasting ability is Charisma (spell save DC 14). The dryad can innately cast the following spells, requiring no material components:\n\nAt will: druidcraft\n3/day each: entangle, goodberry\n1/day each: barkskin, pass without trace, shillelagh",
+			"spellcasting": {
+				"ability": "CHA",
+				"dc": 14,
+				"modifier": null,
+				"spells": [
+					"barkskin",
+					"druidcraft",
+					"entangle",
+					"goodberry",
+					"pass_without_trace",
+					"shillelagh"
+				]
+			},
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Magic Resistance",
+			"kind": "trait",
+			"description": "The dryad has advantage on saving throws against spells and other magical effects.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Speak with Beasts and Plants",
+			"kind": "trait",
+			"description": "The dryad can communicate with beasts and plants as if they shared a language.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Tree Stride",
+			"kind": "trait",
+			"description": "Once on her turn, the dryad can use 10 ft. of her movement to step magically into one living tree within her reach and emerge from a second living tree within 60 ft. of the first tree, appearing in an unoccupied space within 5 ft. of the second tree. Both trees must be large or bigger.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Fey Charm",
+			"kind": "action",
+			"description": "The dryad targets one humanoid or beast that she can see within 30 feet of her. If the target can see the dryad, it must succeed on a DC 14 Wisdom saving throw or be magically charmed. The charmed creature regards the dryad as a trusted friend to be heeded and protected. Although the target isn't under the dryad's control, it takes the dryad's requests or actions in the most favorable way it can.\nEach time the dryad or its allies do anything harmful to the target, it can repeat the saving throw, ending the effect on itself on a success. Otherwise, the effect lasts 24 hours or until the dryad dies, is on a different plane of existence from the target, or ends the effect as a bonus action. If a target's saving throw is successful, the target is immune to the dryad's Fey Charm for the next 24 hours.\nThe dryad can have no more than one humanoid and up to three beasts charmed at a time.",
+			"dc": { "ability": "WIS", "value": 14, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Club",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 2,
+			"damage": "1d4",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +2 to hit (+6 to hit with shillelagh), reach 5 ft., one target. Hit: 2 (1d4) bludgeoning damage, or 8 (1d8 + 4) bludgeoning damage with shillelagh."
+		}
+	],
+	"source": "SRD 5.1"
+}

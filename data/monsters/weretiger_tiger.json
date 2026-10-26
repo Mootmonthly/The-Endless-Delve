@@ -1,0 +1,72 @@
+{
+	"schema_version": 1,
+	"id": "weretiger_tiger",
+	"display_name": "Weretiger, Tiger Form",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "human",
+	"alignment": "neutral",
+	"armor_class": 12,
+	"armor_note": "natural",
+	"hit_points": 120,
+	"hit_dice": "16d8+48",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 17, "DEX": 15, "CON": 16, "INT": 10, "WIS": 13, "CHA": 11 },
+	"skills": { "PERCEPTION": 5, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [
+		"bludgeoning, piercing, and slashing from nonmagical weapons that aren't silvered"
+	],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 15",
+	"languages": "",
+	"challenge_rating": 4,
+	"proficiency_bonus": 2,
+	"xp": 1100,
+	"loot_table": "boss",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Shapechanger",
+			"kind": "trait",
+			"description": "The weretiger can use its action to polymorph into a tiger-humanoid hybrid or into a tiger, or back into its true form, which is humanoid. Its statistics, other than its size, are the same in each form. Any equipment it is wearing or carrying isn't transformed. It reverts to its true form if it dies.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Keen Hearing and Smell",
+			"kind": "trait",
+			"description": "The weretiger has advantage on Wisdom (Perception) checks that rely on hearing or smell.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Pounce",
+			"kind": "trait",
+			"description": "If the weretiger moves at least 15 feet straight toward a creature and then hits it with a claw attack on the same turn, that target must succeed on a DC 14 Strength saving throw or be knocked prone. If the target is prone, the weretiger can make one bite attack against it as a bonus action.",
+			"dc": { "ability": "STR", "value": 14, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d10+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (1d10 + 3) piercing damage. If the target is a humanoid, it must succeed on a DC 13 Constitution saving throw or be cursed with weretiger lycanthropy."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d8+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

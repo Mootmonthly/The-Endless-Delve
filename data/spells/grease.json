@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"id": "grease",
+	"display_name": "Grease",
+	"level": 1,
+	"school": "conjuration",
+	"casting_time": "action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "no direct damage roll" },
+	"duration": "1 minute",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["wizard"],
+	"source": "SRD 5.1",
+	"description": "Slick grease covers the ground in a 10-foot square centered on a point within range and turns it into difficult terrain for the duration.\nWhen the grease appears, each creature standing in its area must succeed on a dexterity saving throw or fall prone. A creature that enters the area or ends its turn there must also succeed on a dexterity saving throw or fall prone.",
+	"material": "A bit of pork rind or butter.",
+	"subclasses": ["lore"],
+	"area": { "shape": "cube", "size_ft": 10 },
+	"saving_throw": { "ability": "DEX", "on_success": "none" }
+}

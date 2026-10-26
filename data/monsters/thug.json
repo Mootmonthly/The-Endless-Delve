@@ -1,0 +1,59 @@
+{
+	"schema_version": 1,
+	"id": "thug",
+	"display_name": "Thug",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any non-good alignment",
+	"armor_class": 11,
+	"armor_note": "leather armor",
+	"hit_points": 32,
+	"hit_dice": "5d8+10",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 15, "DEX": 11, "CON": 14, "INT": 10, "WIS": 10, "CHA": 11 },
+	"skills": { "INTIMIDATION": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "any one language (usually Common)",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Pack Tactics",
+			"kind": "trait",
+			"description": "The thug has advantage on an attack roll against a creature if at least one of the thug's allies is within 5 ft. of the creature and the ally isn't incapacitated.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Mace", "Mace"],
+	"multiattack_text": "The thug makes two melee attacks.",
+	"attacks": [
+		{
+			"name": "Mace",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 5 (1d6 + 2) bludgeoning damage."
+		},
+		{
+			"name": "Heavy Crossbow",
+			"kind": "ranged",
+			"range_ft": [100, 400],
+			"to_hit": 2,
+			"damage": "1d10",
+			"damage_type": "piercing",
+			"description": "Ranged Weapon Attack: +2 to hit, range 100/400 ft., one target. Hit: 5 (1d10) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

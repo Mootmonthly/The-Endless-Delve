@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "whetstone",
+	"display_name": "Whetstone",
+	"kind": "misc",
+	"description": "Standard Gear: Whetstone.",
+	"weight": 1,
+	"value_gp": 0.01,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

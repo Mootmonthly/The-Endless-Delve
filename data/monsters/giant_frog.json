@@ -1,0 +1,58 @@
+{
+	"schema_version": 1,
+	"id": "giant_frog",
+	"display_name": "Giant Frog",
+	"size": "medium",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 11,
+	"hit_points": 18,
+	"hit_dice": "4d8",
+	"speed": 30,
+	"speeds": { "swim": 30, "walk": 30 },
+	"abilities": { "STR": 12, "DEX": 13, "CON": 11, "INT": 2, "WIS": 10, "CHA": 3 },
+	"skills": { "PERCEPTION": 2, "STEALTH": 3 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 30 ft., passive Perception 12",
+	"languages": "",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Amphibious",
+			"kind": "trait",
+			"description": "The frog can breathe air and water",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Standing Leap",
+			"kind": "trait",
+			"description": "The frog's long jump is up to 20 ft. and its high jump is up to 10 ft., with or without a running start.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Swallow",
+			"kind": "action",
+			"description": "The frog makes one bite attack against a Small or smaller target it is grappling. If the attack hits, the target is swallowed, and the grapple ends. The swallowed target is blinded and restrained, it has total cover against attacks and other effects outside the frog, and it takes 5 (2d4) acid damage at the start of each of the frog's turns. The frog can have only one target swallowed at a time. If the frog dies, a swallowed creature is no longer restrained by it and can escape from the corpse using 5 ft. of movement, exiting prone.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d6+1",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) piercing damage, and the target is grappled (escape DC 11). Until this grapple ends, the target is restrained, and the frog can't bite another target."
+		}
+	],
+	"source": "SRD 5.1"
+}

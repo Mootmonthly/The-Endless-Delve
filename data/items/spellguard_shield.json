@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "spellguard_shield",
+	"display_name": "Spellguard Shield",
+	"kind": "misc",
+	"description": "While holding this shield, you have advantage on saving throws against spells and other magical effects, and spell attacks have disadvantage against you.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (shield), very rare (requires attunement)",
+	"rarity": "very rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

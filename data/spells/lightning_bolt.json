@@ -1,0 +1,40 @@
+{
+	"schema_version": 1,
+	"id": "lightning_bolt",
+	"display_name": "Lightning Bolt",
+	"level": 3,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": {
+		"type": "area_save",
+		"save": "DEX",
+		"damage": "8d6",
+		"damage_type": "lightning",
+		"on_save": "half",
+		"per_slot_level_above": "1d6"
+	},
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "A stroke of lightning forming a line 100 feet long and 5 feet wide blasts out from you in a direction you choose. Each creature in the line must make a dexterity saving throw. A creature takes 8d6 lightning damage on a failed save, or half as much damage on a successful one.\nThe lightning ignites flammable objects in the area that aren't being worn or carried.",
+	"material": "A bit of fur and a rod of amber, crystal, or glass.",
+	"higher_level": "When you cast this spell using a spell slot of 4th level or higher, the damage increases by 1d6 for each slot level above 3rd.",
+	"subclasses": ["land", "lore"],
+	"area": { "shape": "line", "size_ft": 100 },
+	"saving_throw": { "ability": "DEX", "on_success": "half" },
+	"damage_by_slot": {
+		"3": "8d6",
+		"4": "9d6",
+		"5": "10d6",
+		"6": "11d6",
+		"7": "12d6",
+		"8": "13d6",
+		"9": "14d6"
+	},
+	"damage_type": "lightning"
+}

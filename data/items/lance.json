@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "lance",
+	"display_name": "Lance",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 1d12 piercing (reach, special).",
+	"weight": 6,
+	"value_gp": 10.0,
+	"stackable": true,
+	"weapon_id": "lance",
+	"source": "SRD 5.1"
+}

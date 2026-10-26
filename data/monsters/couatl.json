@@ -1,0 +1,95 @@
+{
+	"schema_version": 1,
+	"id": "couatl",
+	"display_name": "Couatl",
+	"size": "medium",
+	"creature_type": "celestial",
+	"alignment": "lawful good",
+	"armor_class": 19,
+	"armor_note": "natural",
+	"hit_points": 97,
+	"hit_dice": "13d8+39",
+	"speed": 30,
+	"speeds": { "fly": 90, "walk": 30 },
+	"abilities": { "STR": 16, "DEX": 20, "CON": 17, "INT": 18, "WIS": 20, "CHA": 18 },
+	"saving_throws": { "CON": 5, "WIS": 7, "CHA": 6 },
+	"damage_resistances": ["radiant"],
+	"damage_immunities": ["psychic", "bludgeoning, piercing, and slashing from nonmagical weapons"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "truesight 120 ft., passive Perception 15",
+	"languages": "all, telepathy 120 ft.",
+	"challenge_rating": 4,
+	"proficiency_bonus": 2,
+	"xp": 1100,
+	"loot_table": "boss",
+	"icon": "hobgoblin",
+	"traits": [
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The couatl's spellcasting ability is Charisma (spell save DC 14). It can innately cast the following spells, requiring only verbal components:\n\nAt will: detect evil and good, detect magic, detect thoughts\n3/day each: bless, create food and water, cure wounds, lesser restoration, protection from poison, sanctuary, shield\n1/day each: dream, greater restoration, scrying",
+			"spellcasting": {
+				"ability": "CHA",
+				"dc": 14,
+				"modifier": null,
+				"spells": [
+					"bless",
+					"create_food_and_water",
+					"cure_wounds",
+					"detect_evil_and_good",
+					"detect_magic",
+					"detect_thoughts",
+					"dream",
+					"greater_restoration",
+					"lesser_restoration",
+					"protection_from_poison",
+					"sanctuary",
+					"scrying",
+					"shield"
+				]
+			},
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Magic Weapons",
+			"kind": "trait",
+			"description": "The couatl's weapon attacks are magical.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Shielded Mind",
+			"kind": "trait",
+			"description": "The couatl is immune to scrying and to any effect that would sense its emotions, read its thoughts, or detect its location.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Change Shape",
+			"kind": "action",
+			"description": "The couatl magically polymorphs into a humanoid or beast that has a challenge rating equal to or less than its own, or back into its true form. It reverts to its true form if it dies. Any equipment it is wearing or carrying is absorbed or borne by the new form (the couatl's choice).\nIn a new form, the couatl retains its game statistics and ability to speak, but its AC, movement modes, Strength, Dexterity, and other actions are replaced by those of the new form, and it gains any statistics and capabilities (except class features, legendary actions, and lair actions) that the new form has but that it lacks. If the new form has a bite attack, the couatl can use its bite in that form.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 8,
+			"damage": "1d6+5",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +8 to hit, reach 5 ft., one creature. Hit: 8 (1d6 + 5) piercing damage, and the target must succeed on a DC 13 Constitution saving throw or be poisoned for 24 hours. Until this poison ends, the target is unconscious. Another creature can use an action to shake the target awake."
+		},
+		{
+			"name": "Constrict",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 6,
+			"damage": "2d6+3",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +6 to hit, reach 10 ft., one Medium or smaller creature. Hit: 10 (2d6 + 3) bludgeoning damage, and the target is grappled (escape DC 15). Until this grapple ends, the target is restrained, and the couatl can't constrict another target."
+		}
+	],
+	"source": "SRD 5.1"
+}

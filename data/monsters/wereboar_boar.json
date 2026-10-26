@@ -1,0 +1,63 @@
+{
+	"schema_version": 1,
+	"id": "wereboar_boar",
+	"display_name": "Wereboar, Boar Form",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "human",
+	"alignment": "neutral evil",
+	"armor_class": 11,
+	"armor_note": "natural",
+	"hit_points": 78,
+	"hit_dice": "12d8+24",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 17, "DEX": 10, "CON": 15, "INT": 10, "WIS": 11, "CHA": 8 },
+	"skills": { "PERCEPTION": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [
+		"bludgeoning, piercing, and slashing from nonmagical weapons that aren't silvered"
+	],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 12",
+	"languages": "",
+	"challenge_rating": 4,
+	"proficiency_bonus": 2,
+	"xp": 1100,
+	"loot_table": "boss",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Shapechanger",
+			"kind": "trait",
+			"description": "The wereboar can use its action to polymorph into a boar-humanoid hybrid or into a boar, or back into its true form, which is humanoid. Its statistics, other than its AC, are the same in each form. Any equipment it is wearing or carrying isn't transformed. It reverts to its true form if it dies.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Charge (Boar or Hybrid Form Only)",
+			"kind": "trait",
+			"description": "If the wereboar moves at least 15 feet straight toward a target and then hits it with its tusks on the same turn, the target takes an extra 7 (2d6) slashing damage. If the target is a creature, it must succeed on a DC 13 Strength saving throw or be knocked prone.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Relentless",
+			"kind": "trait",
+			"description": "If the wereboar takes 14 damage or less that would reduce it to 0 hit points, it is reduced to 1 hit point instead.",
+			"usage": { "rest_types": ["short", "long"], "type": "recharge after rest" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Tusks",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "2d6+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage. If the target is a humanoid, it must succeed on a DC 12 Constitution saving throw or be cursed with wereboar lycanthropy."
+		}
+	],
+	"source": "SRD 5.1"
+}

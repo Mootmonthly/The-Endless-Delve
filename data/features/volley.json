@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "volley",
+	"display_name": "Multiattack: Volley",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 11,
+	"description": "You can use your action to make a ranged attack against any number of creatures within 10 feet of a point you can see within your weapon's range. You must have ammunition for each target, as normal, and you make a separate attack roll for each target.",
+	"option_of": "multiattack",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "longsword",
 	"display_name": "Longsword",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 3,
 	"value_gp": 15,
 	"stackable": true,
-	"weapon_id": "longsword"
+	"weapon_id": "longsword",
+	"source": "SRD 5.1"
 }

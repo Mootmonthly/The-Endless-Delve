@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "bonus_proficiency",
+	"display_name": "Bonus Proficiency",
+	"class": "cleric",
+	"subclass": "life",
+	"level": 1,
+	"description": "When you choose this domain at 1st level, you gain proficiency with heavy armor.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

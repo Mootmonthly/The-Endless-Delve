@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_resistance_acid",
+	"display_name": "Ring of Acid Resistance",
+	"kind": "misc",
+	"description": "You have resistance to acid damage while wearing this pearl ring.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

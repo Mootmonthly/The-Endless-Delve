@@ -1,0 +1,31 @@
+{
+	"schema_version": 1,
+	"id": "flame_strike",
+	"display_name": "Flame Strike",
+	"level": 5,
+	"school": "evocation",
+	"casting_time": "action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "more than one damage type" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["cleric"],
+	"source": "SRD 5.1",
+	"description": "A vertical column of divine fire roars down from the heavens in a location you specify. Each creature in a 10-foot-radius, 40-foot-high cylinder centered on a point within range must make a dexterity saving throw. A creature takes 4d6 fire damage and 4d6 radiant damage on a failed save, or half as much damage on a successful one.",
+	"material": "Pinch of sulfur.",
+	"higher_level": "When you cast this spell using a spell slot of 6th level or higher, the fire damage or the radiant damage (your choice) increases by 1d6 for each slot level above 5th.",
+	"subclasses": ["devotion", "fiend"],
+	"area": { "shape": "cylinder", "size_ft": 40 },
+	"saving_throw": { "ability": "DEX", "on_success": "half" },
+	"damage_by_slot": { "5": "4d6", "6": "5d6", "7": "6d6", "8": "7d6", "9": "8d6" },
+	"damage_type": "fire",
+	"extra_damage": [
+		{
+			"damage_type": "radiant",
+			"damage_by_slot": { "5": "4d6", "6": "4d6", "7": "4d6", "8": "4d6", "9": "4d6" }
+		}
+	]
+}

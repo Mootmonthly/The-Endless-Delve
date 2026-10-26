@@ -1,0 +1,46 @@
+{
+	"schema_version": 1,
+	"id": "hawk",
+	"display_name": "Hawk",
+	"size": "tiny",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 13,
+	"hit_points": 1,
+	"hit_dice": "1d4-1",
+	"speed": 10,
+	"speeds": { "fly": 60, "walk": 10 },
+	"abilities": { "STR": 5, "DEX": 16, "CON": 8, "INT": 2, "WIS": 14, "CHA": 6 },
+	"skills": { "PERCEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 14",
+	"languages": "",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Keen Sight",
+			"kind": "trait",
+			"description": "The hawk has advantage on Wisdom (Perception) checks that rely on sight.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Talons",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 1 slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

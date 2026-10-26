@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_resistance_cold",
+	"display_name": "Ring of Cold Resistance",
+	"kind": "misc",
+	"description": "You have resistance to cold damage while wearing this tourmaline ring.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

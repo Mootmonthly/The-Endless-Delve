@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "magic_missile",
 	"display_name": "Magic Missile",
 	"level": 1,
@@ -7,11 +8,33 @@
 	"casting_time": "action",
 	"range_ft": 120,
 	"target": "creature",
-	"effect": { "type": "auto_hit", "darts": 3, "damage": "1d4+1", "damage_type": "force", "per_slot_level_above": 1 },
+	"effect": {
+		"type": "auto_hit",
+		"darts": 3,
+		"damage": "1d4+1",
+		"damage_type": "force",
+		"per_slot_level_above": 1
+	},
 	"duration": "instantaneous",
 	"concentration": false,
 	"components": ["V", "S"],
 	"classes": ["sorcerer", "wizard"],
 	"source": "SRD 5.1",
-	"description": "Three glowing darts of magical force each hit automatically for 1d4 + 1 force damage. One more dart for each slot level above 1st."
+	"description": "Three glowing darts of magical force each hit automatically for 1d4 + 1 force damage. One more dart for each slot level above 1st.",
+	"ritual": false,
+	"higher_level": "When you cast this spell using a spell slot of 2nd level or higher, the spell creates one more dart for each slot level above 1st.",
+	"subclasses": ["lore"],
+	"damage_by_slot": {
+		"1": "3d4+3",
+		"2": "4d4+4",
+		"3": "5d4+5",
+		"4": "6d4+6",
+		"5": "7d4+7",
+		"6": "8d4+8",
+		"7": "9d4+9",
+		"8": "10d4+10",
+		"9": "11d4+11"
+	},
+	"damage_type": "force",
+	"srd_description": "You create three glowing darts of magical force. Each dart hits a creature of your choice that you can see within range. A dart deals 1d4 + 1 force damage to its target. The darts all strike simultaneously, and you can direct them to hit one creature or several."
 }

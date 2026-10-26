@@ -1,0 +1,49 @@
+{
+	"schema_version": 1,
+	"id": "copper_dragon_wyrmling",
+	"display_name": "Copper Dragon Wyrmling",
+	"size": "medium",
+	"creature_type": "dragon",
+	"alignment": "chaotic good",
+	"armor_class": 16,
+	"armor_note": "natural",
+	"hit_points": 22,
+	"hit_dice": "4d8+4",
+	"speed": 30,
+	"speeds": { "climb": 30, "fly": 60, "walk": 30 },
+	"abilities": { "STR": 15, "DEX": 12, "CON": 13, "INT": 14, "WIS": 11, "CHA": 13 },
+	"saving_throws": { "DEX": 3, "CON": 3, "WIS": 2, "CHA": 3 },
+	"skills": { "PERCEPTION": 4, "STEALTH": 3 },
+	"damage_resistances": [],
+	"damage_immunities": ["acid"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 14",
+	"languages": "Draconic",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Breath Weapons",
+			"kind": "action",
+			"description": "The dragon uses one of the following breath weapons.\nAcid Breath. The dragon exhales acid in an 20-foot line that is 5 feet wide. Each creature in that line must make a DC 11 Dexterity saving throw, taking 18 (4d8) acid damage on a failed save, or half as much damage on a successful one.\nSlowing Breath. The dragon exhales gas in a 15-foot cone. Each creature in that area must succeed on a DC 11 Constitution saving throw. On a failed save, the creature can't use reactions, its speed is halved, and it can't make more than one attack on its turn. In addition, the creature can use either an action or a bonus action on its turn, but not both. These effects last for 1 minute. The creature can repeat the saving throw at the end of each of its turns, ending the effect on itself with a successful save.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d10+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (1d10 + 2) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

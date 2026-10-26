@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "spear",
 	"display_name": "Spear",
 	"category": "simple",
@@ -7,5 +8,6 @@
 	"damage_type": "piercing",
 	"properties": ["thrown", "versatile"],
 	"versatile_damage": "1d8",
-	"range_ft": [20, 60]
+	"range_ft": [20, 60],
+	"source": "SRD 5.1"
 }

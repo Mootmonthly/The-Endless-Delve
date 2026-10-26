@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "scimitar",
 	"display_name": "Scimitar",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 3,
 	"value_gp": 25,
 	"stackable": true,
-	"weapon_id": "scimitar"
+	"weapon_id": "scimitar",
+	"source": "SRD 5.1"
 }

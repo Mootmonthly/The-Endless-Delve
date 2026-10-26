@@ -1,0 +1,67 @@
+{
+	"schema_version": 1,
+	"id": "merrow",
+	"display_name": "Merrow",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "chaotic evil",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 45,
+	"hit_dice": "6d10+12",
+	"speed": 10,
+	"speeds": { "swim": 40, "walk": 10 },
+	"abilities": { "STR": 18, "DEX": 10, "CON": 15, "INT": 8, "WIS": 10, "CHA": 9 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 10",
+	"languages": "Abyssal, Aquan",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Amphibious",
+			"kind": "trait",
+			"description": "The merrow can breathe air and water.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Claws"],
+	"multiattack_text": "The merrow makes two attacks: one with its bite and one with its claws or harpoon.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "1d8+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 8 (1d8 + 4) piercing damage."
+		},
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d4+4",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 9 (2d4 + 4) slashing damage."
+		},
+		{
+			"name": "Harpoon",
+			"kind": "melee",
+			"reach_ft": 5,
+			"thrown_range_ft": [20, 60],
+			"to_hit": 6,
+			"damage": "2d6+4",
+			"damage_type": "piercing",
+			"description": "Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 11 (2d6 + 4) piercing damage. If the target is a Huge or smaller creature, it must succeed on a Strength contest against the merrow or be pulled up to 20 feet toward the merrow."
+		}
+	],
+	"source": "SRD 5.1"
+}

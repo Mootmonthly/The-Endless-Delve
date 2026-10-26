@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "case_map_or_scroll",
+	"display_name": "Case, map or scroll",
+	"kind": "misc",
+	"description": "This cylindrical leather case can hold up to ten rolled-up sheets of paper or five rolled-up sheets of parchment.",
+	"weight": 1,
+	"value_gp": 1.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "bottle_glass",
+	"display_name": "Bottle, glass",
+	"kind": "misc",
+	"description": "Standard Gear: Bottle, glass.",
+	"weight": 2,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

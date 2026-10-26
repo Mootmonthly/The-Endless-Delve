@@ -1,0 +1,92 @@
+{
+	"schema_version": 1,
+	"id": "archmage",
+	"display_name": "Archmage",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any alignment",
+	"armor_class": 12,
+	"hit_points": 99,
+	"hit_dice": "18d8+18",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 10, "DEX": 14, "CON": 12, "INT": 20, "WIS": 15, "CHA": 16 },
+	"saving_throws": { "INT": 9, "WIS": 6 },
+	"skills": { "ARCANA": 13, "HISTORY": 13 },
+	"damage_resistances": [
+		"damage from spells",
+		"bludgeoning, piercing, and slashing from nonmagical attacks (from stoneskin)"
+	],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 12",
+	"languages": "any six languages",
+	"challenge_rating": 12,
+	"proficiency_bonus": 4,
+	"xp": 8400,
+	"loot_table": "boss",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Magic Resistance",
+			"kind": "trait",
+			"description": "The archmage has advantage on saving throws against spells and other magical effects.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Spellcasting",
+			"kind": "trait",
+			"description": "The archmage is an 18th-level spellcaster. Its spellcasting ability is Intelligence (spell save DC 17, +9 to hit with spell attacks). The archmage can cast disguise self and invisibility at will and has the following wizard spells prepared:\n\n- Cantrips (at will): fire bolt, light, mage hand, prestidigitation, shocking grasp\n- 1st level (4 slots): detect magic, identify, mage armor*, magic missile\n- 2nd level (3 slots): detect thoughts, mirror image, misty step\n- 3rd level (3 slots): counterspell, fly, lightning bolt\n- 4th level (3 slots): banishment, fire shield, stoneskin*\n- 5th level (3 slots): cone of cold, scrying, wall of force\n- 6th level (1 slot): globe of invulnerability\n- 7th level (1 slot): teleport\n- 8th level (1 slot): mind blank*\n- 9th level (1 slot): time stop\n* The archmage casts these spells on itself before combat.",
+			"spellcasting": {
+				"ability": "INT",
+				"dc": 17,
+				"modifier": 9,
+				"spells": [
+					"banishment",
+					"cone_of_cold",
+					"counterspell",
+					"detect_magic",
+					"detect_thoughts",
+					"disguise_self",
+					"fire_bolt",
+					"fire_shield",
+					"fly",
+					"globe_of_invulnerability",
+					"identify",
+					"invisibility",
+					"light",
+					"lightning_bolt",
+					"mage_armor",
+					"mage_hand",
+					"magic_missile",
+					"mind_blank",
+					"mirror_image",
+					"misty_step",
+					"prestidigitation",
+					"scrying",
+					"shocking_grasp",
+					"stoneskin",
+					"teleport",
+					"time_stop",
+					"wall_of_force"
+				]
+			},
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Dagger",
+			"kind": "melee",
+			"reach_ft": 5,
+			"thrown_range_ft": [20, 60],
+			"to_hit": 6,
+			"damage": "1d4+2",
+			"damage_type": "piercing",
+			"description": "Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d4 + 2) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

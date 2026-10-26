@@ -1,0 +1,78 @@
+{
+	"schema_version": 1,
+	"id": "lamia",
+	"display_name": "Lamia",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "chaotic evil",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 97,
+	"hit_dice": "13d10+26",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 16, "DEX": 13, "CON": 15, "INT": 14, "WIS": 15, "CHA": 16 },
+	"skills": { "DECEPTION": 7, "INSIGHT": 4, "STEALTH": 3 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 12",
+	"languages": "Abyssal, Common",
+	"challenge_rating": 4,
+	"proficiency_bonus": 2,
+	"xp": 1100,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The lamia's innate spellcasting ability is Charisma (spell save DC 13). It can innately cast the following spells, requiring no material components. At will: disguise self (any humanoid form), major image 3/day each: charm person, mirror image, scrying, suggestion 1/day: geas",
+			"spellcasting": {
+				"ability": "CHA",
+				"dc": 13,
+				"modifier": null,
+				"spells": [
+					"charm_person",
+					"disguise_self",
+					"geas",
+					"major_image",
+					"mirror_image",
+					"scrying",
+					"suggestion"
+				]
+			},
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Intoxicating Touch",
+			"kind": "action",
+			"description": "Melee Spell Attack: +5 to hit, reach 5 ft., one creature. Hit: The target is magically cursed for 1 hour. Until the curse ends, the target has disadvantage on Wisdom saving throws and all ability checks.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Claws", "Dagger"],
+	"multiattack_text": "The lamia makes two attacks: one with its claws and one with its dagger or Intoxicating Touch.",
+	"attacks": [
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "2d10+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 14 (2d10 + 3) slashing damage."
+		},
+		{
+			"name": "Dagger",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d4+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 5 (1d4 + 3) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

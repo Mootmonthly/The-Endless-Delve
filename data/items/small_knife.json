@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "small_knife",
+	"display_name": "Small knife",
+	"kind": "misc",
+	"description": "A small knife, typically found in a scholar's pack.",
+	"weight": 0,
+	"value_gp": 0.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

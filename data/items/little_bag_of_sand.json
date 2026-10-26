@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "little_bag_of_sand",
+	"display_name": "Little bag of sand",
+	"kind": "misc",
+	"description": "A small bag of sand, typically found in a scholar's pack.",
+	"weight": 0,
+	"value_gp": 0.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

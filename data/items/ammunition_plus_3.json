@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "ammunition_plus_3",
+	"display_name": "Ammunition, +3",
+	"kind": "ammo",
+	"description": "You have a +3 bonus to attack and damage rolls made with this piece of magic ammunition. Once it hits a target, the ammunition is no longer magical.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": true,
+	"magic": true,
+	"magic_category": "ammunition",
+	"item_line": "Weapon (any ammunition), very rare",
+	"rarity": "very rare",
+	"requires_attunement": false,
+	"bonus": 3,
+	"bonus_applies_to": "ammunition",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

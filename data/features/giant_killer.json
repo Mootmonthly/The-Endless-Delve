@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "giant_killer",
+	"display_name": "Hunter's Prey: Giant Killer",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 3,
+	"description": "When a Large or larger creature within 5 feet of you hits or misses you with an attack, you can use your reaction to attack that creature immediately after its attack, provided that you can see the creature.",
+	"option_of": "hunters_prey",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

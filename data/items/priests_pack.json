@@ -1,0 +1,24 @@
+{
+	"schema_version": 1,
+	"id": "priests_pack",
+	"display_name": "Priest's Pack",
+	"kind": "misc",
+	"description": "Equipment Packs: Priest's Pack.",
+	"weight": 0,
+	"value_gp": 19.0,
+	"stackable": false,
+	"gear_category": "equipment-packs",
+	"contents": [
+		{ "item": "backpack", "qty": 1 },
+		{ "item": "blanket", "qty": 1 },
+		{ "item": "candle", "qty": 10 },
+		{ "item": "tinderbox", "qty": 1 },
+		{ "item": "rations", "qty": 2 },
+		{ "item": "waterskin", "qty": 1 },
+		{ "item": "alms_box", "qty": 1 },
+		{ "item": "block_of_incense", "qty": 2 },
+		{ "item": "censer", "qty": 1 },
+		{ "item": "vestments", "qty": 1 }
+	],
+	"source": "SRD 5.1"
+}

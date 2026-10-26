@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_telekinesis",
+	"display_name": "Ring of Telekinesis",
+	"kind": "misc",
+	"description": "While wearing this ring, you can cast the telekinesis spell at will, but you can target only objects that aren't being worn or carried.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, very rare (requires attunement)",
+	"rarity": "very rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

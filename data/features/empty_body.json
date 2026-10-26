@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "empty_body",
+	"display_name": "Empty Body",
+	"class": "monk",
+	"level": 18,
+	"description": "Beginning at 18th level, you can use your action to spend 4 ki points to become invisible for 1 minute. During that time, you also have resistance to all damage but force damage.\nAdditionally, you can spend 8 ki points to cast the astral projection spell, without needing material components. When you do so, you can't take any other creatures with you.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

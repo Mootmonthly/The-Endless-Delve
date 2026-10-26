@@ -1,0 +1,62 @@
+{
+	"schema_version": 1,
+	"id": "panther",
+	"display_name": "Panther",
+	"size": "medium",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 13,
+	"hit_dice": "3d8",
+	"speed": 50,
+	"speeds": { "climb": 40, "walk": 50 },
+	"abilities": { "STR": 14, "DEX": 15, "CON": 10, "INT": 3, "WIS": 14, "CHA": 7 },
+	"skills": { "PERCEPTION": 4, "STEALTH": 6 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 14",
+	"languages": "",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Keen Smell",
+			"kind": "trait",
+			"description": "The panther has advantage on Wisdom (Perception) checks that rely on smell.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Pounce",
+			"kind": "trait",
+			"description": "If the panther moves at least 20 ft. straight toward a creature and then hits it with a claw attack on the same turn, that target must succeed on a DC 12 Strength saving throw or be knocked prone. If the target is prone, the panther can make one bite attack against it as a bonus action.",
+			"dc": { "ability": "STR", "value": 12, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 4 (1d4 + 2) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "shawm",
+	"display_name": "Shawm",
+	"kind": "misc",
+	"description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+	"weight": 1,
+	"value_gp": 2.0,
+	"stackable": false,
+	"tool_category": "Musical Instrument",
+	"source": "SRD 5.1"
+}

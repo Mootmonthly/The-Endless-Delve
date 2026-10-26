@@ -1,0 +1,58 @@
+{
+	"schema_version": 1,
+	"id": "spider",
+	"display_name": "Spider",
+	"size": "tiny",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 1,
+	"hit_dice": "1d4-1",
+	"speed": 20,
+	"speeds": { "climb": 20, "walk": 20 },
+	"abilities": { "STR": 2, "DEX": 14, "CON": 8, "INT": 1, "WIS": 10, "CHA": 2 },
+	"skills": { "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 30 ft., passive Perception 12",
+	"languages": "",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Spider Climb",
+			"kind": "trait",
+			"description": "The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Web Sense",
+			"kind": "trait",
+			"description": "While in contact with a web, the spider knows the exact location of any other creature in contact with the same web.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Web Walker",
+			"kind": "trait",
+			"description": "The spider ignores movement restrictions caused by webbing.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 1 piercing damage, and the target must succeed on a DC 9 Constitution saving throw or take 2 (1d4) poison damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

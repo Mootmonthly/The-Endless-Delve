@@ -1,0 +1,60 @@
+{
+	"schema_version": 1,
+	"id": "roc",
+	"display_name": "Roc",
+	"size": "gargantuan",
+	"creature_type": "monstrosity",
+	"alignment": "unaligned",
+	"armor_class": 15,
+	"armor_note": "natural",
+	"hit_points": 248,
+	"hit_dice": "16d20+80",
+	"speed": 20,
+	"speeds": { "fly": 120, "walk": 20 },
+	"abilities": { "STR": 28, "DEX": 10, "CON": 20, "INT": 3, "WIS": 10, "CHA": 9 },
+	"saving_throws": { "DEX": 4, "CON": 9, "WIS": 4, "CHA": 3 },
+	"skills": { "PERCEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 14",
+	"languages": "",
+	"challenge_rating": 11,
+	"proficiency_bonus": 4,
+	"xp": 7200,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Keen Sight",
+			"kind": "trait",
+			"description": "The roc has advantage on Wisdom (Perception) checks that rely on sight.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Beak", "Talons"],
+	"multiattack_text": "The roc makes two attacks: one with its beak and one with its talons.",
+	"attacks": [
+		{
+			"name": "Beak",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 13,
+			"damage": "4d8+9",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +13 to hit, reach 10 ft., one target. Hit: 27 (4d8 + 9) piercing damage."
+		},
+		{
+			"name": "Talons",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 13,
+			"damage": "4d6+9",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +13 to hit, reach 5 ft., one target. Hit: 23 (4d6 + 9) slashing damage, and the target is grappled (escape DC 19). Until this grapple ends, the target is restrained, and the roc can't use its talons on another target."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "holy_nimbus",
+	"display_name": "Holy Nimbus",
+	"class": "paladin",
+	"subclass": "devotion",
+	"level": 20,
+	"description": "At 20th level, as an action, you can emanate an aura of sunlight. For 1 minute, bright light shines from you in a 30-foot radius, and dim light shines 30 feet beyond that.\nWhenever an enemy creature starts its turn in the bright light, the creature takes 10 radiant damage.\nIn addition, for the duration, you have advantage on saving throws against spells cast by fiends or undead.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

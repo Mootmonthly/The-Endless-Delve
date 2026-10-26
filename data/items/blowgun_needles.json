@@ -1,0 +1,13 @@
+{
+	"schema_version": 1,
+	"id": "blowgun_needles",
+	"display_name": "Blowgun needle",
+	"kind": "ammo",
+	"description": "Ammunition: Blowgun needle.",
+	"weight": 1,
+	"value_gp": 1.0,
+	"stackable": true,
+	"bundle_quantity": 50,
+	"gear_category": "ammunition",
+	"source": "SRD 5.1"
+}

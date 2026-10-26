@@ -1,0 +1,56 @@
+{
+	"schema_version": 1,
+	"id": "swarm_of_wasps",
+	"display_name": "Swarm of Wasps",
+	"size": "medium",
+	"creature_type": "beast",
+	"swarm": true,
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"armor_note": "natural",
+	"hit_points": 22,
+	"hit_dice": "5d8",
+	"speed": 5,
+	"speeds": { "fly": 30, "walk": 5 },
+	"abilities": { "STR": 3, "DEX": 13, "CON": 10, "INT": 1, "WIS": 7, "CHA": 1 },
+	"damage_resistances": ["bludgeoning", "piercing", "slashing"],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [
+		"charmed",
+		"frightened",
+		"grappled",
+		"paralyzed",
+		"petrified",
+		"prone",
+		"restrained",
+		"stunned"
+	],
+	"senses": "blindsight 10 ft., passive Perception 8",
+	"languages": "",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Swarm",
+			"kind": "trait",
+			"description": "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny insect. The swarm can't regain hit points or gain temporary hit points.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bites",
+			"kind": "melee",
+			"reach_ft": 0,
+			"to_hit": 3,
+			"damage": "4d4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +3 to hit, reach 0 ft., one target in the swarm's space. Hit: 10 (4d4) piercing damage, or 5 (2d4) piercing damage if the swarm has half of its hit points or fewer."
+		}
+	],
+	"source": "SRD 5.1"
+}

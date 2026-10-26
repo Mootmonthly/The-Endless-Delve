@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "hammer_sledge",
+	"display_name": "Hammer, sledge",
+	"kind": "misc",
+	"description": "Standard Gear: Hammer, sledge.",
+	"weight": 10,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

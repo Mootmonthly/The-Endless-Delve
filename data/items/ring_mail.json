@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "ring_mail",
+	"display_name": "Ring Mail",
+	"kind": "armor",
+	"description": "Heavy armor: AC 14. Disadvantage on Stealth checks.",
+	"weight": 40,
+	"value_gp": 30.0,
+	"stackable": false,
+	"armor": { "base": 14, "max_dex": 0, "category": "heavy", "stealth_disadvantage": true },
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,60 @@
+{
+	"schema_version": 1,
+	"id": "azer",
+	"display_name": "Azer",
+	"size": "medium",
+	"creature_type": "elemental",
+	"alignment": "lawful neutral",
+	"armor_class": 15,
+	"armor_note": "natural",
+	"hit_points": 39,
+	"hit_dice": "6d8+12",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 17, "DEX": 12, "CON": 15, "INT": 12, "WIS": 13, "CHA": 10 },
+	"saving_throws": { "CON": 4 },
+	"damage_resistances": [],
+	"damage_immunities": ["fire", "poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["poisoned"],
+	"senses": "passive Perception 11",
+	"languages": "Ignan",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Heated Body",
+			"kind": "trait",
+			"description": "A creature that touches the azer or hits it with a melee attack while within 5 ft. of it takes 5 (1d10) fire damage.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Heated Weapons",
+			"kind": "trait",
+			"description": "When the azer hits with a metal melee weapon, it deals an extra 3 (1d6) fire damage (included in the attack).",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Illumination",
+			"kind": "trait",
+			"description": "The azer sheds bright light in a 10-foot radius and dim light for an additional 10 ft..",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Warhammer",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d8+3",
+			"damage_type": "bludgeoning",
+			"extra_damage": [{ "damage": "1d6", "damage_type": "fire" }],
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) bludgeoning damage, or 8 (1d10 + 3) bludgeoning damage if used with two hands to make a melee attack, plus 3 (1d6) fire damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

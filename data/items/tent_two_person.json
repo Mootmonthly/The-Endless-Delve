@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "tent_two_person",
+	"display_name": "Tent, two-person",
+	"kind": "misc",
+	"description": "A simple and portable canvas shelter, a tent sleeps two.",
+	"weight": 20,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

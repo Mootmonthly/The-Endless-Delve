@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "create_food_and_water",
+	"display_name": "Create Food and Water",
+	"level": 3,
+	"school": "conjuration",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["cleric", "druid", "paladin"],
+	"source": "SRD 5.1",
+	"description": "You create 45 pounds of food and 30 gallons of water on the ground or in containers within range, enough to sustain up to fifteen humanoids or five steeds for 24 hours. The food is bland but nourishing, and spoils if uneaten after 24 hours. The water is clean and doesn't go bad.",
+	"subclasses": ["land", "lore"]
+}

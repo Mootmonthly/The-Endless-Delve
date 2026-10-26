@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "pick_miners",
+	"display_name": "Pick, miner's",
+	"kind": "misc",
+	"description": "Standard Gear: Pick, miner's.",
+	"weight": 10,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

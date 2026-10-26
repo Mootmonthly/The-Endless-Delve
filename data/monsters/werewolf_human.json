@@ -1,0 +1,59 @@
+{
+	"schema_version": 1,
+	"id": "werewolf_human",
+	"display_name": "Werewolf, Human Form",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "human",
+	"alignment": "chaotic evil",
+	"armor_class": 11,
+	"hit_points": 58,
+	"hit_dice": "9d8+18",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 15, "DEX": 13, "CON": 14, "INT": 10, "WIS": 11, "CHA": 10 },
+	"skills": { "PERCEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [
+		"bludgeoning, piercing, and slashing from nonmagical weapons that aren't silvered"
+	],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 14",
+	"languages": "Common",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Shapechanger",
+			"kind": "trait",
+			"description": "The werewolf can use its action to polymorph into a wolf-humanoid hybrid or into a wolf, or back into its true form, which is humanoid. Its statistics, other than its AC, are the same in each form. Any equipment it is wearing or carrying isn't transformed. It reverts to its true form if it dies.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Keen Hearing and Smell",
+			"kind": "trait",
+			"description": "The werewolf has advantage on Wisdom (Perception) checks that rely on hearing or smell.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Spear", "Spear"],
+	"multiattack_text": "The werewolf makes two attacks: two with its spear (humanoid form) or one with its bite and one with its claws (hybrid form).",
+	"attacks": [
+		{
+			"name": "Spear",
+			"kind": "melee",
+			"reach_ft": 5,
+			"thrown_range_ft": [20, 60],
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing",
+			"versatile_damage": "1d8+2",
+			"description": "Melee or Ranged Weapon Attack: +4 to hit, reach 5 ft. or range 20/60 ft., one creature. Hit: 5 (1d6 + 2) piercing damage, or 6 (1d8 + 2) piercing damage if used with two hands to make a melee attack."
+		}
+	],
+	"source": "SRD 5.1"
+}

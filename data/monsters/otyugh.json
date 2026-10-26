@@ -1,0 +1,67 @@
+{
+	"schema_version": 1,
+	"id": "otyugh",
+	"display_name": "Otyugh",
+	"size": "large",
+	"creature_type": "aberration",
+	"alignment": "neutral",
+	"armor_class": 14,
+	"armor_note": "natural",
+	"hit_points": 114,
+	"hit_dice": "12d10+48",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 16, "DEX": 11, "CON": 19, "INT": 6, "WIS": 13, "CHA": 6 },
+	"saving_throws": { "CON": 7 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 120 ft., passive Perception 11",
+	"languages": "Otyugh",
+	"challenge_rating": 5,
+	"proficiency_bonus": 3,
+	"xp": 1800,
+	"loot_table": "boss",
+	"icon": "ghoul",
+	"traits": [
+		{
+			"name": "Limited Telepathy",
+			"kind": "trait",
+			"description": "The otyugh can magically transmit simple messages and images to any creature within 120 ft. of it that can understand a language. This form of telepathy doesn't allow the receiving creature to telepathically respond.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Tentacle Slam",
+			"kind": "action",
+			"description": "The otyugh slams creatures grappled by it into each other or a solid surface. Each creature must succeed on a DC 14 Constitution saving throw or take 10 (2d6 + 3) bludgeoning damage and be stunned until the end of the otyugh's next turn. On a successful save, the target takes half the bludgeoning damage and isn't stunned.",
+			"dc": { "ability": "CON", "value": 14, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Tentacle", "Tentacle"],
+	"multiattack_text": "The otyugh makes three attacks: one with its bite and two with its tentacles.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d8+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 12 (2d8 + 3) piercing damage. If the target is a creature, it must succeed on a DC 15 Constitution saving throw against disease or become poisoned until the disease is cured. Every 24 hours that elapse, the target must repeat the saving throw, reducing its hit point maximum by 5 (1d10) on a failure. The disease is cured on a success. The target dies if the disease reduces its hit point maximum to 0. This reduction to the target's hit point maximum lasts until the disease is cured."
+		},
+		{
+			"name": "Tentacle",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 6,
+			"damage": "1d8+3",
+			"damage_type": "bludgeoning",
+			"extra_damage": [{ "damage": "1d8", "damage_type": "piercing" }],
+			"description": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 7 (1d8 + 3) bludgeoning damage plus 4 (1d8) piercing damage. If the target is Medium or smaller, it is grappled (escape DC 13) and restrained until the grapple ends. The otyugh has two tentacles, each of which can grapple one target."
+		}
+	],
+	"source": "SRD 5.1"
+}

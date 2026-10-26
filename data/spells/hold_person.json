@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "hold_person",
 	"display_name": "Hold Person",
 	"level": 2,
@@ -13,5 +14,11 @@
 	"components": ["V", "S", "M"],
 	"classes": ["bard", "cleric", "druid", "sorcerer", "warlock", "wizard"],
 	"source": "SRD 5.1",
-	"description": "A humanoid you can see makes a Wisdom saving throw or is paralyzed while you concentrate; it repeats the save at the end of each of its turns."
+	"description": "A humanoid you can see makes a Wisdom saving throw or is paralyzed while you concentrate; it repeats the save at the end of each of its turns.",
+	"ritual": false,
+	"material": "A small, straight piece of iron.",
+	"higher_level": "When you cast this spell using a spell slot of 3rd level or higher, you can target one additional humanoid for each slot level above 2nd. The humanoids must be within 30 feet of each other when you target them.",
+	"subclasses": ["land", "lore"],
+	"saving_throw": { "ability": "WIS", "on_success": "none" },
+	"srd_description": "Choose a humanoid that you can see within range. The target must succeed on a wisdom saving throw or be paralyzed for the duration. At the end of each of its turns, the target can make another wisdom saving throw. On a success, the spell ends on the target."
 }

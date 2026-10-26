@@ -1,0 +1,51 @@
+{
+	"schema_version": 1,
+	"id": "mule",
+	"display_name": "Mule",
+	"size": "medium",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 10,
+	"hit_points": 11,
+	"hit_dice": "2d8+2",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 14, "DEX": 10, "CON": 13, "INT": 2, "WIS": 10, "CHA": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "",
+	"challenge_rating": 0.125,
+	"proficiency_bonus": 2,
+	"xp": 25,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Beast of Burden",
+			"kind": "trait",
+			"description": "The mule is considered to be a Large animal for the purpose of determining its carrying capacity.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Sure-Footed",
+			"kind": "trait",
+			"description": "The mule has advantage on Strength and Dexterity saving throws made against effects that would knock it prone.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Hooves",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 2,
+			"damage": "1d4+2",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 4 (1d4 + 2) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

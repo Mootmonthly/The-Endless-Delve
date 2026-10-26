@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "armor_plus_2",
+	"display_name": "Armor, +2",
+	"kind": "misc",
+	"description": "You have a +2 bonus to AC while wearing this armor.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (light, medium, or heavy), very rare",
+	"rarity": "very rare",
+	"requires_attunement": false,
+	"bonus": 2,
+	"bonus_applies_to": "armor",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

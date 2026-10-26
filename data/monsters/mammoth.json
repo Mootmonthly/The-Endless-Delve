@@ -1,0 +1,56 @@
+{
+	"schema_version": 1,
+	"id": "mammoth",
+	"display_name": "Mammoth",
+	"size": "huge",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 126,
+	"hit_dice": "11d12+55",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 24, "DEX": 9, "CON": 21, "INT": 3, "WIS": 11, "CHA": 6 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "",
+	"challenge_rating": 6,
+	"proficiency_bonus": 3,
+	"xp": 2300,
+	"loot_table": "boss",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Trampling Charge",
+			"kind": "trait",
+			"description": "If the mammoth moves at least 20 ft. straight toward a creature and then hits it with a gore attack on the same turn, that target must succeed on a DC 18 Strength saving throw or be knocked prone. If the target is prone, the mammoth can make one stomp attack against it as a bonus action.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Gore",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 10,
+			"damage": "4d8+7",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 25 (4d8 + 7) piercing damage."
+		},
+		{
+			"name": "Stomp",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 10,
+			"damage": "4d10+7",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one prone creature. Hit: 29 (4d10 + 7) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

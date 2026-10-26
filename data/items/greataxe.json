@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "greataxe",
 	"display_name": "Greataxe",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 7,
 	"value_gp": 30,
 	"stackable": true,
-	"weapon_id": "greataxe"
+	"weapon_id": "greataxe",
+	"source": "SRD 5.1"
 }

@@ -1,0 +1,40 @@
+{
+	"schema_version": 1,
+	"id": "giant_poisonous_snake",
+	"display_name": "Giant Poisonous Snake",
+	"size": "medium",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 14,
+	"hit_points": 11,
+	"hit_dice": "2d8+2",
+	"speed": 30,
+	"speeds": { "swim": 30, "walk": 30 },
+	"abilities": { "STR": 10, "DEX": 18, "CON": 13, "INT": 2, "WIS": 10, "CHA": 3 },
+	"skills": { "PERCEPTION": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 10 ft., passive Perception 12",
+	"languages": "",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 6,
+			"damage": "1d4+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 6 (1d4 + 4) piercing damage, and the target must make a DC 11 Constitution saving throw, taking 10 (3d6) poison damage on a failed save, or half as much damage on a successful one."
+		}
+	],
+	"source": "SRD 5.1"
+}

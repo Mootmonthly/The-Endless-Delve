@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "longbow",
 	"display_name": "Longbow",
 	"category": "martial",
@@ -8,5 +9,6 @@
 	"properties": ["ammunition", "heavy", "two_handed"],
 	"range_ft": [150, 600],
 	"ranged": true,
-	"ammo_id": "arrows"
+	"ammo_id": "arrows",
+	"source": "SRD 5.1"
 }

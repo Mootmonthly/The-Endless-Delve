@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "bonus_proficiencies",
+	"display_name": "Bonus Proficiencies",
+	"class": "bard",
+	"subclass": "lore",
+	"level": 3,
+	"description": "When you join the College of Lore at 3rd level, you gain proficiency with three skills of your choice.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

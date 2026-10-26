@@ -1,0 +1,75 @@
+{
+	"schema_version": 1,
+	"id": "rakshasa",
+	"display_name": "Rakshasa",
+	"size": "medium",
+	"creature_type": "fiend",
+	"alignment": "lawful evil",
+	"armor_class": 16,
+	"armor_note": "natural",
+	"hit_points": 110,
+	"hit_dice": "13d8+52",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 14, "DEX": 17, "CON": 18, "INT": 13, "WIS": 16, "CHA": 20 },
+	"skills": { "DECEPTION": 10, "INSIGHT": 8 },
+	"damage_resistances": [],
+	"damage_immunities": ["bludgeoning, piercing, and slashing from nonmagical weapons"],
+	"damage_vulnerabilities": ["piercing from magic weapons wielded by good creatures"],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 13",
+	"languages": "Common, Infernal",
+	"challenge_rating": 13,
+	"proficiency_bonus": 5,
+	"xp": 10000,
+	"loot_table": "boss",
+	"icon": "bugbear",
+	"traits": [
+		{
+			"name": "Limited Magic Immunity",
+			"kind": "trait",
+			"description": "The rakshasa can't be affected or detected by spells of 6th level or lower unless it wishes to be. It has advantage on saving throws against all other spells and magical effects.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The rakshasa's innate spellcasting ability is Charisma (spell save DC 18, +10 to hit with spell attacks). The rakshasa can innately cast the following spells, requiring no material components:\n\nAt will: detect thoughts, disguise self, mage hand, minor illusion\n3/day each: charm person, detect magic, invisibility, major image, suggestion\n1/day each: dominate person, fly, plane shift, true seeing",
+			"spellcasting": {
+				"ability": "CHA",
+				"dc": 18,
+				"modifier": 10,
+				"spells": [
+					"charm_person",
+					"detect_magic",
+					"detect_thoughts",
+					"disguise_self",
+					"dominate_person",
+					"fly",
+					"invisibility",
+					"mage_hand",
+					"major_image",
+					"minor_illusion",
+					"plane_shift",
+					"suggestion",
+					"true_seeing"
+				]
+			},
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Claw", "Claw"],
+	"multiattack_text": "The rakshasa makes two claw attacks",
+	"attacks": [
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 7,
+			"damage": "2d6+2",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 9 (2d6 + 2) slashing damage, and the target is cursed if it is a creature. The magical curse takes effect whenever the target takes a short or long rest, filling the target's thoughts with horrible images and dreams. The cursed target gains no benefit from finishing a short or long rest. The curse lasts until it is lifted by a remove curse spell or similar magic."
+		}
+	],
+	"source": "SRD 5.1"
+}

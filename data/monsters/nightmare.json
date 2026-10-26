@@ -1,0 +1,59 @@
+{
+	"schema_version": 1,
+	"id": "nightmare",
+	"display_name": "Nightmare",
+	"size": "large",
+	"creature_type": "fiend",
+	"alignment": "neutral evil",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 68,
+	"hit_dice": "8d10+24",
+	"speed": 60,
+	"speeds": { "fly": 90, "walk": 60 },
+	"abilities": { "STR": 18, "DEX": 15, "CON": 16, "INT": 10, "WIS": 13, "CHA": 15 },
+	"damage_resistances": [],
+	"damage_immunities": ["fire"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 11",
+	"languages": "understands Abyssal, Common, and Infernal but can't speak",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "bugbear",
+	"traits": [
+		{
+			"name": "Confer Fire Resistance",
+			"kind": "trait",
+			"description": "The nightmare can grant resistance to fire damage to anyone riding it.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Illumination",
+			"kind": "trait",
+			"description": "The nightmare sheds bright light in a 10-foot radius and dim light for an additional 10 feet.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Ethereal Stride",
+			"kind": "action",
+			"description": "The nightmare and up to three willing creatures within 5 feet of it magically enter the Ethereal Plane from the Material Plane, or vice versa.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Hooves",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d8+4",
+			"damage_type": "bludgeoning",
+			"extra_damage": [{ "damage": "2d6", "damage_type": "fire" }],
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage plus 7 (2d6) fire damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

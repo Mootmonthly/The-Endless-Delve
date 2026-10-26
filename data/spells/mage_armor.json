@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "mage_armor",
 	"display_name": "Mage Armor",
 	"level": 1,
@@ -20,5 +21,9 @@
 	"components": ["V", "S", "M"],
 	"classes": ["sorcerer", "wizard"],
 	"source": "SRD 5.1",
-	"description": "A protective magical force surrounds a creature who isn't wearing armor: its base AC becomes 13 + its Dexterity modifier for 8 hours (until a long rest here)."
+	"description": "A protective magical force surrounds a creature who isn't wearing armor: its base AC becomes 13 + its Dexterity modifier for 8 hours (until a long rest here).",
+	"ritual": false,
+	"material": "A piece of cured leather.",
+	"subclasses": ["lore"],
+	"srd_description": "You touch a willing creature who isn't wearing armor, and a protective magical force surrounds it until the spell ends. The target's base AC becomes 13 + its Dexterity modifier. The spell ends if the target dons armor or if you dismiss the spell as an action."
 }

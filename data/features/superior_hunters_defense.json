@@ -1,0 +1,16 @@
+{
+	"schema_version": 1,
+	"id": "superior_hunters_defense",
+	"display_name": "Superior Hunter's Defense",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 15,
+	"description": "At 15th level, you gain one of the following features of your choice.\nEvasion\nStand Against the Tide\nUncanny Dodge",
+	"options": [
+		"superior_hunters_defense_evasion",
+		"stand_against_the_tide",
+		"superior_hunters_defense_uncanny_dodge"
+	],
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

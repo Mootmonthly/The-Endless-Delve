@@ -1,0 +1,49 @@
+{
+	"schema_version": 1,
+	"id": "brass_dragon_wyrmling",
+	"display_name": "Brass Dragon Wyrmling",
+	"size": "medium",
+	"creature_type": "dragon",
+	"alignment": "chaotic good",
+	"armor_class": 16,
+	"armor_note": "natural",
+	"hit_points": 16,
+	"hit_dice": "3d8+3",
+	"speed": 30,
+	"speeds": { "burrow": 15, "fly": 60, "walk": 30 },
+	"abilities": { "STR": 15, "DEX": 10, "CON": 13, "INT": 10, "WIS": 11, "CHA": 13 },
+	"saving_throws": { "DEX": 2, "CON": 3, "WIS": 2, "CHA": 3 },
+	"skills": { "PERCEPTION": 4, "STEALTH": 2 },
+	"damage_resistances": [],
+	"damage_immunities": ["fire"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 14",
+	"languages": "Draconic",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Breath Weapons",
+			"kind": "action",
+			"description": "The dragon uses one of the following breath weapons.\nFire Breath. The dragon exhales fire in an 20-foot line that is 5 feet wide. Each creature in that line must make a DC 11 Dexterity saving throw, taking 14 (4d6) fire damage on a failed save, or half as much damage on a successful one.\nSleep Breath. The dragon exhales sleep gas in a 15-foot cone. Each creature in that area must succeed on a DC 11 Constitution saving throw or fall unconscious for 1 minute. This effect ends for a creature if the creature takes damage or someone uses an action to wake it.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d10+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (1d10 + 2) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

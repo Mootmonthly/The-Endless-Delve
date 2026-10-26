@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "divine_health",
+	"display_name": "Divine Health",
+	"class": "paladin",
+	"level": 3,
+	"description": "By 3rd level, the divine magic flowing through you makes you immune to disease.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

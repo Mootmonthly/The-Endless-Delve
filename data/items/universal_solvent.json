@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "universal_solvent",
+	"display_name": "Universal Solvent",
+	"kind": "misc",
+	"description": "This tube holds milky liquid with a strong alcohol smell. You can use an action to pour the contents of the tube onto a surface within reach. The liquid instantly dissolves up to 1 square foot of adhesive it touches, including sovereign glue.",
+	"weight": 0,
+	"value_gp": 50001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, legendary",
+	"rarity": "legendary",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

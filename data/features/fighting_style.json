@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "fighting_style",
+	"display_name": "Fighting Style",
+	"class": "fighter",
+	"classes": ["fighter", "paladin", "ranger"],
+	"level": 1,
+	"levels": [1, 2],
+	"levels_by_class": { "fighter": [1], "paladin": [2], "ranger": [2] },
+	"description": "You adopt a particular style of fighting as your specialty. Choose one of the following options. You can't take a Fighting Style option more than once, even if you later get to choose again.",
+	"description_by_class": {
+		"fighter": "You adopt a particular style of fighting as your specialty. Choose one of the following options. You can't take a Fighting Style option more than once, even if you later get to choose again.",
+		"paladin": "At 2nd level, you adopt a style of fighting as your specialty. Choose one of the following options. You can't take a Fighting Style option more than once, even if you later get to choose again.",
+		"ranger": "At 2nd level, you adopt a particular style of fighting as your specialty. Choose one of the following options. You can't take a Fighting Style option more than once, even if you later get to choose again."
+	},
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

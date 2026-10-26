@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "giant_centipede",
 	"display_name": "Giant Centipede",
 	"size": "small",
@@ -15,9 +16,29 @@
 	"xp": 50,
 	"loot_table": "monster_small",
 	"traits": [
-		{ "name": "Bite: poison", "description": "A target hit by the bite must succeed on a DC 11 Constitution saving throw or take 10 (3d6) poison damage. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way. (Not yet modelled: only the bite's piercing damage applies.)" }
+		{
+			"name": "Bite: poison",
+			"description": "A target hit by the bite must succeed on a DC 11 Constitution saving throw or take 10 (3d6) poison damage. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way. (Not yet modelled: only the bite's piercing damage applies.)"
+		}
 	],
 	"attacks": [
-		{ "name": "Bite", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "1d4+2", "damage_type": "piercing" }
-	]
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "piercing"
+		}
+	],
+	"alignment": "unaligned",
+	"speeds": { "climb": 30, "walk": 30 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"languages": "",
+	"proficiency_bonus": 2,
+	"icon": "giant_rat",
+	"source": "SRD 5.1"
 }

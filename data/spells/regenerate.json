@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "regenerate",
+	"display_name": "Regenerate",
+	"level": 7,
+	"school": "transmutation",
+	"casting_time": "1_minute",
+	"range_ft": 5,
+	"target": "creature_or_self",
+	"effect": { "type": "heal", "dice": "4d8+15", "add_casting_mod": false },
+	"duration": "1 hour",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "cleric", "druid"],
+	"source": "SRD 5.1",
+	"description": "You touch a creature and stimulate its natural healing ability. The target regains 4d8 + 15 hit points. For the duration of the spell, the target regains 1 hit point at the start of each of its turns (10 hit points each minute).\nThe target's severed body members (fingers, legs, tails, and so on), if any, are restored after 2 minutes. If you have the severed part and hold it to the stump, the spell instantaneously causes the limb to knit to the stump.",
+	"casting_time_text": "1 minute",
+	"material": "A prayer wheel and holy water.",
+	"heal_by_slot": { "7": "4d8+15" }
+}

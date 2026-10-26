@@ -1,0 +1,67 @@
+{
+	"schema_version": 1,
+	"id": "winter_wolf",
+	"display_name": "Winter Wolf",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "neutral evil",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 75,
+	"hit_dice": "10d10+20",
+	"speed": 50,
+	"speeds": { "walk": 50 },
+	"abilities": { "STR": 18, "DEX": 13, "CON": 14, "INT": 7, "WIS": 12, "CHA": 8 },
+	"skills": { "PERCEPTION": 5, "STEALTH": 3 },
+	"damage_resistances": [],
+	"damage_immunities": ["cold"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 15",
+	"languages": "Common, Giant, Winter Wolf",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Keen Hearing and Smell",
+			"kind": "trait",
+			"description": "The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Pack Tactics",
+			"kind": "trait",
+			"description": "The wolf has advantage on an attack roll against a creature if at least one of the wolf's allies is within 5 ft. of the creature and the ally isn't incapacitated.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Snow Camouflage",
+			"kind": "trait",
+			"description": "The wolf has advantage on Dexterity (Stealth) checks made to hide in snowy terrain.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Cold Breath",
+			"kind": "action",
+			"description": "The wolf exhales a blast of freezing wind in a 15-foot cone. Each creature in that area must make a DC 12 Dexterity saving throw, taking 18 (4d8) cold damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 12, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d6+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) piercing damage. If the target is a creature, it must succeed on a DC 14 Strength saving throw or be knocked prone."
+		}
+	],
+	"source": "SRD 5.1"
+}

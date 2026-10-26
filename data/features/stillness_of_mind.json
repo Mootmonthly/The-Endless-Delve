@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "stillness_of_mind",
+	"display_name": "Stillness of Mind",
+	"class": "monk",
+	"level": 7,
+	"description": "Starting at 7th level, you can use your action to end one effect on yourself that is causing you to be charmed or frightened.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

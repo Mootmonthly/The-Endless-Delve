@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "skeleton",
 	"display_name": "Skeleton",
 	"size": "medium",
@@ -19,7 +20,28 @@
 	"loot_table": "monster_small",
 	"traits": [],
 	"attacks": [
-		{ "name": "Shortsword", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "1d6+2", "damage_type": "piercing" },
-		{ "name": "Shortbow", "kind": "ranged", "range_ft": [80, 320], "to_hit": 4, "damage": "1d6+2", "damage_type": "piercing" }
-	]
+		{
+			"name": "Shortsword",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing"
+		},
+		{
+			"name": "Shortbow",
+			"kind": "ranged",
+			"range_ft": [80, 320],
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing"
+		}
+	],
+	"alignment": "lawful evil",
+	"speeds": { "walk": 30 },
+	"damage_resistances": [],
+	"languages": "understands all languages it spoke in life but can't speak",
+	"proficiency_bonus": 2,
+	"icon": "skeleton",
+	"source": "SRD 5.1"
 }

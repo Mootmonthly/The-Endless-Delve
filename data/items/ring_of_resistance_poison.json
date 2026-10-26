@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_resistance_poison",
+	"display_name": "Ring of Poison Resistance",
+	"kind": "misc",
+	"description": "You have resistance to poison damage while wearing this amethyst ring.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

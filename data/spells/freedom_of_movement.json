@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "freedom_of_movement",
+	"display_name": "Freedom of Movement",
+	"level": 4,
+	"school": "abjuration",
+	"casting_time": "action",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "1 hour",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "cleric", "druid", "ranger"],
+	"source": "SRD 5.1",
+	"description": "You touch a willing creature. For the duration, the target's movement is unaffected by difficult terrain, and spells and other magical effects can neither reduce the target's speed nor cause the target to be paralyzed or restrained.\nThe target can also spend 5 feet of movement to automatically escape from nonmagical restraints, such as manacles or a creature that has it grappled. Finally, being underwater imposes no penalties on the target's movement or attacks.",
+	"material": "A leather strap, bound around the arm or a similar appendage.",
+	"subclasses": ["devotion", "land"]
+}

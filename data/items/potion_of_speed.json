@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "potion_of_speed",
+	"display_name": "Potion of Speed",
+	"kind": "misc",
+	"description": "When you drink this potion, you gain the effect of the haste spell for 1 minute (no concentration required). The potion's yellow fluid is streaked with black and swirls on its own.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "potion",
+	"item_line": "Potion, very rare",
+	"rarity": "very rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

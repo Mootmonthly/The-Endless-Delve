@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "hunters_prey",
+	"display_name": "Hunter's Prey",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 3,
+	"description": "At 3rd level, you gain one of the following features of your choice.\nColossus Slayer\nGiant Killer\nHorde Breaker",
+	"options": ["colossus_slayer", "giant_killer", "horde_breaker"],
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

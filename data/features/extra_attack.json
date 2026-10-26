@@ -1,0 +1,26 @@
+{
+	"schema_version": 1,
+	"id": "extra_attack",
+	"display_name": "Extra Attack",
+	"class": "barbarian",
+	"classes": ["barbarian", "fighter", "monk", "paladin", "ranger"],
+	"level": 5,
+	"levels": [5, 11, 20],
+	"levels_by_class": {
+		"barbarian": [5],
+		"fighter": [5, 11, 20],
+		"monk": [5],
+		"paladin": [5],
+		"ranger": [5]
+	},
+	"description": "Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn.",
+	"description_by_class": {
+		"barbarian": "Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn.",
+		"fighter": "Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn. The number of attacks increases to three when you reach 11th level in this class and to four when you reach 20th level in this class.",
+		"monk": "Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn.",
+		"paladin": "Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn.",
+		"ranger": "Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn."
+	},
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

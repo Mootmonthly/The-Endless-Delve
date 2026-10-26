@@ -1,0 +1,8 @@
+{
+	"schema_version": 1,
+	"id": "armor_of_shadows",
+	"display_name": "Armor of Shadows",
+	"description": "You can cast mage armor on yourself at will, without expending a spell slot or material components.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "greatclub",
+	"display_name": "Greatclub",
+	"kind": "weapon",
+	"description": "Simple melee weapon: 1d8 bludgeoning (two-handed).",
+	"weight": 10,
+	"value_gp": 0.2,
+	"stackable": true,
+	"weapon_id": "greatclub",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,87 @@
+{
+	"schema_version": 1,
+	"id": "storm_giant",
+	"display_name": "Storm Giant",
+	"size": "huge",
+	"creature_type": "giant",
+	"alignment": "chaotic good",
+	"armor_class": 16,
+	"armor_note": "scale mail",
+	"hit_points": 230,
+	"hit_dice": "20d12+100",
+	"speed": 50,
+	"speeds": { "swim": 50, "walk": 50 },
+	"abilities": { "STR": 29, "DEX": 14, "CON": 20, "INT": 16, "WIS": 18, "CHA": 18 },
+	"saving_throws": { "STR": 14, "CON": 10, "WIS": 9, "CHA": 9 },
+	"skills": { "ARCANA": 8, "ATHLETICS": 14, "HISTORY": 8, "PERCEPTION": 9 },
+	"damage_resistances": ["cold"],
+	"damage_immunities": ["lightning", "thunder"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 19",
+	"languages": "Common, Giant",
+	"challenge_rating": 13,
+	"proficiency_bonus": 5,
+	"xp": 10000,
+	"loot_table": "boss",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Amphibious",
+			"kind": "trait",
+			"description": "The giant can breathe air and water.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The giant's innate spellcasting ability is Charisma (spell save DC 17). It can innately cast the following spells, requiring no material components:\n\nAt will: detect magic, feather fall, levitate, light\n3/day each: control weather, water breathing",
+			"spellcasting": {
+				"ability": "CHA",
+				"dc": 17,
+				"modifier": null,
+				"spells": [
+					"control_weather",
+					"detect_magic",
+					"feather_fall",
+					"levitate",
+					"light",
+					"water_breathing"
+				]
+			},
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Lightning Strike",
+			"kind": "action",
+			"description": "The giant hurls a magical lightning bolt at a point it can see within 500 feet of it. Each creature within 10 feet of that point must make a DC 17 Dexterity saving throw, taking 54 (12d8) lightning damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 17, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Greatsword", "Greatsword"],
+	"multiattack_text": "The giant makes two greatsword attacks.",
+	"attacks": [
+		{
+			"name": "Greatsword",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 14,
+			"damage": "6d6+9",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 30 (6d6 + 9) slashing damage."
+		},
+		{
+			"name": "Rock",
+			"kind": "ranged",
+			"range_ft": [60, 240],
+			"to_hit": 14,
+			"damage": "4d12+9",
+			"damage_type": "bludgeoning",
+			"description": "Ranged Weapon Attack: +14 to hit, range 60/240 ft., one target. Hit: 35 (4d12 + 9) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

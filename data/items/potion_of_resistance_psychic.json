@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "potion_of_resistance_psychic",
+	"display_name": "Potion of Psychic Resistance",
+	"kind": "misc",
+	"description": "When you drink this potion, you gain resistance to psychic damage for 1 hour.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "potion",
+	"item_line": "Potion, uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,53 @@
+{
+	"schema_version": 1,
+	"id": "ability_score_improvement",
+	"display_name": "Ability Score Improvement",
+	"class": "barbarian",
+	"classes": [
+		"barbarian",
+		"bard",
+		"cleric",
+		"druid",
+		"fighter",
+		"monk",
+		"paladin",
+		"ranger",
+		"rogue",
+		"sorcerer",
+		"warlock",
+		"wizard"
+	],
+	"level": 4,
+	"levels": [4, 6, 8, 10, 12, 14, 16, 19],
+	"levels_by_class": {
+		"barbarian": [4, 8, 12, 16, 19],
+		"bard": [4, 8, 12, 16, 19],
+		"cleric": [4, 8, 12, 16, 19],
+		"druid": [4, 8, 12, 16, 19],
+		"fighter": [4, 6, 8, 12, 14, 16, 19],
+		"monk": [4, 8, 12, 16, 19],
+		"paladin": [4, 8, 12, 16, 19],
+		"ranger": [4, 8, 12, 16, 19],
+		"rogue": [4, 8, 10, 12, 16, 19],
+		"sorcerer": [4, 8, 12, 16, 19],
+		"warlock": [4, 8, 12, 16, 19],
+		"wizard": [4, 8, 12, 16, 19]
+	},
+	"description": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+	"description_by_class": {
+		"barbarian": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"bard": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"cleric": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"druid": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"fighter": "When you reach 4th level, and again at 6th, 8th, 12th, 14th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"monk": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"paladin": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"ranger": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"rogue": "When you reach 4th level, and again at 8th, 10th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"sorcerer": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"warlock": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature.",
+		"wizard": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature."
+	},
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

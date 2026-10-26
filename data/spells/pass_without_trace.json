@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "pass_without_trace",
+	"display_name": "Pass Without Trace",
+	"level": 2,
+	"school": "abjuration",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 1 hour",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["druid", "ranger"],
+	"source": "SRD 5.1",
+	"description": "A veil of shadows and silence radiates from you, masking you and your companions from detection. For the duration, each creature you choose within 30 feet of you (including you) has a +10 bonus to Dexterity (Stealth) checks and can't be tracked except by magical means. A creature that receives this bonus leaves behind no tracks or other traces of its passage.",
+	"material": "Ashes from a burned leaf of mistletoe and a sprig of spruce.",
+	"subclasses": ["land", "lore"]
+}

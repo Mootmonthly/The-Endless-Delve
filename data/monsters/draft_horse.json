@@ -1,0 +1,38 @@
+{
+	"schema_version": 1,
+	"id": "draft_horse",
+	"display_name": "Draft Horse",
+	"size": "large",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 10,
+	"hit_points": 19,
+	"hit_dice": "3d10+3",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 18, "DEX": 10, "CON": 12, "INT": 2, "WIS": 11, "CHA": 7 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [],
+	"attacks": [
+		{
+			"name": "Hooves",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d4+4",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 9 (2d4 + 4) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

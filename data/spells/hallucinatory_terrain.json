@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"id": "hallucinatory_terrain",
+	"display_name": "Hallucinatory Terrain",
+	"level": 4,
+	"school": "illusion",
+	"casting_time": "10_minutes",
+	"range_ft": 300,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "24 hours",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "druid", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You make natural terrain in a 150-foot cube in range look, sound, and smell like some other sort of natural terrain. Thus, open fields or a road can be made to resemble a swamp, hill, crevasse, or some other difficult or impassable terrain. A pond can be made to seem like a grassy meadow, a precipice like a gentle slope, or a rock-strewn gully like a wide and smooth road. Manufactured structures, equipment, and creatures within the area aren't changed in appearance.\nThe tactile characteristics of the terrain are unchanged, so creatures entering the area are likely to see through the illusion. If the difference isn't obvious by touch, a creature carefully examining the illusion can attempt an Intelligence (Investigation) check against your spell save DC to disbelieve it. A creature who discerns the illusion for what it is, sees it as a vague image superimposed on the terrain.",
+	"casting_time_text": "10 minutes",
+	"material": "A stone, a twig, and a bit of green plant.",
+	"subclasses": ["land"],
+	"area": { "shape": "cube", "size_ft": 150 }
+}

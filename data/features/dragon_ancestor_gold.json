@@ -1,0 +1,13 @@
+{
+	"schema_version": 1,
+	"id": "dragon_ancestor_gold",
+	"display_name": "Dragon Ancestor: Gold",
+	"class": "sorcerer",
+	"subclass": "draconic",
+	"level": 1,
+	"description": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check.",
+	"option_of": "dragon_ancestor",
+	"damage_type": "fire",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

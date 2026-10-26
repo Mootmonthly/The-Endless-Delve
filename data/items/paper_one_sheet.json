@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "paper_one_sheet",
+	"display_name": "Paper (one sheet)",
+	"kind": "misc",
+	"description": "Standard Gear: Paper (one sheet).",
+	"weight": 0,
+	"value_gp": 0.2,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

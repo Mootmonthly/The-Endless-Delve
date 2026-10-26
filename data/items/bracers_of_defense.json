@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "bracers_of_defense",
+	"display_name": "Bracers of Defense",
+	"kind": "misc",
+	"description": "While wearing these bracers, you gain a +2 bonus to AC if you are wearing no armor and using no shield.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondous item, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

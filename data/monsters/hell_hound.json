@@ -1,0 +1,62 @@
+{
+	"schema_version": 1,
+	"id": "hell_hound",
+	"display_name": "Hell Hound",
+	"size": "medium",
+	"creature_type": "fiend",
+	"alignment": "lawful evil",
+	"armor_class": 15,
+	"armor_note": "natural",
+	"hit_points": 45,
+	"hit_dice": "7d8+14",
+	"speed": 50,
+	"speeds": { "walk": 50 },
+	"abilities": { "STR": 17, "DEX": 12, "CON": 14, "INT": 6, "WIS": 13, "CHA": 6 },
+	"skills": { "PERCEPTION": 5 },
+	"damage_resistances": [],
+	"damage_immunities": ["fire"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 15",
+	"languages": "understands Infernal but can't speak it",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "bugbear",
+	"traits": [
+		{
+			"name": "Keen Hearing and Smell",
+			"kind": "trait",
+			"description": "The hound has advantage on Wisdom (Perception) checks that rely on hearing or smell.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Pack Tactics",
+			"kind": "trait",
+			"description": "The hound has advantage on an attack roll against a creature if at least one of the hound's allies is within 5 ft. of the creature and the ally isn't incapacitated.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Fire Breath",
+			"kind": "action",
+			"description": "The hound exhales fire in a 15-foot cone. Each creature in that area must make a DC 12 Dexterity saving throw, taking 21 (6d6) fire damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 12, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d8+3",
+			"damage_type": "piercing",
+			"extra_damage": [{ "damage": "2d6", "damage_type": "fire" }],
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) piercing damage plus 7 (2d6) fire damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

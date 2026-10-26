@@ -1,9 +1,11 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "rapier",
 	"display_name": "Rapier",
 	"category": "martial",
 	"damage": "1d8",
 	"damage_type": "piercing",
-	"properties": ["finesse"]
+	"properties": ["finesse"],
+	"source": "SRD 5.1"
 }

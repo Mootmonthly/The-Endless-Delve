@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "clothes_common",
+	"display_name": "Clothes, common",
+	"kind": "misc",
+	"description": "Standard Gear: Clothes, common.",
+	"weight": 3,
+	"value_gp": 0.5,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

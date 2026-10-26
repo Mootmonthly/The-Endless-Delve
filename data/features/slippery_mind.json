@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "slippery_mind",
+	"display_name": "Slippery Mind",
+	"class": "rogue",
+	"level": 15,
+	"description": "By 15th level, you have acquired greater mental strength. You gain proficiency in Wisdom saving throws.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

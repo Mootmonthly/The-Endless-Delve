@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "flail",
+	"display_name": "Flail",
+	"category": "martial",
+	"damage": "1d8",
+	"damage_type": "bludgeoning",
+	"properties": [],
+	"source": "SRD 5.1"
+}

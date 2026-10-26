@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "kobold",
 	"display_name": "Kobold",
 	"size": "small",
@@ -14,11 +15,42 @@
 	"xp": 25,
 	"loot_table": "monster_small",
 	"traits": [
-		{ "name": "Sunlight Sensitivity", "description": "While in sunlight, has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight." },
-		{ "name": "Pack Tactics", "description": "Has advantage on attack rolls against a creature if at least one of its allies is within 5 feet of the creature and the ally isn't incapacitated." }
+		{
+			"name": "Sunlight Sensitivity",
+			"description": "While in sunlight, has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight."
+		},
+		{
+			"name": "Pack Tactics",
+			"description": "Has advantage on attack rolls against a creature if at least one of its allies is within 5 feet of the creature and the ally isn't incapacitated."
+		}
 	],
 	"attacks": [
-		{ "name": "Dagger", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "1d4+2", "damage_type": "piercing" },
-		{ "name": "Sling", "kind": "ranged", "range_ft": [30, 120], "to_hit": 4, "damage": "1d4+2", "damage_type": "bludgeoning" }
-	]
+		{
+			"name": "Dagger",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "piercing"
+		},
+		{
+			"name": "Sling",
+			"kind": "ranged",
+			"range_ft": [30, 120],
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "bludgeoning"
+		}
+	],
+	"subtype": "kobold",
+	"alignment": "lawful evil",
+	"speeds": { "walk": 30 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"languages": "Common, Draconic",
+	"proficiency_bonus": 2,
+	"icon": "goblin",
+	"source": "SRD 5.1"
 }

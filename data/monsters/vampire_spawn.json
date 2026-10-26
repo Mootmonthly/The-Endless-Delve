@@ -1,0 +1,75 @@
+{
+	"schema_version": 1,
+	"id": "vampire_spawn",
+	"display_name": "Vampire Spawn",
+	"size": "medium",
+	"creature_type": "undead",
+	"alignment": "neutral evil",
+	"armor_class": 15,
+	"armor_note": "natural",
+	"hit_points": 82,
+	"hit_dice": "11d8+33",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 16, "DEX": 16, "CON": 16, "INT": 11, "WIS": 10, "CHA": 12 },
+	"saving_throws": { "DEX": 6, "WIS": 3 },
+	"skills": { "PERCEPTION": 3, "STEALTH": 6 },
+	"damage_resistances": [
+		"necrotic",
+		"bludgeoning, piercing, and slashing from nonmagical weapons"
+	],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 13",
+	"languages": "the languages it knew in life",
+	"challenge_rating": 5,
+	"proficiency_bonus": 3,
+	"xp": 1800,
+	"loot_table": "boss",
+	"icon": "skeleton",
+	"traits": [
+		{
+			"name": "Regeneration",
+			"kind": "trait",
+			"description": "The vampire regains 10 hit points at the start of its turn if it has at least 1 hit point and isn't in sunlight or running water. If the vampire takes radiant damage or damage from holy water, this trait doesn't function at the start of the vampire's next turn.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Spider Climb",
+			"kind": "trait",
+			"description": "The vampire can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Vampire Weaknesses",
+			"kind": "trait",
+			"description": "The vampire has the following flaws:\nForbiddance. The vampire can't enter a residence without an invitation from one of the occupants.\nHarmed by Running Water. The vampire takes 20 acid damage when it ends its turn in running water.\nStake to the Heart. The vampire is destroyed if a piercing weapon made of wood is driven into its heart while it is incapacitated in its resting place.\nSunlight Hypersensitivity. The vampire takes 20 radiant damage when it starts its turn in sunlight. While in sunlight, it has disadvantage on attack rolls and ability checks.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Claws", "Claws"],
+	"multiattack_text": "The vampire makes two attacks, only one of which can be a bite attack.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "1d6+3",
+			"damage_type": "piercing",
+			"extra_damage": [{ "damage": "2d6", "damage_type": "necrotic" }],
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one willing creature, or a creature that is grappled by the vampire, incapacitated, or restrained. Hit: 6 (1d6 + 3) piercing damage plus 7 (2d6) necrotic damage. The target's hit point maximum is reduced by an amount equal to the necrotic damage taken, and the vampire regains hit points equal to that amount. The reduction lasts until the target finishes a long rest. The target dies if this effect reduces its hit point maximum to 0."
+		},
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d4+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one creature. Hit: 8 (2d4 + 3) slashing damage. Instead of dealing damage, the vampire can grapple the target (escape DC 13)."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "multiattack_defense",
+	"display_name": "Defensive Tactics: Multiattack Defense",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 7,
+	"description": "When a creature hits you with an attack, you gain a +4 bonus to AC against all subsequent attacks made by that creature for the rest of the turn.",
+	"option_of": "defensive_tactics",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

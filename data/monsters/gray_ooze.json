@@ -1,0 +1,59 @@
+{
+	"schema_version": 1,
+	"id": "gray_ooze",
+	"display_name": "Gray Ooze",
+	"size": "medium",
+	"creature_type": "ooze",
+	"alignment": "unaligned",
+	"armor_class": 8,
+	"hit_points": 22,
+	"hit_dice": "3d8+9",
+	"speed": 10,
+	"speeds": { "climb": 10, "walk": 10 },
+	"abilities": { "STR": 12, "DEX": 6, "CON": 16, "INT": 1, "WIS": 6, "CHA": 2 },
+	"skills": { "STEALTH": 2 },
+	"damage_resistances": ["acid", "cold", "fire"],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["blinded", "charmed", "deafened", "exhaustion", "frightened", "prone"],
+	"senses": "blindsight 60 ft. (blind beyond this radius), passive Perception 8",
+	"languages": "",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "zombie",
+	"traits": [
+		{
+			"name": "Amorphous",
+			"kind": "trait",
+			"description": "The ooze can move through a space as narrow as 1 inch wide without squeezing.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Corrode Metal",
+			"kind": "trait",
+			"description": "Any nonmagical weapon made of metal that hits the ooze corrodes. After dealing damage, the weapon takes a permanent and cumulative -1 penalty to damage rolls. If its penalty drops to -5, the weapon is destroyed. Nonmagical ammunition made of metal that hits the ooze is destroyed after dealing damage.\nThe ooze can eat through 2-inch-thick, nonmagical metal in 1 round.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "False Appearance",
+			"kind": "trait",
+			"description": "While the ooze remains motionless, it is indistinguishable from an oily pool or wet rock.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Pseudopod",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d6+1",
+			"damage_type": "bludgeoning",
+			"extra_damage": [{ "damage": "2d6", "damage_type": "acid" }],
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) bludgeoning damage plus 7 (2d6) acid damage, and if the target is wearing nonmagical metal armor, its armor is partly corroded and takes a permanent and cumulative -1 penalty to the AC it offers. The armor is destroyed if the penalty reduces its AC to 10."
+		}
+	],
+	"source": "SRD 5.1"
+}

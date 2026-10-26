@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "bonus_cantrip",
+	"display_name": "Bonus Cantrip",
+	"class": "druid",
+	"subclass": "land",
+	"level": 2,
+	"description": "When you choose this circle at 2nd level, you learn one additional druid cantrip of your choice.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

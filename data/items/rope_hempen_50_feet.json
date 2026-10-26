@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "rope_hempen_50_feet",
+	"display_name": "Rope, hempen (50 feet)",
+	"kind": "misc",
+	"description": "Rope, whether made of hemp or silk, has 2 hit points and can be burst with a DC 17 Strength check.",
+	"weight": 10,
+	"value_gp": 1.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

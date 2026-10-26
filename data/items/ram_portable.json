@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "ram_portable",
+	"display_name": "Ram, portable",
+	"kind": "misc",
+	"description": "You can use a portable ram to break down doors. When doing so, you gain a +4 bonus on the Strength check. One other character can help you use the ram, giving you advantage on this check.",
+	"weight": 35,
+	"value_gp": 4.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

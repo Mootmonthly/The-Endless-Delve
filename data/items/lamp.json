@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "lamp",
+	"display_name": "Lamp",
+	"kind": "misc",
+	"description": "A lamp casts bright light in a 15-foot radius and dim light for an additional 30 feet. Once lit, it burns for 6 hours on a flask (1 pint) of oil.",
+	"weight": 1,
+	"value_gp": 0.5,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

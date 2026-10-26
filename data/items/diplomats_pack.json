@@ -1,0 +1,25 @@
+{
+	"schema_version": 1,
+	"id": "diplomats_pack",
+	"display_name": "Diplomat's Pack",
+	"kind": "misc",
+	"description": "Equipment Packs: Diplomat's Pack.",
+	"weight": 0,
+	"value_gp": 39.0,
+	"stackable": false,
+	"gear_category": "equipment-packs",
+	"contents": [
+		{ "item": "chest", "qty": 1 },
+		{ "item": "case_map_or_scroll", "qty": 2 },
+		{ "item": "clothes_fine", "qty": 1 },
+		{ "item": "ink_1_ounce_bottle", "qty": 1 },
+		{ "item": "ink_pen", "qty": 1 },
+		{ "item": "lamp", "qty": 1 },
+		{ "item": "oil_flask", "qty": 2 },
+		{ "item": "paper_one_sheet", "qty": 5 },
+		{ "item": "perfume_vial", "qty": 1 },
+		{ "item": "sealing_wax", "qty": 1 },
+		{ "item": "soap", "qty": 1 }
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "hourglass",
+	"display_name": "Hourglass",
+	"kind": "misc",
+	"description": "Standard Gear: Hourglass.",
+	"weight": 1,
+	"value_gp": 25.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

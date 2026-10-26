@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "censer",
+	"display_name": "Censer",
+	"kind": "misc",
+	"description": "A censer, typically found in a priest's pack.",
+	"weight": 0,
+	"value_gp": 0.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,8 @@
+{
+	"schema_version": 1,
+	"id": "eyes_of_the_rune_keeper",
+	"display_name": "Eyes of the Rune Keeper",
+	"description": "You can read all writing.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

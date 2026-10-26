@@ -1,0 +1,46 @@
+{
+	"schema_version": 1,
+	"id": "raven",
+	"display_name": "Raven",
+	"size": "tiny",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 1,
+	"hit_dice": "1d4-1",
+	"speed": 10,
+	"speeds": { "fly": 50, "walk": 10 },
+	"abilities": { "STR": 2, "DEX": 14, "CON": 8, "INT": 2, "WIS": 12, "CHA": 6 },
+	"skills": { "PERCEPTION": 3 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 13",
+	"languages": "",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Mimicry",
+			"kind": "trait",
+			"description": "The raven can mimic simple sounds it has heard, such as a person whispering, a baby crying, or an animal chittering. A creature that hears the sounds can tell they are imitations with a successful DC 10 Wisdom (Insight) check.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Beak",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 1 piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

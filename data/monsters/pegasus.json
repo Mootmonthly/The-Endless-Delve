@@ -1,0 +1,40 @@
+{
+	"schema_version": 1,
+	"id": "pegasus",
+	"display_name": "Pegasus",
+	"size": "large",
+	"creature_type": "celestial",
+	"alignment": "chaotic good",
+	"armor_class": 12,
+	"hit_points": 59,
+	"hit_dice": "7d10+21",
+	"speed": 60,
+	"speeds": { "fly": 90, "walk": 60 },
+	"abilities": { "STR": 18, "DEX": 15, "CON": 16, "INT": 10, "WIS": 15, "CHA": 13 },
+	"saving_throws": { "DEX": 4, "WIS": 4, "CHA": 3 },
+	"skills": { "PERCEPTION": 6 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 16",
+	"languages": "understands Celestial, Common, Elvish, and Sylvan but can't speak",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "hobgoblin",
+	"traits": [],
+	"attacks": [
+		{
+			"name": "Hooves",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d6+4",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

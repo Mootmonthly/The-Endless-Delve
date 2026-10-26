@@ -1,0 +1,66 @@
+{
+	"schema_version": 1,
+	"id": "manticore",
+	"display_name": "Manticore",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "lawful evil",
+	"armor_class": 14,
+	"armor_note": "natural",
+	"hit_points": 68,
+	"hit_dice": "8d10+24",
+	"speed": 30,
+	"speeds": { "fly": 50, "walk": 30 },
+	"abilities": { "STR": 17, "DEX": 16, "CON": 17, "INT": 7, "WIS": 12, "CHA": 8 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 11",
+	"languages": "",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Tail Spike Regrowth",
+			"kind": "trait",
+			"description": "The manticore has twenty-four tail spikes. Used spikes regrow when the manticore finishes a long rest.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Claw", "Claw"],
+	"multiattack_text": "The manticore makes three attacks: one with its bite and two with its claws or three with its tail spikes.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d8+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) piercing damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d6+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) slashing damage."
+		},
+		{
+			"name": "Tail Spike",
+			"kind": "ranged",
+			"range_ft": [100, 200],
+			"to_hit": 5,
+			"damage": "1d8+3",
+			"damage_type": "piercing",
+			"description": "Ranged Weapon Attack: +5 to hit, range 100/200 ft., one target. Hit: 7 (1d8 + 3) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

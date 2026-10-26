@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "conjure_animals",
+	"display_name": "Conjure Animals",
+	"level": 3,
+	"school": "conjuration",
+	"casting_time": "action",
+	"range_ft": 60,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 1 hour",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["druid", "ranger"],
+	"source": "SRD 5.1",
+	"description": "You summon fey spirits that take the form of beasts and appear in unoccupied spaces that you can see within range. Choose one of the following options for what appears:\n- One beast of challenge rating 2 or lower\n- Two beasts of challenge rating 1 or lower\n- Four beasts of challenge rating 1/2 or lower\n- Eight beasts of challenge rating 1/4 or lower\n- Each beast is also considered fey, and it disappears when it drops to 0 hit points or when the spell ends.\nThe summoned creatures are friendly to you and your companions. Roll initiative for the summoned creatures as a group, which has its own turns. They obey any verbal commands that you issue to them (no action required by you). If you don't issue any commands to them, they defend themselves from hostile creatures, but otherwise take no actions.\nThe GM has the creatures' statistics.",
+	"higher_level": "When you cast this spell using certain higher-level spell slots, you choose one of the summoning options above, and more creatures appear: twice as many with a 5th-level slot, three times as many with a 7th-level.",
+	"subclasses": ["lore"]
+}

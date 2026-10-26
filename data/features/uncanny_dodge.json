@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "uncanny_dodge",
+	"display_name": "Uncanny Dodge",
+	"class": "rogue",
+	"level": 5,
+	"description": "Starting at 5th level, when an attacker that you can see hits you with an attack, you can use your reaction to halve the attack's damage against you.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

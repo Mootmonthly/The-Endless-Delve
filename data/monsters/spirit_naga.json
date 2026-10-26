@@ -1,0 +1,74 @@
+{
+	"schema_version": 1,
+	"id": "spirit_naga",
+	"display_name": "Spirit Naga",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "chaotic evil",
+	"armor_class": 15,
+	"armor_note": "natural",
+	"hit_points": 75,
+	"hit_dice": "10d10+20",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 18, "DEX": 17, "CON": 14, "INT": 16, "WIS": 15, "CHA": 16 },
+	"saving_throws": { "DEX": 6, "CON": 5, "WIS": 5, "CHA": 6 },
+	"damage_resistances": [],
+	"damage_immunities": ["poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["charmed", "poisoned"],
+	"senses": "darkvision 60 ft., passive Perception 12",
+	"languages": "Abyssal, Common",
+	"challenge_rating": 8,
+	"proficiency_bonus": 3,
+	"xp": 3900,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Rejuvenation",
+			"kind": "trait",
+			"description": "If it dies, the naga returns to life in 1d6 days and regains all its hit points. Only a wish spell can prevent this trait from functioning.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Spellcasting",
+			"kind": "trait",
+			"description": "The naga is a 10th-level spellcaster. Its spellcasting ability is Intelligence (spell save DC 14, +6 to hit with spell attacks), and it needs only verbal components to cast its spells. It has the following wizard spells prepared:\n\n- Cantrips (at will): mage hand, minor illusion, ray of frost\n- 1st level (4 slots): charm person, detect magic, sleep\n- 2nd level (3 slots): detect thoughts, hold person\n- 3rd level (3 slots): lightning bolt, water breathing\n- 4th level (3 slots): blight, dimension door\n- 5th level (2 slots): dominate person",
+			"spellcasting": {
+				"ability": "INT",
+				"dc": 14,
+				"modifier": 6,
+				"spells": [
+					"blight",
+					"charm_person",
+					"detect_magic",
+					"detect_thoughts",
+					"dimension_door",
+					"dominate_person",
+					"hold_person",
+					"lightning_bolt",
+					"mage_hand",
+					"minor_illusion",
+					"ray_of_frost",
+					"sleep",
+					"water_breathing"
+				]
+			},
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 7,
+			"damage": "1d6+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one creature. Hit: 7 (1d6 + 4) piercing damage, and the target must make a DC 13 Constitution saving throw, taking 31 (7d8) poison damage on a failed save, or half as much damage on a successful one."
+		}
+	],
+	"source": "SRD 5.1"
+}

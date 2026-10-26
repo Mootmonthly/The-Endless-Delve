@@ -1,0 +1,78 @@
+{
+	"schema_version": 1,
+	"id": "dragon_turtle",
+	"display_name": "Dragon Turtle",
+	"size": "gargantuan",
+	"creature_type": "dragon",
+	"alignment": "neutral",
+	"armor_class": 20,
+	"armor_note": "natural",
+	"hit_points": 341,
+	"hit_dice": "22d20+110",
+	"speed": 20,
+	"speeds": { "swim": 40, "walk": 20 },
+	"abilities": { "STR": 25, "DEX": 10, "CON": 20, "INT": 10, "WIS": 12, "CHA": 12 },
+	"saving_throws": { "DEX": 6, "CON": 11, "WIS": 7 },
+	"damage_resistances": ["fire"],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 120 ft., passive Perception 11",
+	"languages": "Aquan, Draconic",
+	"challenge_rating": 17,
+	"proficiency_bonus": 6,
+	"xp": 18000,
+	"loot_table": "boss",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Amphibious",
+			"kind": "trait",
+			"description": "The dragon turtle can breathe air and water.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Steam Breath",
+			"kind": "action",
+			"description": "The dragon turtle exhales scalding steam in a 60-foot cone. Each creature in that area must make a DC 18 Constitution saving throw, taking 52 (15d6) fire damage on a failed save, or half as much damage on a successful one. Being underwater doesn't grant resistance against this damage.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "CON", "value": 18, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite"],
+	"multiattack_text": "The dragon turtle makes three attacks: one with its bite and two with its claws. It can make one tail attack in place of its two claw attacks.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 15,
+			"range_ft": [15, 15],
+			"to_hit": 13,
+			"damage": "3d12+7",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +13 to hit, reach 15 ft., one target. Hit: 26 (3d12 + 7) piercing damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 13,
+			"damage": "2d8+7",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +13 to hit, reach 10 ft., one target. Hit: 16 (2d8 + 7) slashing damage."
+		},
+		{
+			"name": "Tail",
+			"kind": "melee",
+			"reach_ft": 15,
+			"range_ft": [15, 15],
+			"to_hit": 13,
+			"damage": "3d12+7",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +13 to hit, reach 15 ft., one target. Hit: 26 (3d12 + 7) bludgeoning damage. If the target is a creature, it must succeed on a DC 20 Strength saving throw or be pushed up to 10 feet away from the dragon turtle and knocked prone."
+		}
+	],
+	"source": "SRD 5.1"
+}

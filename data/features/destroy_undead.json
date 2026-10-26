@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "destroy_undead",
+	"display_name": "Destroy Undead",
+	"class": "cleric",
+	"level": 5,
+	"levels": [5, 8, 11, 14, 17],
+	"description": "Starting at 5th level, when an undead fails its saving throw against your Turn Undead feature, the creature is instantly destroyed if its challenge rating is at or below a certain threshold.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "disguise_kit",
+	"display_name": "Disguise Kit",
+	"kind": "misc",
+	"description": "This pouch of cosmetics, hair dye, and small props lets you create disguises that change your physical appearance. Proficiency with this kit lets you add your proficiency bonus to any ability checks you make to create a visual disguise.",
+	"weight": 3,
+	"value_gp": 25.0,
+	"stackable": false,
+	"gear_category": "kits",
+	"source": "SRD 5.1"
+}

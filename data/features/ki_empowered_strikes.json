@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "ki_empowered_strikes",
+	"display_name": "Ki Empowered Strikes",
+	"class": "monk",
+	"level": 6,
+	"description": "Starting at 6th level, your unarmed strikes count as magical for the purpose of overcoming resistance and immunity to nonmagical attacks and damage.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

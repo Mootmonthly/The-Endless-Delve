@@ -1,10 +1,12 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "dagger",
 	"display_name": "Dagger",
 	"category": "simple",
 	"damage": "1d4",
 	"damage_type": "piercing",
 	"properties": ["finesse", "light", "thrown"],
-	"range_ft": [20, 60]
+	"range_ft": [20, 60],
+	"source": "SRD 5.1"
 }

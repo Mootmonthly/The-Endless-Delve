@@ -1,9 +1,11 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "club",
 	"display_name": "Club",
 	"category": "simple",
 	"damage": "1d4",
 	"damage_type": "bludgeoning",
-	"properties": ["light"]
+	"properties": ["light"],
+	"source": "SRD 5.1"
 }

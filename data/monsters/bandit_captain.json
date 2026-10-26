@@ -1,0 +1,61 @@
+{
+	"schema_version": 1,
+	"id": "bandit_captain",
+	"display_name": "Bandit Captain",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any non-lawful alignment",
+	"armor_class": 15,
+	"armor_note": "studded leather armor",
+	"hit_points": 65,
+	"hit_dice": "10d8+20",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 15, "DEX": 16, "CON": 14, "INT": 14, "WIS": 11, "CHA": 14 },
+	"saving_throws": { "STR": 4, "DEX": 5, "WIS": 2 },
+	"skills": { "ATHLETICS": 4, "DECEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "any two languages",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Parry",
+			"kind": "reaction",
+			"description": "The captain adds 2 to its AC against one melee attack that would hit it. To do so, the captain must see the attacker and be wielding a melee weapon.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Scimitar", "Scimitar", "Dagger"],
+	"multiattack_text": "The captain makes three melee attacks: two with its scimitar and one with its dagger. Or the captain makes two ranged attacks with its daggers.",
+	"attacks": [
+		{
+			"name": "Scimitar",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d6+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) slashing damage."
+		},
+		{
+			"name": "Dagger",
+			"kind": "melee",
+			"reach_ft": 5,
+			"thrown_range_ft": [20, 60],
+			"to_hit": 5,
+			"damage": "1d4+3",
+			"damage_type": "piercing",
+			"description": "Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 5 (1d4 + 3) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

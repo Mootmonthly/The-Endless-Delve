@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "case_crossbow_bolt",
+	"display_name": "Case, crossbow bolt",
+	"kind": "misc",
+	"description": "This wooden case can hold up to twenty crossbow bolts.",
+	"weight": 1,
+	"value_gp": 1.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

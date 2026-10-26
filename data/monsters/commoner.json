@@ -1,0 +1,39 @@
+{
+	"schema_version": 1,
+	"id": "commoner",
+	"display_name": "Commoner",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any alignment",
+	"armor_class": 10,
+	"hit_points": 4,
+	"hit_dice": "1d8",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "any one language (usually Common)",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "goblin",
+	"traits": [],
+	"attacks": [
+		{
+			"name": "Club",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 2,
+			"damage": "1d4",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 2 (1d4) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

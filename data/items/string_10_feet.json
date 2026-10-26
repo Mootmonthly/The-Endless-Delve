@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "string_10_feet",
+	"display_name": "String (10 feet)",
+	"kind": "misc",
+	"description": "A 10-foot length of string, typically found in a burglar's pack.",
+	"weight": 0,
+	"value_gp": 0.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

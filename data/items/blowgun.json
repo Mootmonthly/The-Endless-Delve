@@ -1,0 +1,13 @@
+{
+	"schema_version": 1,
+	"id": "blowgun",
+	"display_name": "Blowgun",
+	"kind": "weapon",
+	"description": "Martial ranged weapon: 1 piercing damage (flat) piercing (ammunition, loading), range 25/100 ft.",
+	"weight": 1,
+	"value_gp": 10.0,
+	"stackable": true,
+	"weapon_id": "blowgun",
+	"ammo_id": "blowgun_needles",
+	"source": "SRD 5.1"
+}

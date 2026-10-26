@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "death_ward",
+	"display_name": "Death Ward",
+	"level": 4,
+	"school": "abjuration",
+	"casting_time": "action",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "8 hours",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["cleric", "paladin"],
+	"source": "SRD 5.1",
+	"description": "You touch a creature and grant it a measure of protection from death.\nThe first time the target would drop to 0 hit points as a result of taking damage, the target instead drops to 1 hit point, and the spell ends.\nIf the spell is still in effect when the target is subjected to an effect that would kill it instantaneously without dealing damage, that effect is instead negated against the target, and the spell ends.",
+	"subclasses": ["life"]
+}

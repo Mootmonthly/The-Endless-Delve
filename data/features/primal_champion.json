@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "primal_champion",
+	"display_name": "Primal Champion",
+	"class": "barbarian",
+	"level": 20,
+	"description": "At 20th level, you embody the power of the wilds. Your Strength and Constitution scores increase by 4. Your maximum for those scores is now 24.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

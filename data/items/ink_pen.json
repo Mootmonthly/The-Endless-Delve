@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "ink_pen",
+	"display_name": "Ink pen",
+	"kind": "misc",
+	"description": "Standard Gear: Ink pen.",
+	"weight": 0,
+	"value_gp": 0.02,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

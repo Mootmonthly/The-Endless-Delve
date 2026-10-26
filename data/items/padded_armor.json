@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "padded_armor",
 	"display_name": "Padded Armor",
 	"kind": "armor",
@@ -7,5 +8,6 @@
 	"weight": 8,
 	"value_gp": 5,
 	"stackable": false,
-	"armor": { "base": 11, "max_dex": -1, "category": "light", "stealth_disadvantage": true }
+	"armor": { "base": 11, "max_dex": -1, "category": "light", "stealth_disadvantage": true },
+	"source": "SRD 5.1"
 }

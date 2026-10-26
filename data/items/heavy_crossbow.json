@@ -1,0 +1,13 @@
+{
+	"schema_version": 1,
+	"id": "heavy_crossbow",
+	"display_name": "Crossbow, heavy",
+	"kind": "weapon",
+	"description": "Martial ranged weapon: 1d10 piercing (ammunition, heavy, loading, two-handed), range 100/400 ft.",
+	"weight": 18,
+	"value_gp": 50.0,
+	"stackable": true,
+	"weapon_id": "heavy_crossbow",
+	"ammo_id": "bolts",
+	"source": "SRD 5.1"
+}

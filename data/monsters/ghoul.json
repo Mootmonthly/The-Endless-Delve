@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "ghoul",
 	"display_name": "Ghoul",
 	"size": "medium",
@@ -16,10 +17,35 @@
 	"xp": 200,
 	"loot_table": "monster_medium",
 	"traits": [
-		{ "name": "Claws: paralysis", "description": "If the claws hit a creature other than an elf or undead, it must succeed on a DC 10 Constitution saving throw or be paralyzed for 1 minute. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. (Not yet modelled.)" }
+		{
+			"name": "Claws: paralysis",
+			"description": "If the claws hit a creature other than an elf or undead, it must succeed on a DC 10 Constitution saving throw or be paralyzed for 1 minute. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. (Not yet modelled.)"
+		}
 	],
 	"attacks": [
-		{ "name": "Bite", "kind": "melee", "reach_ft": 5, "to_hit": 2, "damage": "2d6+2", "damage_type": "piercing" },
-		{ "name": "Claws", "kind": "melee", "reach_ft": 5, "to_hit": 4, "damage": "2d4+2", "damage_type": "slashing" }
-	]
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 2,
+			"damage": "2d6+2",
+			"damage_type": "piercing"
+		},
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "2d4+2",
+			"damage_type": "slashing"
+		}
+	],
+	"alignment": "chaotic evil",
+	"speeds": { "walk": 30 },
+	"damage_resistances": [],
+	"damage_vulnerabilities": [],
+	"languages": "Common",
+	"proficiency_bonus": 2,
+	"icon": "skeleton",
+	"source": "SRD 5.1"
 }

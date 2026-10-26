@@ -1,0 +1,55 @@
+{
+	"schema_version": 1,
+	"id": "bronze_dragon_wyrmling",
+	"display_name": "Bronze Dragon Wyrmling",
+	"size": "medium",
+	"creature_type": "dragon",
+	"alignment": "lawful good",
+	"armor_class": 17,
+	"armor_note": "natural",
+	"hit_points": 32,
+	"hit_dice": "5d8+10",
+	"speed": 30,
+	"speeds": { "fly": 60, "swim": 30, "walk": 30 },
+	"abilities": { "STR": 17, "DEX": 10, "CON": 15, "INT": 12, "WIS": 11, "CHA": 15 },
+	"saving_throws": { "DEX": 2, "CON": 4, "WIS": 2, "CHA": 4 },
+	"skills": { "PERCEPTION": 4, "STEALTH": 2 },
+	"damage_resistances": [],
+	"damage_immunities": ["lightning"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 14",
+	"languages": "Draconic",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Amphibious",
+			"kind": "trait",
+			"description": "The dragon can breathe air and water.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Breath Weapons",
+			"kind": "action",
+			"description": "The dragon uses one of the following breath weapons.\nLightning Breath. The dragon exhales lightning in a 40-foot line that is 5 feet wide. Each creature in that line must make a DC 12 Dexterity saving throw, taking 16 (3d10) lightning damage on a failed save, or half as much damage on a successful one.\nRepulsion Breath. The dragon exhales repulsion energy in a 30-foot cone. Each creature in that area must succeed on a DC 12 Strength saving throw. On a failed save, the creature is pushed 30 feet away from the dragon.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d10+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (1d10 + 3) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

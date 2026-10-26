@@ -1,0 +1,57 @@
+{
+	"schema_version": 1,
+	"id": "giant_eagle",
+	"display_name": "Giant Eagle",
+	"size": "large",
+	"creature_type": "beast",
+	"alignment": "neutral good",
+	"armor_class": 13,
+	"hit_points": 26,
+	"hit_dice": "4d10+4",
+	"speed": 10,
+	"speeds": { "fly": 80, "walk": 10 },
+	"abilities": { "STR": 16, "DEX": 17, "CON": 13, "INT": 8, "WIS": 14, "CHA": 10 },
+	"skills": { "PERCEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 14",
+	"languages": "Giant Eagle, understands Common and Auran but can't speak",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Keen Sight",
+			"kind": "trait",
+			"description": "The eagle has advantage on Wisdom (Perception) checks that rely on sight.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Beak", "Talons"],
+	"multiattack_text": "The eagle makes two attacks: one with its beak and one with its talons.",
+	"attacks": [
+		{
+			"name": "Beak",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d6+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) piercing damage."
+		},
+		{
+			"name": "Talons",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "2d6+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

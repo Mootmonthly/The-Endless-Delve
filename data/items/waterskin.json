@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "waterskin",
+	"display_name": "Waterskin",
+	"kind": "misc",
+	"description": "Standard Gear: Waterskin.",
+	"weight": 5,
+	"value_gp": 0.2,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

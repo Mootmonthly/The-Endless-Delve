@@ -1,0 +1,78 @@
+{
+	"schema_version": 1,
+	"id": "lizardfolk",
+	"display_name": "Lizardfolk",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "lizardfolk",
+	"alignment": "neutral",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 22,
+	"hit_dice": "4d8+4",
+	"speed": 30,
+	"speeds": { "swim": 30, "walk": 30 },
+	"abilities": { "STR": 15, "DEX": 10, "CON": 13, "INT": 7, "WIS": 12, "CHA": 7 },
+	"skills": { "PERCEPTION": 3, "STEALTH": 4, "SURVIVAL": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 13",
+	"languages": "Draconic",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Hold Breath",
+			"kind": "trait",
+			"description": "The lizardfolk can hold its breath for 15 minutes.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Heavy Club"],
+	"multiattack_text": "The lizardfolk makes two melee attacks, each one with a different weapon.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+		},
+		{
+			"name": "Heavy Club",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) bludgeoning damage."
+		},
+		{
+			"name": "Javelin",
+			"kind": "melee",
+			"reach_ft": 5,
+			"thrown_range_ft": [30, 120],
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing",
+			"description": "Melee or Ranged Weapon Attack: +4 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+		},
+		{
+			"name": "Spiked Shield",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

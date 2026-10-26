@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "war_pick",
+	"display_name": "War pick",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 1d8 piercing.",
+	"weight": 2,
+	"value_gp": 5.0,
+	"stackable": true,
+	"weapon_id": "war_pick",
+	"source": "SRD 5.1"
+}

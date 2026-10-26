@@ -1,0 +1,106 @@
+{
+	"schema_version": 1,
+	"id": "adult_blue_dragon",
+	"display_name": "Adult Blue Dragon",
+	"size": "huge",
+	"creature_type": "dragon",
+	"alignment": "lawful evil",
+	"armor_class": 19,
+	"armor_note": "natural",
+	"hit_points": 225,
+	"hit_dice": "18d12+108",
+	"speed": 40,
+	"speeds": { "burrow": 30, "fly": 80, "walk": 40 },
+	"abilities": { "STR": 25, "DEX": 10, "CON": 23, "INT": 16, "WIS": 15, "CHA": 19 },
+	"saving_throws": { "DEX": 5, "CON": 11, "WIS": 7, "CHA": 9 },
+	"skills": { "PERCEPTION": 12, "STEALTH": 5 },
+	"damage_resistances": [],
+	"damage_immunities": ["lightning"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 22",
+	"languages": "Common, Draconic",
+	"challenge_rating": 16,
+	"proficiency_bonus": 5,
+	"xp": 15000,
+	"loot_table": "boss",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Legendary Resistance",
+			"kind": "trait",
+			"description": "If the dragon fails a saving throw, it can choose to succeed instead.",
+			"usage": { "rest_types": [], "times": 3, "type": "per day" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Frightful Presence",
+			"kind": "action",
+			"description": "Each creature of the dragon's choice that is within 120 ft. of the dragon and aware of it must succeed on a DC 17 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours.",
+			"dc": { "ability": "WIS", "value": 17, "on_success": "none" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Lightning Breath",
+			"kind": "action",
+			"description": "The dragon exhales lightning in a 90-foot line that is 5 ft. wide. Each creature in that line must make a DC 19 Dexterity saving throw, taking 66 (12d10) lightning damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 19, "on_success": "half" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Detect",
+			"kind": "legendary_action",
+			"description": "The dragon makes a Wisdom (Perception) check.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Tail Attack",
+			"kind": "legendary_action",
+			"description": "The dragon makes a tail attack.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Wing Attack (Costs 2 Actions)",
+			"kind": "legendary_action",
+			"description": "The dragon beats its wings. Each creature within 10 ft. of the dragon must succeed on a DC 20 Dexterity saving throw or take 14 (2d6 + 7) bludgeoning damage and be knocked prone. The dragon can then fly up to half its flying speed.",
+			"dc": { "ability": "DEX", "value": 20, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Claw", "Claw"],
+	"multiattack_text": "The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 12,
+			"damage": "2d10+7",
+			"damage_type": "piercing",
+			"extra_damage": [{ "damage": "1d10", "damage_type": "lightning" }],
+			"description": "Melee Weapon Attack: +12 to hit, reach 10 ft., one target. Hit: 18 (2d10 + 7) piercing damage plus 5 (1d10) lightning damage."
+		},
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 12,
+			"damage": "2d6+7",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +12 to hit, reach 5 ft., one target. Hit: 14 (2d6 + 7) slashing damage."
+		},
+		{
+			"name": "Tail",
+			"kind": "melee",
+			"reach_ft": 15,
+			"range_ft": [15, 15],
+			"to_hit": 12,
+			"damage": "2d8+7",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +12 to hit, reach 15 ft., one target. Hit: 16 (2d8 + 7) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

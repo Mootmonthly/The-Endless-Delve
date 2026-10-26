@@ -1,0 +1,60 @@
+{
+	"schema_version": 1,
+	"id": "dretch",
+	"display_name": "Dretch",
+	"size": "small",
+	"creature_type": "fiend",
+	"subtype": "demon",
+	"alignment": "chaotic evil",
+	"armor_class": 11,
+	"armor_note": "natural",
+	"hit_points": 18,
+	"hit_dice": "4d6+4",
+	"speed": 20,
+	"speeds": { "walk": 20 },
+	"abilities": { "STR": 11, "DEX": 11, "CON": 12, "INT": 5, "WIS": 8, "CHA": 3 },
+	"damage_resistances": ["cold", "fire", "lightning"],
+	"damage_immunities": ["poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["poisoned"],
+	"senses": "darkvision 60 ft., passive Perception 9",
+	"languages": "Abyssal, telepathy 60 ft. (works only with creatures that understand Abyssal)",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "bugbear",
+	"traits": [
+		{
+			"name": "Fetid Cloud",
+			"kind": "action",
+			"description": "A 10-foot radius of disgusting green gas extends out from the dretch. The gas spreads around corners, and its area is lightly obscured. It lasts for 1 minute or until a strong wind disperses it. Any creature that starts its turn in that area must succeed on a DC 11 Constitution saving throw or be poisoned until the start of its next turn. While poisoned in this way, the target can take either an action or a bonus action on its turn, not both, and can't take reactions.",
+			"usage": { "times": 1, "type": "per day" },
+			"dc": { "ability": "CON", "value": 11, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Claws"],
+	"multiattack_text": "The dretch makes two attacks: one with its bite and one with its claws.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 2,
+			"damage": "1d6",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 3 (1d6) piercing damage."
+		},
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 2,
+			"damage": "2d4",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 5 (2d4) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

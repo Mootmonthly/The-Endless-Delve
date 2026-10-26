@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "quiver",
+	"display_name": "Quiver",
+	"kind": "misc",
+	"description": "A quiver can hold up to 20 arrows.",
+	"weight": 1,
+	"value_gp": 1.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

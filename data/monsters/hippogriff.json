@@ -1,0 +1,57 @@
+{
+	"schema_version": 1,
+	"id": "hippogriff",
+	"display_name": "Hippogriff",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "unaligned",
+	"armor_class": 11,
+	"hit_points": 19,
+	"hit_dice": "3d10+3",
+	"speed": 40,
+	"speeds": { "fly": 60, "walk": 40 },
+	"abilities": { "STR": 17, "DEX": 13, "CON": 13, "INT": 2, "WIS": 12, "CHA": 8 },
+	"skills": { "PERCEPTION": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 15",
+	"languages": "",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Keen Sight",
+			"kind": "trait",
+			"description": "The hippogriff has advantage on Wisdom (Perception) checks that rely on sight.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Beak", "Claws"],
+	"multiattack_text": "The hippogriff makes two attacks: one with its beak and one with its claws.",
+	"attacks": [
+		{
+			"name": "Beak",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1d10+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (1d10 + 3) piercing damage."
+		},
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "2d6+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

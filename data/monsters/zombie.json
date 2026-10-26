@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "zombie",
 	"display_name": "Zombie",
 	"size": "medium",
@@ -17,9 +18,27 @@
 	"xp": 50,
 	"loot_table": "monster_small",
 	"traits": [
-		{ "name": "Undead Fortitude", "description": "If damage reduces it to 0 hit points, it makes a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, it drops to 1 hit point instead." }
+		{
+			"name": "Undead Fortitude",
+			"description": "If damage reduces it to 0 hit points, it makes a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, it drops to 1 hit point instead."
+		}
 	],
 	"attacks": [
-		{ "name": "Slam", "kind": "melee", "reach_ft": 5, "to_hit": 3, "damage": "1d6+1", "damage_type": "bludgeoning" }
-	]
+		{
+			"name": "Slam",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d6+1",
+			"damage_type": "bludgeoning"
+		}
+	],
+	"alignment": "neutral evil",
+	"speeds": { "walk": 20 },
+	"damage_resistances": [],
+	"damage_vulnerabilities": [],
+	"languages": "understands all languages it spoke in life but can't speak",
+	"proficiency_bonus": 2,
+	"icon": "skeleton",
+	"source": "SRD 5.1"
 }

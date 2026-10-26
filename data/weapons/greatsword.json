@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "greatsword",
+	"display_name": "Greatsword",
+	"category": "martial",
+	"damage": "2d6",
+	"damage_type": "slashing",
+	"properties": ["heavy", "two_handed"],
+	"source": "SRD 5.1"
+}

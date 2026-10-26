@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "mirror_steel",
+	"display_name": "Mirror, steel",
+	"kind": "misc",
+	"description": "Standard Gear: Mirror, steel.",
+	"weight": 0.5,
+	"value_gp": 5.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

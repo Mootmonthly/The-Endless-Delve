@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "mantle_of_spell_resistance",
+	"display_name": "Mantle of Spell Resistance",
+	"kind": "misc",
+	"description": "You have advantage on saving throws against spells while you wear this cloak.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

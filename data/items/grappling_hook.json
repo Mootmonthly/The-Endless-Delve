@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "grappling_hook",
+	"display_name": "Grappling hook",
+	"kind": "misc",
+	"description": "Standard Gear: Grappling hook.",
+	"weight": 4,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

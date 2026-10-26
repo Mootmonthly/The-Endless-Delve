@@ -1,0 +1,43 @@
+{
+	"schema_version": 1,
+	"id": "guard",
+	"display_name": "Guard",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any alignment",
+	"armor_class": 16,
+	"armor_note": "chain shirt, shield",
+	"hit_points": 11,
+	"hit_dice": "2d8+2",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 13, "DEX": 12, "CON": 12, "INT": 10, "WIS": 11, "CHA": 10 },
+	"skills": { "PERCEPTION": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 12",
+	"languages": "any one language (usually Common)",
+	"challenge_rating": 0.125,
+	"proficiency_bonus": 2,
+	"xp": 25,
+	"loot_table": "monster_small",
+	"icon": "goblin",
+	"traits": [],
+	"attacks": [
+		{
+			"name": "Spear",
+			"kind": "melee",
+			"reach_ft": 5,
+			"thrown_range_ft": [20, 60],
+			"to_hit": 3,
+			"damage": "1d6+1",
+			"damage_type": "piercing",
+			"versatile_damage": "1d8+1",
+			"description": "Melee or Ranged Weapon Attack: +3 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d6 + 1) piercing damage or 5 (1d8 + 1) piercing damage if used with two hands to make a melee attack."
+		}
+	],
+	"source": "SRD 5.1"
+}

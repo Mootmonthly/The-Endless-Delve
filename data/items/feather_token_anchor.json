@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "feather_token_anchor",
+	"display_name": "Anchor Feather Token",
+	"kind": "misc",
+	"description": "This tiny object looks like a feather.\nYou can use an action to touch the token to a boat or ship. For the next 24 hours, the vessel can't be moved by any means. Touching the token to the vessel again ends the effect. When the effect ends, the token disappears.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

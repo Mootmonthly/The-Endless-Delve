@@ -1,0 +1,68 @@
+{
+	"schema_version": 1,
+	"id": "minotaur",
+	"display_name": "Minotaur",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "chaotic evil",
+	"armor_class": 14,
+	"armor_note": "natural",
+	"hit_points": 76,
+	"hit_dice": "9d10+27",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 18, "DEX": 11, "CON": 16, "INT": 6, "WIS": 16, "CHA": 9 },
+	"skills": { "PERCEPTION": 7 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 17",
+	"languages": "Abyssal",
+	"challenge_rating": 3,
+	"proficiency_bonus": 2,
+	"xp": 700,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Charge",
+			"kind": "trait",
+			"description": "If the minotaur moves at least 10 ft. straight toward a target and then hits it with a gore attack on the same turn, the target takes an extra 9 (2d8) piercing damage. If the target is a creature, it must succeed on a DC 14 Strength saving throw or be pushed up to 10 ft. away and knocked prone.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Labyrinthine Recall",
+			"kind": "trait",
+			"description": "The minotaur can perfectly recall any path it has traveled.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Reckless",
+			"kind": "trait",
+			"description": "At the start of its turn, the minotaur can gain advantage on all melee weapon attack rolls it makes during that turn, but attack rolls against it have advantage until the start of its next turn.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Greataxe",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d12+4",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 17 (2d12 + 4) slashing damage."
+		},
+		{
+			"name": "Gore",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d8+4",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

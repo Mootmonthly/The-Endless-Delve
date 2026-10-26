@@ -1,9 +1,11 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "shortsword",
 	"display_name": "Shortsword",
 	"category": "martial",
 	"damage": "1d6",
 	"damage_type": "piercing",
-	"properties": ["finesse", "light"]
+	"properties": ["finesse", "light"],
+	"source": "SRD 5.1"
 }

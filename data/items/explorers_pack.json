@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"id": "explorers_pack",
+	"display_name": "Explorer's Pack",
+	"kind": "misc",
+	"description": "Equipment Packs: Explorer's Pack.",
+	"weight": 0,
+	"value_gp": 10.0,
+	"stackable": false,
+	"gear_category": "equipment-packs",
+	"contents": [
+		{ "item": "backpack", "qty": 1 },
+		{ "item": "bedroll", "qty": 1 },
+		{ "item": "mess_kit", "qty": 1 },
+		{ "item": "tinderbox", "qty": 1 },
+		{ "item": "torch", "qty": 10 },
+		{ "item": "rations", "qty": 10 },
+		{ "item": "waterskin", "qty": 1 },
+		{ "item": "rope_hempen_50_feet", "qty": 1 }
+	],
+	"source": "SRD 5.1"
+}

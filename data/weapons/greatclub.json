@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "greatclub",
+	"display_name": "Greatclub",
+	"category": "simple",
+	"damage": "1d8",
+	"damage_type": "bludgeoning",
+	"properties": ["two_handed"],
+	"source": "SRD 5.1"
+}

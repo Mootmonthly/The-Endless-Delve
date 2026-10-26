@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "greater_invisibility",
+	"display_name": "Greater Invisibility",
+	"level": 4,
+	"school": "illusion",
+	"casting_time": "action",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 1 minute",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["bard", "sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You or a creature you touch becomes invisible until the spell ends. Anything the target is wearing or carrying is invisible as long as it is on the target's person.",
+	"subclasses": ["land"]
+}

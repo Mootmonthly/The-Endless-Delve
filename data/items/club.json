@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "club",
 	"display_name": "Club",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 2,
 	"value_gp": 0.1,
 	"stackable": true,
-	"weapon_id": "club"
+	"weapon_id": "club",
+	"source": "SRD 5.1"
 }

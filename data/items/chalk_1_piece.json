@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "chalk_1_piece",
+	"display_name": "Chalk (1 piece)",
+	"kind": "misc",
+	"description": "Standard Gear: Chalk (1 piece).",
+	"weight": 0,
+	"value_gp": 0.01,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

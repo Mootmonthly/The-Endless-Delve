@@ -1,0 +1,74 @@
+{
+	"schema_version": 1,
+	"id": "ice_mephit",
+	"display_name": "Ice Mephit",
+	"size": "small",
+	"creature_type": "elemental",
+	"alignment": "neutral evil",
+	"armor_class": 11,
+	"hit_points": 21,
+	"hit_dice": "6d6",
+	"speed": 30,
+	"speeds": { "fly": 30, "walk": 30 },
+	"abilities": { "STR": 7, "DEX": 13, "CON": 10, "INT": 9, "WIS": 11, "CHA": 12 },
+	"skills": { "PERCEPTION": 2, "STEALTH": 3 },
+	"damage_resistances": [],
+	"damage_immunities": ["cold", "poison"],
+	"damage_vulnerabilities": ["bludgeoning", "fire"],
+	"condition_immunities": ["poisoned"],
+	"senses": "darkvision 60 ft., passive Perception 12",
+	"languages": "Aquan, Auran",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Death Burst",
+			"kind": "trait",
+			"description": "When the mephit dies, it explodes in a burst of jagged ice. Each creature within 5 ft. of it must make a DC 10 Dexterity saving throw, taking 4 (1d8) slashing damage on a failed save, or half as much damage on a successful one.",
+			"dc": { "ability": "DEX", "value": 10, "on_success": "half" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "False Appearance",
+			"kind": "trait",
+			"description": "While the mephit remains motionless, it is indistinguishable from an ordinary shard of ice.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The mephit can innately cast fog cloud, requiring no material components. Its innate spellcasting ability is Charisma.",
+			"spellcasting": {
+				"ability": "CHA",
+				"dc": null,
+				"modifier": null,
+				"spells": ["fog_cloud"]
+			},
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Frost Breath",
+			"kind": "action",
+			"description": "The mephit exhales a 15-foot cone of cold air. Each creature in that area must succeed on a DC 10 Dexterity saving throw, taking 5 (2d4) cold damage on a failed save, or half as much damage on a successful one.",
+			"usage": { "dice": "1d6", "min_value": 6, "type": "recharge on roll" },
+			"dc": { "ability": "DEX", "value": 10, "on_success": "half" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Claws",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d4+1",
+			"damage_type": "slashing",
+			"extra_damage": [{ "damage": "1d4", "damage_type": "cold" }],
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 3 (1d4 + 1) slashing damage plus 2 (1d4) cold damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "belt_of_giant_strength_frost",
+	"display_name": "Belt of Frost Giant Strength",
+	"kind": "misc",
+	"description": "While wearing this belt, your Strength score changes to 23. If your Strength is already equal to or greater than the belt's score, the item has no Effect on you.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, very rare (requires attunement)",
+	"rarity": "very rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

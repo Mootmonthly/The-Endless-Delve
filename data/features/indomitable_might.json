@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "indomitable_might",
+	"display_name": "Indomitable Might",
+	"class": "barbarian",
+	"level": 18,
+	"description": "Beginning at 18th level, if your total for a Strength check is less than your Strength score, you can use that score in place of the total.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

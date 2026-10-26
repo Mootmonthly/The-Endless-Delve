@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "pouch",
+	"display_name": "Pouch",
+	"kind": "misc",
+	"description": "A cloth or leather pouch can hold up to 20 sling bullets or 50 blowgun needles, among other things. A compartmentalized pouch for holding spell components is called a component pouch (described earlier in this section).",
+	"weight": 1,
+	"value_gp": 0.5,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

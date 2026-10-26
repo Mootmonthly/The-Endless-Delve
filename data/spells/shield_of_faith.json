@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "shield_of_faith",
 	"display_name": "Shield of Faith",
 	"level": 1,
@@ -14,5 +15,9 @@
 	"classes": ["cleric", "paladin"],
 	"source": "SRD 5.1",
 	"description": "A shimmering field surrounds a creature within 60 feet, granting +2 AC while you concentrate.",
-	"planned_effect": { "type": "buff", "buff": "shield_of_faith", "ac_bonus": 2 }
+	"planned_effect": { "type": "buff", "buff": "shield_of_faith", "ac_bonus": 2 },
+	"ritual": false,
+	"material": "A small parchment with a bit of holy text written on it.",
+	"subclasses": ["lore"],
+	"srd_description": "A shimmering field appears and surrounds a creature of your choice within range, granting it a +2 bonus to AC for the duration."
 }

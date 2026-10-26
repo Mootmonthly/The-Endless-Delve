@@ -1,0 +1,51 @@
+{
+	"schema_version": 1,
+	"id": "giant_ape",
+	"display_name": "Giant Ape",
+	"size": "huge",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 157,
+	"hit_dice": "15d12+60",
+	"speed": 40,
+	"speeds": { "climb": 40, "walk": 40 },
+	"abilities": { "STR": 23, "DEX": 14, "CON": 18, "INT": 7, "WIS": 12, "CHA": 7 },
+	"skills": { "ATHLETICS": 9, "PERCEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 14",
+	"languages": "",
+	"challenge_rating": 7,
+	"proficiency_bonus": 3,
+	"xp": 2900,
+	"loot_table": "boss",
+	"icon": "giant_rat",
+	"traits": [],
+	"multiattack": ["Fist", "Fist"],
+	"multiattack_text": "The ape makes two fist attacks.",
+	"attacks": [
+		{
+			"name": "Fist",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 9,
+			"damage": "3d10+6",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 22 (3d10 + 6) bludgeoning damage."
+		},
+		{
+			"name": "Rock",
+			"kind": "ranged",
+			"range_ft": [50, 100],
+			"to_hit": 9,
+			"damage": "7d6+6",
+			"damage_type": "bludgeoning",
+			"description": "Ranged Weapon Attack: +9 to hit, range 50/100 ft., one target. Hit: 30 (7d6 + 6) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

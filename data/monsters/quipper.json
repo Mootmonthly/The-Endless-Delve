@@ -1,0 +1,51 @@
+{
+	"schema_version": 1,
+	"id": "quipper",
+	"display_name": "Quipper",
+	"size": "tiny",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 13,
+	"hit_points": 1,
+	"hit_dice": "1d4-1",
+	"speed": 0,
+	"speeds": { "swim": 40 },
+	"abilities": { "STR": 2, "DEX": 16, "CON": 9, "INT": 1, "WIS": 7, "CHA": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 8",
+	"languages": "",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Blood Frenzy",
+			"kind": "trait",
+			"description": "The quipper has advantage on melee attack rolls against any creature that doesn't have all its hit points.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Water Breathing",
+			"kind": "trait",
+			"description": "The quipper can breathe only underwater.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 1 piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

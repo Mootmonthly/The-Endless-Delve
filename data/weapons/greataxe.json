@@ -1,9 +1,11 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "greataxe",
 	"display_name": "Greataxe",
 	"category": "martial",
 	"damage": "1d12",
 	"damage_type": "slashing",
-	"properties": ["heavy", "two_handed"]
+	"properties": ["heavy", "two_handed"],
+	"source": "SRD 5.1"
 }

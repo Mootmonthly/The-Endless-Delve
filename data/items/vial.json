@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "vial",
+	"display_name": "Vial",
+	"kind": "misc",
+	"description": "Standard Gear: Vial.",
+	"weight": 0,
+	"value_gp": 1.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

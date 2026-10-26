@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "morningstar",
+	"display_name": "Morningstar",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 1d8 piercing.",
+	"weight": 4,
+	"value_gp": 15.0,
+	"stackable": true,
+	"weapon_id": "morningstar",
+	"source": "SRD 5.1"
+}

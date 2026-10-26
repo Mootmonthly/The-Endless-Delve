@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "amulet_of_proof_against_detection_and_location",
+	"display_name": "Amulet of Proof against Detection and Location",
+	"kind": "misc",
+	"description": "While wearing this amulet, you are hidden from divination magic. You can't be targeted by such magic or perceived through magical scrying sensors.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, uncommon (requires attunement)",
+	"rarity": "uncommon",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "shovel",
+	"display_name": "Shovel",
+	"kind": "misc",
+	"description": "Standard Gear: Shovel.",
+	"weight": 5,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

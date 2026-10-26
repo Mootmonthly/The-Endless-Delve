@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "chain_10_feet",
+	"display_name": "Chain (10 feet)",
+	"kind": "misc",
+	"description": "A chain has 10 hit points. It can be burst with a successful DC 20 Strength check.",
+	"weight": 10,
+	"value_gp": 5.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

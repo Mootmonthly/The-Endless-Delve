@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "scholars_pack",
+	"display_name": "Scholar's Pack",
+	"kind": "misc",
+	"description": "Equipment Packs: Scholar's Pack.",
+	"weight": 0,
+	"value_gp": 40.0,
+	"stackable": false,
+	"gear_category": "equipment-packs",
+	"contents": [
+		{ "item": "backpack", "qty": 1 },
+		{ "item": "book", "qty": 1 },
+		{ "item": "ink_1_ounce_bottle", "qty": 1 },
+		{ "item": "ink_pen", "qty": 1 },
+		{ "item": "parchment_one_sheet", "qty": 10 },
+		{ "item": "little_bag_of_sand", "qty": 1 },
+		{ "item": "small_knife", "qty": 1 }
+	],
+	"source": "SRD 5.1"
+}

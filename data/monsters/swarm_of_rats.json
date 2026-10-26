@@ -1,0 +1,61 @@
+{
+	"schema_version": 1,
+	"id": "swarm_of_rats",
+	"display_name": "Swarm of Rats",
+	"size": "medium",
+	"creature_type": "beast",
+	"swarm": true,
+	"alignment": "unaligned",
+	"armor_class": 10,
+	"hit_points": 24,
+	"hit_dice": "7d8-7",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 9, "DEX": 11, "CON": 9, "INT": 2, "WIS": 10, "CHA": 3 },
+	"damage_resistances": ["bludgeoning", "piercing", "slashing"],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [
+		"charmed",
+		"frightened",
+		"grappled",
+		"paralyzed",
+		"petrified",
+		"prone",
+		"restrained",
+		"stunned"
+	],
+	"senses": "darkvision 30 ft., passive Perception 10",
+	"languages": "",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Keen Smell",
+			"kind": "trait",
+			"description": "The swarm has advantage on Wisdom (Perception) checks that rely on smell.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Swarm",
+			"kind": "trait",
+			"description": "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny rat. The swarm can't regain hit points or gain temporary hit points.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bites",
+			"kind": "melee",
+			"reach_ft": 0,
+			"to_hit": 2,
+			"damage": "2d6",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +2 to hit, reach 0 ft., one target in the swarm's space. Hit: 7 (2d6) piercing damage, or 3 (1d6) piercing damage if the swarm has half of its hit points or fewer."
+		}
+	],
+	"source": "SRD 5.1"
+}

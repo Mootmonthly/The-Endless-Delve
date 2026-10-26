@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_resistance_necrotic",
+	"display_name": "Ring of Necrotic Resistance",
+	"kind": "misc",
+	"description": "You have resistance to necrotic damage while wearing this jet ring.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

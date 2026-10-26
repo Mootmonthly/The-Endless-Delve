@@ -1,0 +1,8 @@
+{
+	"schema_version": 1,
+	"id": "eldritch_sight",
+	"display_name": "Eldritch Sight",
+	"description": "You can cast detect magic at will, without expending a spell slot.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

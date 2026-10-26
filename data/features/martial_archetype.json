@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "martial_archetype",
+	"display_name": "Martial Archetype",
+	"class": "fighter",
+	"level": 3,
+	"description": "At 3rd level, you choose an archetype that you strive to emulate in your combat styles and techniques, such as Champion. The archetype you choose grants you features at 3rd level and again at 7th, 10th, 15th, and 18th level.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

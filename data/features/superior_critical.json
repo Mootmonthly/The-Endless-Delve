@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "superior_critical",
+	"display_name": "Superior Critical",
+	"class": "fighter",
+	"subclass": "champion",
+	"level": 15,
+	"description": "Starting at 15th level, your weapon attacks score a critical hit on a roll of 18-20.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

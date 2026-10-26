@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "evocation_savant",
+	"display_name": "Evocation Savant",
+	"class": "wizard",
+	"subclass": "evocation",
+	"level": 2,
+	"description": "Beginning when you select this school at 2nd level, the gold and time you must spend to copy an evocation spell into your spellbook is halved.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

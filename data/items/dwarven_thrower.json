@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "dwarven_thrower",
+	"display_name": "Dwarven Thrower",
+	"kind": "misc",
+	"description": "You gain a +3 bonus to attack and damage rolls made with this magic weapon. It has the thrown property with a normal range of 20 feet and a long range of 60 feet. When you hit with a ranged attack using this weapon, it deals an extra 1d8 damage or, if the target is a giant, 2d8 damage. Immediately after the attack, the weapon flies back to your hand.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "weapon",
+	"item_line": "Weapon (warhammer), very rare (requires attunement by a dwarf)",
+	"rarity": "very rare",
+	"requires_attunement": true,
+	"attunement_note": "by a dwarf",
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

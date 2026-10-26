@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "flail",
+	"display_name": "Flail",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 1d8 bludgeoning.",
+	"weight": 2,
+	"value_gp": 10.0,
+	"stackable": true,
+	"weapon_id": "flail",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "wand_of_the_war_mage_plus_3",
+	"display_name": "Wand of the War Mage, +3",
+	"kind": "misc",
+	"description": "While holding this wand, you gain a +3 bonus to spell attack rolls. In addition, you ignore half cover when making a spell attack.",
+	"weight": 0,
+	"value_gp": 5001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wand",
+	"item_line": "Wand, very rare (requires attunement by a spellcaster)",
+	"rarity": "very rare",
+	"requires_attunement": true,
+	"attunement_note": "by a spellcaster",
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

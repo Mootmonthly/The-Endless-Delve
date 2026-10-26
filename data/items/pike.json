@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "pike",
+	"display_name": "Pike",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 1d10 piercing (heavy, reach, two-handed).",
+	"weight": 18,
+	"value_gp": 5.0,
+	"stackable": true,
+	"weapon_id": "pike",
+	"source": "SRD 5.1"
+}

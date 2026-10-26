@@ -1,0 +1,14 @@
+{
+	"schema_version": 1,
+	"id": "blowgun",
+	"display_name": "Blowgun",
+	"category": "martial",
+	"damage": "1d1",
+	"damage_note": "1 piercing damage (flat)",
+	"damage_type": "piercing",
+	"properties": ["ammunition", "loading"],
+	"range_ft": [25, 100],
+	"ranged": true,
+	"ammo_id": "blowgun_needles",
+	"source": "SRD 5.1"
+}

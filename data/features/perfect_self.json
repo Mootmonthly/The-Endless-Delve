@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "perfect_self",
+	"display_name": "Perfect Self",
+	"class": "monk",
+	"level": 20,
+	"description": "At 20th level, when you roll for initiative and have no ki points remaining, you regain 4 ki points.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

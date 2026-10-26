@@ -1,0 +1,46 @@
+{
+	"schema_version": 1,
+	"id": "weasel",
+	"display_name": "Weasel",
+	"size": "tiny",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 13,
+	"hit_points": 1,
+	"hit_dice": "1d4-1",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 3, "DEX": 16, "CON": 8, "INT": 2, "WIS": 12, "CHA": 3 },
+	"skills": { "PERCEPTION": 3, "STEALTH": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 13",
+	"languages": "",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Keen Hearing and Smell",
+			"kind": "trait",
+			"description": "The weasel has advantage on Wisdom (Perception) checks that rely on hearing or smell.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "1",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one creature. Hit: 1 piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

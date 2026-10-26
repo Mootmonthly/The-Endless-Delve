@@ -1,0 +1,21 @@
+{
+	"schema_version": 1,
+	"id": "illusory_script",
+	"display_name": "Illusory Script",
+	"level": 1,
+	"school": "illusion",
+	"casting_time": "1_minute",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "10 days",
+	"concentration": false,
+	"ritual": true,
+	"components": ["S", "M"],
+	"classes": ["bard", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You write on parchment, paper, or some other suitable writing material and imbue it with a potent illusion that lasts for the duration.\nTo you and any creatures you designate when you cast the spell, the writing appears normal, written in your hand, and conveys whatever meaning you intended when you wrote the text. To all others, the writing appears as if it were written in an unknown or magical script that is unintelligible. Alternatively, you can cause the writing to appear to be an entirely different message, written in a different hand and language, though the language must be one you know.\nShould the spell be dispelled, the original script and the illusion both disappear.\nA creature with truesight can read the hidden message.",
+	"casting_time_text": "1 minute",
+	"material": "A lead-based ink worth at least 10gp, which this spell consumes.",
+	"subclasses": ["lore"]
+}

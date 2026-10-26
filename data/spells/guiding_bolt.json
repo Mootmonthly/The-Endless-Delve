@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "guiding_bolt",
 	"display_name": "Guiding Bolt",
 	"level": 1,
@@ -20,5 +21,21 @@
 	"components": ["V", "S"],
 	"classes": ["cleric"],
 	"source": "SRD 5.1",
-	"description": "A flash of light streaks toward a creature: a ranged spell attack for 4d6 radiant damage (+1d6 per slot level above 1st), and the next attack roll against it before the end of your next turn has advantage."
+	"description": "A flash of light streaks toward a creature: a ranged spell attack for 4d6 radiant damage (+1d6 per slot level above 1st), and the next attack roll against it before the end of your next turn has advantage.",
+	"ritual": false,
+	"higher_level": "When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d6 for each slot level above 1st.",
+	"subclasses": ["lore"],
+	"damage_by_slot": {
+		"1": "4d6",
+		"2": "5d6",
+		"3": "6d6",
+		"4": "7d6",
+		"5": "8d6",
+		"6": "9d6",
+		"7": "10d6",
+		"8": "11d6",
+		"9": "12d6"
+	},
+	"damage_type": "radiant",
+	"srd_description": "A flash of light streaks toward a creature of your choice within range. Make a ranged spell attack against the target. On a hit, the target takes 4d6 radiant damage, and the next attack roll made against this target before the end of your next turn has advantage, thanks to the mystical dim light glittering on the target until then."
 }

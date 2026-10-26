@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "chest",
+	"display_name": "Chest",
+	"kind": "misc",
+	"description": "Standard Gear: Chest.",
+	"weight": 25,
+	"value_gp": 5.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

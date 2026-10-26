@@ -1,0 +1,74 @@
+{
+	"schema_version": 1,
+	"id": "shadow",
+	"display_name": "Shadow",
+	"size": "medium",
+	"creature_type": "undead",
+	"alignment": "chaotic evil",
+	"armor_class": 12,
+	"hit_points": 16,
+	"hit_dice": "3d8+3",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 6, "DEX": 14, "CON": 13, "INT": 6, "WIS": 10, "CHA": 8 },
+	"skills": { "STEALTH": 4 },
+	"damage_resistances": [
+		"acid",
+		"cold",
+		"fire",
+		"lightning",
+		"thunder",
+		"bludgeoning, piercing, and slashing from nonmagical weapons"
+	],
+	"damage_immunities": ["necrotic", "poison"],
+	"damage_vulnerabilities": ["radiant"],
+	"condition_immunities": [
+		"exhaustion",
+		"frightened",
+		"grappled",
+		"paralyzed",
+		"petrified",
+		"poisoned",
+		"prone",
+		"restrained"
+	],
+	"senses": "darkvision 60 ft., passive Perception 10",
+	"languages": "",
+	"challenge_rating": 0.5,
+	"proficiency_bonus": 2,
+	"xp": 100,
+	"loot_table": "monster_medium",
+	"icon": "skeleton",
+	"traits": [
+		{
+			"name": "Amorphous",
+			"kind": "trait",
+			"description": "The shadow can move through a space as narrow as 1 inch wide without squeezing.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Shadow Stealth",
+			"kind": "trait",
+			"description": "While in dim light or darkness, the shadow can take the Hide action as a bonus action. Its stealth bonus is also improved to +6.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Sunlight Weakness",
+			"kind": "trait",
+			"description": "While in sunlight, the shadow has disadvantage on attack rolls, ability checks, and saving throws.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Strength Drain",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "2d6+2",
+			"damage_type": "necrotic",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 9 (2d6 + 2) necrotic damage, and the target's Strength score is reduced by 1d4. The target dies if this reduces its Strength to 0. Otherwise, the reduction lasts until the target finishes a short or long rest.\nIf a non-evil humanoid dies from this attack, a new shadow rises from the corpse 1d4 hours later."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "ogre",
 	"display_name": "Ogre",
 	"size": "large",
@@ -16,7 +17,31 @@
 	"loot_table": "boss",
 	"traits": [],
 	"attacks": [
-		{ "name": "Greatclub", "kind": "melee", "reach_ft": 5, "to_hit": 6, "damage": "2d8+4", "damage_type": "bludgeoning" },
-		{ "name": "Javelin", "kind": "ranged", "range_ft": [30, 120], "to_hit": 6, "damage": "2d6+4", "damage_type": "piercing" }
-	]
+		{
+			"name": "Greatclub",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d8+4",
+			"damage_type": "bludgeoning"
+		},
+		{
+			"name": "Javelin",
+			"kind": "ranged",
+			"range_ft": [30, 120],
+			"to_hit": 6,
+			"damage": "2d6+4",
+			"damage_type": "piercing"
+		}
+	],
+	"alignment": "chaotic evil",
+	"speeds": { "walk": 40 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"languages": "Common, Giant",
+	"proficiency_bonus": 2,
+	"icon": "ogre",
+	"source": "SRD 5.1"
 }

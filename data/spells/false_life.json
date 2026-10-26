@@ -1,0 +1,32 @@
+{
+	"schema_version": 1,
+	"id": "false_life",
+	"display_name": "False Life",
+	"level": 1,
+	"school": "necromancy",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "multi-target healing" },
+	"duration": "1 hour",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "Bolstering yourself with a necromantic facsimile of life, you gain 1d4 + 4 temporary hit points for the duration.",
+	"material": "A small amount of alcohol or distilled spirits.",
+	"higher_level": "When you cast this spell using a spell slot of 2nd level or higher, you gain 5 additional temporary hit points for each slot level above 1st.",
+	"subclasses": ["lore"],
+	"heal_by_slot": {
+		"1": "1d4+4",
+		"2": "1d4+9",
+		"3": "1d4+14",
+		"4": "1d4+19",
+		"5": "1d4+24",
+		"6": "1d4+29",
+		"7": "1d4+34",
+		"8": "1d4+39",
+		"9": "1d4+44"
+	}
+}

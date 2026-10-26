@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "mace",
 	"display_name": "Mace",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 4,
 	"value_gp": 5,
 	"stackable": true,
-	"weapon_id": "mace"
+	"weapon_id": "mace",
+	"source": "SRD 5.1"
 }

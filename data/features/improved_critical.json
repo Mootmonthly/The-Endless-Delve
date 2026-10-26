@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "improved_critical",
+	"display_name": "Improved Critical",
+	"class": "fighter",
+	"subclass": "champion",
+	"level": 3,
+	"description": "Beginning when you choose this archetype at 3rd level, your weapon attacks score a critical hit on a roll of 19 or 20.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

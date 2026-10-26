@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "potent_cantrip",
+	"display_name": "Potent Cantrip",
+	"class": "wizard",
+	"subclass": "evocation",
+	"level": 6,
+	"description": "Starting at 6th level, your damaging cantrips affect even creatures that avoid the brunt of the effect. When a creature succeeds on a saving throw against your cantrip, the creature takes half the cantrip's damage (if any) but suffers no additional effect from the cantrip.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

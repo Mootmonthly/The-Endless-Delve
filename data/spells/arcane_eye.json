@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "arcane_eye",
+	"display_name": "Arcane Eye",
+	"level": 4,
+	"school": "divination",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 1 hour",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["cleric", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You create an invisible, magical eye within range that hovers in the air for the duration.\nYou mentally receive visual information from the eye, which has normal vision and darkvision out to 30 feet. The eye can look in every direction.\nAs an action, you can move the eye up to 30 feet in any direction. There is no limit to how far away from you the eye can move, but it can't enter another plane of existence. A solid barrier blocks the eye's movement, but the eye can pass through an opening as small as 1 inch in diameter.",
+	"material": "A bit of bat fur.",
+	"area": { "shape": "sphere", "size_ft": 30 }
+}

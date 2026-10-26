@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "handaxe",
 	"display_name": "Handaxe",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 2,
 	"value_gp": 5,
 	"stackable": true,
-	"weapon_id": "handaxe"
+	"weapon_id": "handaxe",
+	"source": "SRD 5.1"
 }

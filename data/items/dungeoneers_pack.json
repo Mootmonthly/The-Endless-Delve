@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"id": "dungeoneers_pack",
+	"display_name": "Dungeoneer's Pack",
+	"kind": "misc",
+	"description": "Equipment Packs: Dungeoneer's Pack.",
+	"weight": 0,
+	"value_gp": 12.0,
+	"stackable": false,
+	"gear_category": "equipment-packs",
+	"contents": [
+		{ "item": "backpack", "qty": 1 },
+		{ "item": "crowbar", "qty": 1 },
+		{ "item": "hammer", "qty": 1 },
+		{ "item": "piton", "qty": 10 },
+		{ "item": "torch", "qty": 10 },
+		{ "item": "tinderbox", "qty": 1 },
+		{ "item": "rations", "qty": 10 },
+		{ "item": "waterskin", "qty": 1 },
+		{ "item": "rope_hempen_50_feet", "qty": 1 }
+	],
+	"source": "SRD 5.1"
+}

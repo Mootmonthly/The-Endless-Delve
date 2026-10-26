@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "whip",
+	"display_name": "Whip",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 1d4 slashing (finesse, reach).",
+	"weight": 3,
+	"value_gp": 2.0,
+	"stackable": true,
+	"weapon_id": "whip",
+	"source": "SRD 5.1"
+}

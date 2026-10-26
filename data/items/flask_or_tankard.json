@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "flask_or_tankard",
+	"display_name": "Flask or tankard",
+	"kind": "misc",
+	"description": "Standard Gear: Flask or tankard.",
+	"weight": 1,
+	"value_gp": 0.02,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

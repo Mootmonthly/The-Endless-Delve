@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "fishing_tackle",
+	"display_name": "Fishing tackle",
+	"kind": "misc",
+	"description": "This kit includes a wooden rod, silken line, corkwood bobbers, steel hooks, lead sinkers, velvet lures, and narrow netting.",
+	"weight": 4,
+	"value_gp": 1.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

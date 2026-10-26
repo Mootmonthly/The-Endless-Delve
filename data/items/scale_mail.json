@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "scale_mail",
 	"display_name": "Scale Mail",
 	"kind": "armor",
@@ -7,5 +8,6 @@
 	"weight": 45,
 	"value_gp": 50,
 	"stackable": false,
-	"armor": { "base": 14, "max_dex": 2, "category": "medium", "stealth_disadvantage": true }
+	"armor": { "base": 14, "max_dex": 2, "category": "medium", "stealth_disadvantage": true },
+	"source": "SRD 5.1"
 }

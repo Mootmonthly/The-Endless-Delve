@@ -171,10 +171,15 @@ func test_consumables_and_basics() -> void:
 		assert_not_null(it, "ammo item '%s'" % aid)
 		if it != null:
 			assert_eq(it.kind, "ammo", "%s kind" % aid)
+	# Hand-made items all have a price; imported SRD gear without a price
+	# (pack contents) and artifacts are worth 0.
 	for iid: String in _items.keys():
 		var it := _item(iid)
+		var raw := _raw("%s/%s.json" % [ITEMS_DIR, iid])
 		assert_ne(it.description, "", "%s has a description" % iid)
-		assert_true(it.weight >= 0.0 and it.value_gp > 0.0, "%s weight/value" % iid)
+		assert_true(it.weight >= 0.0 and it.value_gp >= 0.0, "%s weight/value" % iid)
+		if DictUtil.to_bool(raw.get("hand_edited", false), false):
+			assert_true(it.value_gp > 0.0, "%s has a price" % iid)
 
 
 func test_loot_tables_are_well_formed() -> void:

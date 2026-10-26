@@ -1,0 +1,13 @@
+{
+	"schema_version": 1,
+	"id": "hand_crossbow",
+	"display_name": "Crossbow, hand",
+	"kind": "weapon",
+	"description": "Martial ranged weapon: 1d6 piercing (ammunition, light, loading), range 30/120 ft.",
+	"weight": 3,
+	"value_gp": 75.0,
+	"stackable": true,
+	"weapon_id": "hand_crossbow",
+	"ammo_id": "bolts",
+	"source": "SRD 5.1"
+}

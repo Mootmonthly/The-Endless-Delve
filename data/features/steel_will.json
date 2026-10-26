@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "steel_will",
+	"display_name": "Defensive Tactics: Steel Will",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 7,
+	"description": "You have advantage on saving throws against being frightened.",
+	"option_of": "defensive_tactics",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

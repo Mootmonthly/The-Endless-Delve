@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "aura_of_protection",
+	"display_name": "Aura of Protection",
+	"class": "paladin",
+	"level": 6,
+	"description": "Starting at 6th level, whenever you or a friendly creature within 10 feet of you must make a saving throw, the creature gains a bonus to the saving throw equal to your Charisma modifier (with a minimum bonus of +1). You must be conscious to grant this bonus.\nAt 18th level, the range of this aura increases to 30 feet.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

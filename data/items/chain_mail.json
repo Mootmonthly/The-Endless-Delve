@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "chain_mail",
 	"display_name": "Chain Mail",
 	"kind": "armor",
@@ -7,5 +8,12 @@
 	"weight": 55,
 	"value_gp": 75,
 	"stackable": false,
-	"armor": { "base": 16, "max_dex": 0, "category": "heavy", "stealth_disadvantage": true, "strength": 13 }
+	"armor": {
+		"base": 16,
+		"max_dex": 0,
+		"category": "heavy",
+		"stealth_disadvantage": true,
+		"strength": 13
+	},
+	"source": "SRD 5.1"
 }

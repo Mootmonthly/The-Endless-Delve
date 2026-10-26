@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "half_plate_armor",
+	"display_name": "Half Plate Armor",
+	"kind": "armor",
+	"description": "Medium armor: AC 15 + DEX modifier (max 2). Disadvantage on Stealth checks.",
+	"weight": 40,
+	"value_gp": 750.0,
+	"stackable": false,
+	"armor": { "base": 15, "max_dex": 2, "category": "medium", "stealth_disadvantage": true },
+	"source": "SRD 5.1"
+}

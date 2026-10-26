@@ -1,0 +1,85 @@
+{
+	"schema_version": 1,
+	"id": "cloaker",
+	"display_name": "Cloaker",
+	"size": "large",
+	"creature_type": "aberration",
+	"alignment": "chaotic neutral",
+	"armor_class": 14,
+	"armor_note": "natural",
+	"hit_points": 78,
+	"hit_dice": "12d10+12",
+	"speed": 10,
+	"speeds": { "fly": 40, "walk": 10 },
+	"abilities": { "STR": 17, "DEX": 15, "CON": 12, "INT": 13, "WIS": 12, "CHA": 14 },
+	"skills": { "STEALTH": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 11",
+	"languages": "Deep Speech, Undercommon",
+	"challenge_rating": 8,
+	"proficiency_bonus": 3,
+	"xp": 3900,
+	"loot_table": "boss",
+	"icon": "ghoul",
+	"traits": [
+		{
+			"name": "Damage Transfer",
+			"kind": "trait",
+			"description": "While attached to a creature, the cloaker takes only half the damage dealt to it (rounded down). and that creature takes the other half.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "False Appearance",
+			"kind": "trait",
+			"description": "While the cloaker remains motionless without its underside exposed, it is indistinguishable from a dark leather cloak.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Light Sensitivity",
+			"kind": "trait",
+			"description": "While in bright light, the cloaker has disadvantage on attack rolls and Wisdom (Perception) checks that rely on sight.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Moan",
+			"kind": "action",
+			"description": "Each creature within 60 feet of the cloaker that can hear its moan and that isn't an aberration must succeed on a DC 13 Wisdom saving throw or become frightened until the end of the cloaker's next turn. If a creature's saving throw is successful, the creature is immune to the cloaker's moan for the next 24 hours.",
+			"dc": { "ability": "WIS", "value": 13, "on_success": "none" },
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Phantasms",
+			"kind": "action",
+			"description": "The cloaker magically creates three illusory duplicates of itself if it isn't in bright light. The duplicates move with it and mimic its actions, shifting position so as to make it impossible to track which cloaker is the real one. If the cloaker is ever in an area of bright light, the duplicates disappear.\nWhenever any creature targets the cloaker with an attack or a harmful spell while a duplicate remains, that creature rolls randomly to determine whether it targets the cloaker or one of the duplicates. A creature is unaffected by this magical effect if it can't see or if it relies on senses other than sight.\nA duplicate has the cloaker's AC and uses its saving throws. If an attack hits a duplicate, or if a duplicate fails a saving throw against an effect that deals damage, the duplicate disappears.",
+			"usage": { "rest_types": ["short", "long"], "type": "recharge after rest" },
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite", "Tail"],
+	"multiattack_text": "The cloaker makes two attacks: one with its bite and one with its tail.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d6+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one creature. Hit: 10 (2d6 + 3) piercing damage, and if the target is Large or smaller, the cloaker attaches to it. If the cloaker has advantage against the target, the cloaker attaches to the target's head, and the target is blinded and unable to breathe while the cloaker is attached. While attached, the cloaker can make this attack only against the target and has advantage on the attack roll. The cloaker can detach itself by spending 5 feet of its movement. A creature, including the target, can take its action to detach the cloaker by succeeding on a DC 16 Strength check."
+		},
+		{
+			"name": "Tail",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 6,
+			"damage": "1d8+3",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +6 to hit, reach 10 ft., one creature. Hit: 7 (1d8 + 3) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "misty_step",
 	"display_name": "Misty Step",
 	"level": 2,
@@ -14,5 +15,8 @@
 	"classes": ["sorcerer", "warlock", "wizard"],
 	"source": "SRD 5.1",
 	"description": "Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space you can see.",
-	"planned_effect": { "type": "teleport", "distance_ft": 30 }
+	"planned_effect": { "type": "teleport", "distance_ft": 30 },
+	"ritual": false,
+	"subclasses": ["land", "lore"],
+	"srd_description": "Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space that you can see."
 }

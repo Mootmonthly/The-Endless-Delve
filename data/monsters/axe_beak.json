@@ -1,0 +1,38 @@
+{
+	"schema_version": 1,
+	"id": "axe_beak",
+	"display_name": "Axe Beak",
+	"size": "large",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 11,
+	"hit_points": 19,
+	"hit_dice": "3d10+3",
+	"speed": 50,
+	"speeds": { "walk": 50 },
+	"abilities": { "STR": 14, "DEX": 12, "CON": 12, "INT": 2, "WIS": 10, "CHA": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [],
+	"attacks": [
+		{
+			"name": "Beak",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d8+2",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 6 (1d8 + 2) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

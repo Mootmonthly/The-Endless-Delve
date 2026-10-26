@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "dagger",
 	"display_name": "Dagger",
 	"kind": "weapon",
@@ -7,5 +8,6 @@
 	"weight": 1,
 	"value_gp": 2,
 	"stackable": true,
-	"weapon_id": "dagger"
+	"weapon_id": "dagger",
+	"source": "SRD 5.1"
 }

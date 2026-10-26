@@ -1,0 +1,47 @@
+{
+	"schema_version": 1,
+	"id": "crab",
+	"display_name": "Crab",
+	"size": "tiny",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 11,
+	"armor_note": "natural",
+	"hit_points": 2,
+	"hit_dice": "1d4",
+	"speed": 20,
+	"speeds": { "swim": 20, "walk": 20 },
+	"abilities": { "STR": 2, "DEX": 11, "CON": 10, "INT": 1, "WIS": 8, "CHA": 2 },
+	"skills": { "STEALTH": 2 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 30 ft., passive Perception 9",
+	"languages": "",
+	"challenge_rating": 0,
+	"proficiency_bonus": 2,
+	"xp": 10,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Amphibious",
+			"kind": "trait",
+			"description": "The crab can breathe air and water.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Claw",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 0,
+			"damage": "1",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +0 to hit, reach 5 ft., one target. Hit: 1 bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

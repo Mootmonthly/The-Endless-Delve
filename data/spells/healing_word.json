@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "healing_word",
 	"display_name": "Healing Word",
 	"level": 1,
@@ -7,11 +8,32 @@
 	"casting_time": "bonus_action",
 	"range_ft": 60,
 	"target": "creature_or_self",
-	"effect": { "type": "heal", "dice": "1d4", "add_casting_mod": true, "per_slot_level_above": "1d4", "revives": true },
+	"effect": {
+		"type": "heal",
+		"dice": "1d4",
+		"add_casting_mod": true,
+		"per_slot_level_above": "1d4",
+		"revives": true
+	},
 	"duration": "instantaneous",
 	"concentration": false,
 	"components": ["V"],
 	"classes": ["bard", "cleric", "druid"],
 	"source": "SRD 5.1",
-	"description": "A creature you can see within 60 feet regains 1d4 + your spellcasting modifier hit points (+1d4 per slot level above 1st). Bonus action."
+	"description": "A creature you can see within 60 feet regains 1d4 + your spellcasting modifier hit points (+1d4 per slot level above 1st). Bonus action.",
+	"ritual": false,
+	"higher_level": "When you cast this spell using a spell slot of 2nd level or higher, the healing increases by 1d4 for each slot level above 1st.",
+	"subclasses": ["lore"],
+	"heal_by_slot": {
+		"1": "1d4+MOD",
+		"2": "2d4+MOD",
+		"3": "3d4+MOD",
+		"4": "4d4+MOD",
+		"5": "5d4+MOD",
+		"6": "6d4+MOD",
+		"7": "7d4+MOD",
+		"8": "8d4+MOD",
+		"9": "9d4+MOD"
+	},
+	"srd_description": "A creature of your choice that you can see within range regains hit points equal to 1d4 + your spellcasting ability modifier. This spell has no effect on undead or constructs."
 }

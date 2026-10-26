@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "shatter",
 	"display_name": "Shatter",
 	"level": 2,
@@ -7,20 +8,36 @@
 	"casting_time": "action",
 	"range_ft": 60,
 	"target": "creature",
-	"effect": { "type": "unsupported", "reason": "area (10-foot sphere)" },
+	"effect": {
+		"type": "area_save",
+		"save": "CON",
+		"damage": "3d8",
+		"damage_type": "thunder",
+		"on_save": "half",
+		"per_slot_level_above": "1d8"
+	},
 	"duration": "instantaneous",
 	"concentration": false,
 	"components": ["V", "S", "M"],
 	"classes": ["bard", "sorcerer", "warlock", "wizard"],
 	"source": "SRD 5.1",
 	"description": "A painfully loud ringing erupts in a 10-foot sphere: Constitution save, 3d8 thunder damage, half on a success.",
-	"planned_effect": {
-		"type": "save",
-		"save": "CON",
-		"damage": "3d8",
-		"damage_type": "thunder",
-		"on_save": "half",
-		"per_slot_level_above": "1d8",
-		"area": { "shape": "sphere", "size_ft": 10 }
-	}
+	"ritual": false,
+	"material": "A burst of mica.",
+	"higher_level": "When you cast this spell using a 3 or higher level spell slot, the damage of the spell increases by 1d8 for each level of higher spell slot 2.",
+	"subclasses": ["lore"],
+	"area": { "shape": "sphere", "size_ft": 10 },
+	"saving_throw": { "ability": "CON", "on_success": "half" },
+	"damage_by_slot": {
+		"2": "3d8",
+		"3": "4d8",
+		"4": "5d8",
+		"5": "6d8",
+		"6": "7d8",
+		"7": "8d8",
+		"8": "9d8",
+		"9": "10d8"
+	},
+	"damage_type": "thunder",
+	"srd_description": "A sudden loud ringing noise, painfully intense, erupts from a point of your choice within range. Each creature in a 10-foot-radius sphere centered on that point must make a Constitution saving throw. A creature takes 3d8 thunder damage on a failed save, or half as much damage on a successful one. A creature made of inorganic material such as stone, crystal, or metal has disadvantage on this saving throw.\nA non-magical item that is not worn or carried also suffers damage if it is in the area of the spell."
 }

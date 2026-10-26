@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "hobgoblin",
 	"display_name": "Hobgoblin",
 	"size": "medium",
@@ -15,10 +16,38 @@
 	"xp": 100,
 	"loot_table": "monster_medium",
 	"traits": [
-		{ "name": "Martial Advantage", "description": "Once per turn, can deal an extra 7 (2d6) damage to a creature it hits with a weapon attack if that creature is within 5 feet of an ally of the hobgoblin that isn't incapacitated." }
+		{
+			"name": "Martial Advantage",
+			"description": "Once per turn, can deal an extra 7 (2d6) damage to a creature it hits with a weapon attack if that creature is within 5 feet of an ally of the hobgoblin that isn't incapacitated."
+		}
 	],
 	"attacks": [
-		{ "name": "Longsword", "kind": "melee", "reach_ft": 5, "to_hit": 3, "damage": "1d8+1", "damage_type": "slashing" },
-		{ "name": "Longbow", "kind": "ranged", "range_ft": [150, 600], "to_hit": 3, "damage": "1d8+1", "damage_type": "piercing" }
-	]
+		{
+			"name": "Longsword",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d8+1",
+			"damage_type": "slashing"
+		},
+		{
+			"name": "Longbow",
+			"kind": "ranged",
+			"range_ft": [150, 600],
+			"to_hit": 3,
+			"damage": "1d8+1",
+			"damage_type": "piercing"
+		}
+	],
+	"subtype": "goblinoid",
+	"alignment": "lawful evil",
+	"speeds": { "walk": 30 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"languages": "Common, Goblin",
+	"proficiency_bonus": 2,
+	"icon": "goblin",
+	"source": "SRD 5.1"
 }

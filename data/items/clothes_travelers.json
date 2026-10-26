@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "clothes_travelers",
+	"display_name": "Clothes, traveler's",
+	"kind": "misc",
+	"description": "Standard Gear: Clothes, traveler's.",
+	"weight": 4,
+	"value_gp": 2.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

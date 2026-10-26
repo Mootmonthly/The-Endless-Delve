@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_jumping",
+	"display_name": "Ring of Jumping",
+	"kind": "misc",
+	"description": "While wearing this ring, you can cast the jump spell from it as a bonus action at will, but can target only yourself when you do so.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, uncommon (requires attunement)",
+	"rarity": "uncommon",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

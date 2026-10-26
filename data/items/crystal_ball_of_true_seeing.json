@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "crystal_ball_of_true_seeing",
+	"display_name": "Crystal Ball of True Seeing",
+	"kind": "misc",
+	"description": "The crystal ball is about 6 inches in diameter. While touching it, you can cast the scrying spell (save DC 17) with it.\n***Crystal Ball of True Seeing.*** While scrying with the crystal ball, you have truesight with a radius of 120 feet centered on the spell's sensor.",
+	"weight": 0,
+	"value_gp": 50001,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "wondrous-items",
+	"item_line": "Wondrous item, legendary (requires attunement)",
+	"rarity": "legendary",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,48 @@
+{
+	"schema_version": 1,
+	"id": "noble",
+	"display_name": "Noble",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any alignment",
+	"armor_class": 15,
+	"armor_note": "breastplate",
+	"hit_points": 9,
+	"hit_dice": "2d8",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 11, "DEX": 12, "CON": 11, "INT": 12, "WIS": 14, "CHA": 16 },
+	"skills": { "DECEPTION": 5, "INSIGHT": 4, "PERSUASION": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 12",
+	"languages": "any two languages",
+	"challenge_rating": 0.125,
+	"proficiency_bonus": 2,
+	"xp": 25,
+	"loot_table": "monster_small",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Parry",
+			"kind": "reaction",
+			"description": "The noble adds 2 to its AC against one melee attack that would hit it. To do so, the noble must see the attacker and be wielding a melee weapon.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Rapier",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d8+1",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 5 (1d8 + 1) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

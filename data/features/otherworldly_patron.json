@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "otherworldly_patron",
+	"display_name": "Otherworldly Patron",
+	"class": "warlock",
+	"level": 1,
+	"description": "At 1st level, you have struck a bargain with an otherworldly being of your choice, such as the Fiend. Your choice grants you features at 1st level and again at 6th, 10th, and 14th level.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

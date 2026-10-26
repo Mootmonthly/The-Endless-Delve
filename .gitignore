@@ -39,3 +39,6 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# --- SRD importer cache (tools/import_srd.py; re-fetchable) ---
+tools/srd_cache/

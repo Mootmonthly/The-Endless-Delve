@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "colossus_slayer",
+	"display_name": "Hunter's Prey: Colossus Slayer",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 3,
+	"description": "Your tenacity can wear down the most potent foes. When you hit a creature with a weapon attack, the creature takes an extra 1d8 damage if it's below its hit point maximum. You can deal this extra damage only once per turn.",
+	"option_of": "hunters_prey",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

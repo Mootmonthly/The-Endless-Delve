@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "see_invisibility",
+	"display_name": "See Invisibility",
+	"level": 2,
+	"school": "divination",
+	"casting_time": "action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "1 hour",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["bard", "sorcerer", "wizard"],
+	"source": "SRD 5.1",
+	"description": "For the duration of the spell, you see invisible creatures and objects as if they were visible, and you can see through Ethereal. The ethereal objects and creatures appear ghostly translucent.",
+	"material": "A dash of talc and a small amount of silver powder.",
+	"subclasses": ["lore"]
+}

@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "maul",
+	"display_name": "Maul",
+	"kind": "weapon",
+	"description": "Martial melee weapon: 2d6 bludgeoning (heavy, two-handed).",
+	"weight": 10,
+	"value_gp": 10.0,
+	"stackable": true,
+	"weapon_id": "maul",
+	"source": "SRD 5.1"
+}

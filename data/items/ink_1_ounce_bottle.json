@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "ink_1_ounce_bottle",
+	"display_name": "Ink (1 ounce bottle)",
+	"kind": "misc",
+	"description": "Standard Gear: Ink (1 ounce bottle).",
+	"weight": 0,
+	"value_gp": 10.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

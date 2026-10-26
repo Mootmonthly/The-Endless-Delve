@@ -1,0 +1,51 @@
+{
+	"schema_version": 1,
+	"id": "giant_rat_diseased",
+	"display_name": "Giant Rat (Diseased)",
+	"size": "small",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 7,
+	"hit_dice": "2d6",
+	"speed": 30,
+	"speeds": { "walk": 30 },
+	"abilities": { "STR": 7, "DEX": 15, "CON": 11, "INT": 2, "WIS": 10, "CHA": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 10",
+	"languages": "",
+	"challenge_rating": 0.125,
+	"proficiency_bonus": 2,
+	"xp": 25,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Keen Smell",
+			"kind": "trait",
+			"description": "The rat has advantage on Wisdom (Perception) checks that rely on smell.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Pack Tactics",
+			"kind": "trait",
+			"description": "The rat has advantage on an attack roll against a creature if at least one of the rat's allies is within 5 ft. of the creature and the ally isn't incapacitated.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 3 (1d4 + 2) piercing damage. If the target is a creature, it must succeed on a DC 10 Constitution saving throw or contract a disease. Until the disease is cured, the target can't regain hit points except by magical means, and the target's hit point maximum decreases by 3 (1d6) every 24 hours. If the target's hit point maximum drops to 0 as a result of this disease, the target dies."
+		}
+	],
+	"source": "SRD 5.1"
+}

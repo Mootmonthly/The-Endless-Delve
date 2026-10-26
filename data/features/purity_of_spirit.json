@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "purity_of_spirit",
+	"display_name": "Purity of Spirit",
+	"class": "paladin",
+	"subclass": "devotion",
+	"level": 15,
+	"description": "Beginning at 15th level, you are always under the effects of a protection from evil and good spell.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

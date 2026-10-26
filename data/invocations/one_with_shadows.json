@@ -1,0 +1,9 @@
+{
+	"schema_version": 1,
+	"id": "one_with_shadows",
+	"display_name": "One with Shadows",
+	"description": "When you are in an area of dim light or darkness, you can use your action to become invisible until you move or take an action or a reaction.",
+	"prerequisites": { "level": 5 },
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

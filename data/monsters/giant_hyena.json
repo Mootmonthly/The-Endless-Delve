@@ -1,0 +1,46 @@
+{
+	"schema_version": 1,
+	"id": "giant_hyena",
+	"display_name": "Giant Hyena",
+	"size": "large",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"hit_points": 45,
+	"hit_dice": "6d10+12",
+	"speed": 50,
+	"speeds": { "walk": 50 },
+	"abilities": { "STR": 16, "DEX": 14, "CON": 14, "INT": 2, "WIS": 12, "CHA": 7 },
+	"skills": { "PERCEPTION": 3 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 13",
+	"languages": "",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Rampage",
+			"kind": "trait",
+			"description": "When the hyena reduces a creature to 0 hit points with a melee attack on its turn, the hyena can take a bonus action to move up to half its speed and make a bite attack.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 5,
+			"damage": "2d6+3",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

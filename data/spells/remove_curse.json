@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "remove_curse",
+	"display_name": "Remove Curse",
+	"level": 3,
+	"school": "abjuration",
+	"casting_time": "action",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "instantaneous",
+	"concentration": false,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["cleric", "paladin", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "At your touch, all curses affecting one creature or object end. If the object is a cursed magic item, its curse remains, but the spell breaks its owner's attunement to the object so it can be removed or discarded.",
+	"subclasses": ["lore"]
+}

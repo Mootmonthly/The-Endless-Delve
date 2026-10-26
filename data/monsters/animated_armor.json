@@ -1,0 +1,63 @@
+{
+	"schema_version": 1,
+	"id": "animated_armor",
+	"display_name": "Animated Armor",
+	"size": "medium",
+	"creature_type": "construct",
+	"alignment": "unaligned",
+	"armor_class": 18,
+	"armor_note": "natural",
+	"hit_points": 33,
+	"hit_dice": "6d8+6",
+	"speed": 25,
+	"speeds": { "walk": 25 },
+	"abilities": { "STR": 14, "DEX": 11, "CON": 13, "INT": 1, "WIS": 3, "CHA": 1 },
+	"damage_resistances": [],
+	"damage_immunities": ["poison", "psychic"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [
+		"blinded",
+		"charmed",
+		"deafened",
+		"exhaustion",
+		"frightened",
+		"paralyzed",
+		"petrified",
+		"poisoned"
+	],
+	"senses": "blindsight 60 ft. (blind beyond this radius), passive Perception 6",
+	"languages": "",
+	"challenge_rating": 1,
+	"proficiency_bonus": 2,
+	"xp": 200,
+	"loot_table": "monster_medium",
+	"icon": "zombie",
+	"traits": [
+		{
+			"name": "Antimagic Susceptibility",
+			"kind": "trait",
+			"description": "The armor is incapacitated while in the area of an antimagic field. If targeted by dispel magic, the armor must succeed on a Constitution saving throw against the caster's spell save DC or fall unconscious for 1 minute.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "False Appearance",
+			"kind": "trait",
+			"description": "While the armor remains motionless, it is indistinguishable from a normal suit of armor.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Slam", "Slam"],
+	"multiattack_text": "The armor makes two melee attacks.",
+	"attacks": [
+		{
+			"name": "Slam",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d6+2",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

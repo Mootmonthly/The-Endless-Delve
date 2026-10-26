@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"id": "flame_blade",
+	"display_name": "Flame Blade",
+	"level": 2,
+	"school": "evocation",
+	"casting_time": "bonus_action",
+	"range_ft": 0,
+	"target": "self",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 10 minutes",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["druid"],
+	"source": "SRD 5.1",
+	"description": "You evoke a fiery blade in your free hand. The blade is similar in size and shape to a scimitar, and it lasts for the duration. If you let go of the blade, it disappears, but you can evoke the blade again as a bonus action.\nYou can use your action to make a melee spell attack with the fiery blade. On a hit, the target takes 3d6 fire damage.\nThe flaming blade sheds bright light in a 10-foot radius and dim light for an additional 10 feet.",
+	"material": "Leaf of sumac.",
+	"higher_level": "When you cast this spell using a spell slot of 4th level or higher, the damage increases by 1d6 for every two slot levels above 2nd.",
+	"subclasses": ["lore"],
+	"damage_by_slot": { "2": "3d6", "4": "4d6", "6": "5d6", "8": "6d6" },
+	"damage_type": "fire"
+}

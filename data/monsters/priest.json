@@ -1,0 +1,71 @@
+{
+	"schema_version": 1,
+	"id": "priest",
+	"display_name": "Priest",
+	"size": "medium",
+	"creature_type": "humanoid",
+	"subtype": "any race",
+	"alignment": "any alignment",
+	"armor_class": 13,
+	"armor_note": "chain shirt",
+	"hit_points": 27,
+	"hit_dice": "5d8+5",
+	"speed": 25,
+	"speeds": { "walk": 25 },
+	"abilities": { "STR": 10, "DEX": 10, "CON": 12, "INT": 13, "WIS": 16, "CHA": 13 },
+	"skills": { "MEDICINE": 7, "PERSUASION": 3, "RELIGION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 13",
+	"languages": "any two languages",
+	"challenge_rating": 2,
+	"proficiency_bonus": 2,
+	"xp": 450,
+	"loot_table": "monster_medium",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Divine Eminence",
+			"kind": "trait",
+			"description": "As a bonus action, the priest can expend a spell slot to cause its melee weapon attacks to magically deal an extra 10 (3d6) radiant damage to a target on a hit. This benefit lasts until the end of the turn. If the priest expends a spell slot of 2nd level or higher, the extra damage increases by 1d6 for each level above 1st.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Spellcasting",
+			"kind": "trait",
+			"description": "The priest is a 5th-level spellcaster. Its spellcasting ability is Wisdom (spell save DC 13, +5 to hit with spell attacks). The priest has the following cleric spells prepared:\n\n- Cantrips (at will): light, sacred flame, thaumaturgy\n- 1st level (4 slots): cure wounds, guiding bolt, sanctuary\n- 2nd level (3 slots): lesser restoration, spiritual weapon\n- 3rd level (2 slots): dispel magic, spirit guardians",
+			"spellcasting": {
+				"ability": "WIS",
+				"dc": 13,
+				"modifier": 5,
+				"spells": [
+					"cure_wounds",
+					"dispel_magic",
+					"guiding_bolt",
+					"lesser_restoration",
+					"light",
+					"sacred_flame",
+					"sanctuary",
+					"spirit_guardians",
+					"spiritual_weapon",
+					"thaumaturgy"
+				]
+			},
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Mace",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 2,
+			"damage": "1d6",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 3 (1d6) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

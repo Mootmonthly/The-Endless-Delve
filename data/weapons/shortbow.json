@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "shortbow",
 	"display_name": "Shortbow",
 	"category": "simple",
@@ -8,5 +9,6 @@
 	"properties": ["ammunition", "two_handed"],
 	"range_ft": [80, 320],
 	"ranged": true,
-	"ammo_id": "arrows"
+	"ammo_id": "arrows",
+	"source": "SRD 5.1"
 }

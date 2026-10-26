@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "conjure_minor_elementals",
+	"display_name": "Conjure Minor Elementals",
+	"level": 4,
+	"school": "conjuration",
+	"casting_time": "1_minute",
+	"range_ft": 90,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 1 hour",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["druid", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You summon elementals that appear in unoccupied spaces that you can see within range. You choose one the following options for what appears:\n- One elemental of challenge rating 2 or lower\n- Two elementals of challenge rating 1 or lower\n- Four elementals of challenge rating 1/2 or lower\n- Eight elementals of challenge rating 1/4 or lower.\nAn elemental summoned by this spell disappears when it drops to 0 hit points or when the spell ends.\nThe summoned creatures are friendly to you and your companions. Roll initiative for the summoned creatures as a group, which has its own turns. They obey any verbal commands that you issue to them (no action required by you). If you don't issue any commands to them, they defend themselves from hostile creatures, but otherwise take no actions.\nThe GM has the creatures' statistics.",
+	"casting_time_text": "1 minute",
+	"higher_level": "When you cast this spell using certain higher-level spell slots, you choose one of the summoning options above, and more creatures appear: twice as many with a 6th-level slot and three times as many with an 8th-level slot."
+}

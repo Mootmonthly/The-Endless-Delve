@@ -1,0 +1,55 @@
+{
+	"schema_version": 1,
+	"id": "elephant",
+	"display_name": "Elephant",
+	"size": "huge",
+	"creature_type": "beast",
+	"alignment": "unaligned",
+	"armor_class": 12,
+	"armor_note": "natural",
+	"hit_points": 76,
+	"hit_dice": "8d12+24",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 22, "DEX": 9, "CON": 17, "INT": 3, "WIS": 11, "CHA": 6 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "",
+	"challenge_rating": 4,
+	"proficiency_bonus": 2,
+	"xp": 1100,
+	"loot_table": "boss",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Trampling Charge",
+			"kind": "trait",
+			"description": "If the elephant moves at least 20 ft. straight toward a creature and then hits it with a gore attack on the same turn, that target must succeed on a DC 12 Strength saving throw or be knocked prone. If the target is prone, the elephant can make one stomp attack against it as a bonus action.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Gore",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 8,
+			"damage": "3d8+6",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 19 (3d8 + 6) piercing damage."
+		},
+		{
+			"name": "Stomp",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 8,
+			"damage": "3d10+6",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +8 to hit, reach 5 ft., one prone creature. Hit: 22 (3d10 + 6) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

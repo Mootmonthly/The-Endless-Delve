@@ -1,0 +1,84 @@
+{
+	"schema_version": 1,
+	"id": "glabrezu",
+	"display_name": "Glabrezu",
+	"size": "large",
+	"creature_type": "fiend",
+	"subtype": "demon",
+	"alignment": "chaotic evil",
+	"armor_class": 17,
+	"armor_note": "natural",
+	"hit_points": 157,
+	"hit_dice": "15d10+75",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 20, "DEX": 15, "CON": 21, "INT": 19, "WIS": 17, "CHA": 16 },
+	"saving_throws": { "STR": 9, "CON": 9, "WIS": 7, "CHA": 7 },
+	"damage_resistances": [
+		"cold",
+		"fire",
+		"lightning",
+		"bludgeoning, piercing, and slashing from nonmagical weapons"
+	],
+	"damage_immunities": ["poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["poisoned"],
+	"senses": "truesight 120 ft., passive Perception 13",
+	"languages": "Abyssal, telepathy 120 ft.",
+	"challenge_rating": 9,
+	"proficiency_bonus": 4,
+	"xp": 5000,
+	"loot_table": "boss",
+	"icon": "bugbear",
+	"traits": [
+		{
+			"name": "Innate Spellcasting",
+			"kind": "trait",
+			"description": "The glabrezu's spellcasting ability is Intelligence (spell save DC 16). The glabrezu can innately cast the following spells, requiring no material components:\nAt will: darkness, detect magic, dispel magic\n1/day each: confusion, fly, power word stun",
+			"spellcasting": {
+				"ability": "INT",
+				"dc": 16,
+				"modifier": null,
+				"spells": [
+					"confusion",
+					"darkness",
+					"detect_magic",
+					"dispel_magic",
+					"fly",
+					"power_word_stun"
+				]
+			},
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Magic Resistance",
+			"kind": "trait",
+			"description": "The glabrezu has advantage on saving throws against spells and other magical effects.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Pincer", "Pincer", "Fist", "Fist"],
+	"multiattack_text": "The glabrezu makes four attacks: two with its pincers and two with its fists. Alternatively, it makes two attacks with its pincers and casts one spell.",
+	"attacks": [
+		{
+			"name": "Pincer",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 9,
+			"damage": "2d10+5",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 16 (2d10 + 5) bludgeoning damage. If the target is a Medium or smaller creature, it is grappled (escape DC 15). The glabrezu has two pincers, each of which can grapple only one target."
+		},
+		{
+			"name": "Fist",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 9,
+			"damage": "2d4+2",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

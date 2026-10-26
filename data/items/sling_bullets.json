@@ -1,10 +1,14 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "sling_bullets",
 	"display_name": "Sling Bullets",
 	"kind": "ammo",
 	"description": "Lead bullets for a sling. One is used up per shot.",
 	"weight": 0.075,
 	"value_gp": 0.002,
-	"stackable": true
+	"stackable": true,
+	"bundle_quantity": 20,
+	"gear_category": "ammunition",
+	"source": "SRD 5.1"
 }

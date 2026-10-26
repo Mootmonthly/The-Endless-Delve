@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "light_crossbow",
 	"display_name": "Light Crossbow",
 	"kind": "weapon",
@@ -8,5 +9,6 @@
 	"value_gp": 25,
 	"stackable": true,
 	"weapon_id": "light_crossbow",
-	"ammo_id": "bolts"
+	"ammo_id": "bolts",
+	"source": "SRD 5.1"
 }

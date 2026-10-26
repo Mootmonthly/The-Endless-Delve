@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "lock",
+	"display_name": "Lock",
+	"kind": "misc",
+	"description": "A key is provided with the lock. Without the key, a creature proficient with thieves' tools can pick this lock with a successful DC 15 Dexterity check. Your GM may decide that better locks are available for higher prices.",
+	"weight": 1,
+	"value_gp": 10.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

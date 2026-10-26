@@ -1,0 +1,68 @@
+{
+	"schema_version": 1,
+	"id": "hydra",
+	"display_name": "Hydra",
+	"size": "huge",
+	"creature_type": "monstrosity",
+	"alignment": "unaligned",
+	"armor_class": 15,
+	"armor_note": "natural",
+	"hit_points": 172,
+	"hit_dice": "15d12+75",
+	"speed": 30,
+	"speeds": { "swim": 30, "walk": 30 },
+	"abilities": { "STR": 20, "DEX": 12, "CON": 20, "INT": 2, "WIS": 10, "CHA": 7 },
+	"skills": { "PERCEPTION": 6 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 60 ft., passive Perception 16",
+	"languages": "",
+	"challenge_rating": 8,
+	"proficiency_bonus": 3,
+	"xp": 3900,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Hold Breath",
+			"kind": "trait",
+			"description": "The hydra can hold its breath for 1 hour.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Multiple Heads",
+			"kind": "trait",
+			"description": "The hydra has five heads. While it has more than one head, the hydra has advantage on saving throws against being blinded, charmed, deafened, frightened, stunned, and knocked unconscious.\nWhenever the hydra takes 25 or more damage in a single turn, one of its heads dies. If all its heads die, the hydra dies.\nAt the end of its turn, it grows two heads for each of its heads that died since its last turn, unless it has taken fire damage since its last turn. The hydra regains 10 hit points for each head regrown in this way.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Reactive Heads",
+			"kind": "trait",
+			"description": "For each head the hydra has beyond one, it gets an extra reaction that can be used only for opportunity attacks.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Wakeful",
+			"kind": "trait",
+			"description": "While the hydra sleeps, at least one of its heads is awake.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Bite"],
+	"multiattack_text": "The hydra makes as many bite attacks as it has heads.",
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 10,
+			"range_ft": [10, 10],
+			"to_hit": 8,
+			"damage": "1d10+5",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +8 to hit, reach 10 ft., one target. Hit: 10 (1d10 + 5) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,9 @@
+{
+	"schema_version": 1,
+	"id": "master_of_myriad_forms",
+	"display_name": "Master of Myriad Forms",
+	"description": "You can cast alter self at will, without expending a spell slot.",
+	"prerequisites": { "level": 15 },
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

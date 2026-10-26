@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "primal_path",
+	"display_name": "Primal Path",
+	"class": "barbarian",
+	"level": 3,
+	"description": "At 3rd level, you choose a path that shapes the nature of your rage. Choose the Path of the Berserker, detailed at the end of the class description. Your choice grants you features at 3rd level and again at 6th, 10th, and 14th levels.",
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

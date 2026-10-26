@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "additional_fighting_style",
+	"display_name": "Additional Fighting Style",
+	"class": "fighter",
+	"subclass": "champion",
+	"level": 10,
+	"description": "At 10th level, you can choose a second option from the Fighting Style class feature.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

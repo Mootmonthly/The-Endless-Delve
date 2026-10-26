@@ -1,5 +1,6 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "thunderwave",
 	"display_name": "Thunderwave",
 	"level": 1,
@@ -7,21 +8,37 @@
 	"casting_time": "action",
 	"range_ft": 0,
 	"target": "self",
-	"effect": { "type": "unsupported", "reason": "area (15-foot cube) and push" },
+	"effect": {
+		"type": "area_save",
+		"save": "CON",
+		"damage": "2d8",
+		"damage_type": "thunder",
+		"on_save": "half",
+		"per_slot_level_above": "1d8",
+		"push_ft": 10
+	},
 	"duration": "instantaneous",
 	"concentration": false,
 	"components": ["V", "S"],
 	"classes": ["bard", "druid", "sorcerer", "wizard"],
 	"source": "SRD 5.1",
 	"description": "A wave of thunderous force sweeps out from you in a 15-foot cube: Constitution save, 2d8 thunder damage and a 10-foot push, half damage and no push on a success. Area spells come later.",
-	"planned_effect": {
-		"type": "save",
-		"save": "CON",
-		"damage": "2d8",
-		"damage_type": "thunder",
-		"on_save": "half",
-		"per_slot_level_above": "1d8",
-		"push_ft": 10,
-		"area": { "shape": "cube", "size_ft": 15 }
-	}
+	"ritual": false,
+	"higher_level": "When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d8 for each slot level above 1st.",
+	"subclasses": ["lore"],
+	"area": { "shape": "cube", "size_ft": 15 },
+	"saving_throw": { "ability": "CON", "on_success": "half" },
+	"damage_by_slot": {
+		"1": "2d8",
+		"2": "3d8",
+		"3": "4d8",
+		"4": "5d8",
+		"5": "6d8",
+		"6": "7d8",
+		"7": "8d8",
+		"8": "9d8",
+		"9": "10d8"
+	},
+	"damage_type": "thunder",
+	"srd_description": "A wave of thunderous force sweeps out from you. Each creature in a 15-foot cube originating from you must make a constitution saving throw. On a failed save, a creature takes 2d8 thunder damage and is pushed 10 feet away from you. On a successful save, the creature takes half as much damage and isn't pushed.\nIn addition, unsecured objects that are completely within the area of effect are automatically pushed 10 feet away from you by the spell's effect, and the spell emits a thunderous boom audible out to 300 feet."
 }

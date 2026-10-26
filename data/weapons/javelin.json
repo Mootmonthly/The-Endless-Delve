@@ -1,10 +1,12 @@
 {
 	"schema_version": 1,
+	"hand_edited": true,
 	"id": "javelin",
 	"display_name": "Javelin",
 	"category": "simple",
 	"damage": "1d6",
 	"damage_type": "piercing",
 	"properties": ["thrown"],
-	"range_ft": [30, 120]
+	"range_ft": [30, 120],
+	"source": "SRD 5.1"
 }

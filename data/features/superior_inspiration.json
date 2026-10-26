@@ -1,0 +1,10 @@
+{
+	"schema_version": 1,
+	"id": "superior_inspiration",
+	"display_name": "Superior Inspiration",
+	"class": "bard",
+	"level": 20,
+	"description": "At 20th level, when you roll initiative and have no uses of Bardic Inspiration left, you regain one use.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

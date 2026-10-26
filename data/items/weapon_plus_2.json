@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "weapon_plus_2",
+	"display_name": "Weapon, +2",
+	"kind": "misc",
+	"description": "You have a +2 bonus to attack and damage rolls made with this magic weapon.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "weapon",
+	"item_line": "Weapon (any), rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"bonus": 2,
+	"bonus_applies_to": "weapon",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

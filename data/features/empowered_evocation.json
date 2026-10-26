@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "empowered_evocation",
+	"display_name": "Empowered Evocation",
+	"class": "wizard",
+	"subclass": "evocation",
+	"level": 10,
+	"description": "Beginning at 10th level, you can add your Intelligence modifier to one damage roll of any wizard evocation spell you cast.",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

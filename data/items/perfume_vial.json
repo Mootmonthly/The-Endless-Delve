@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "perfume_vial",
+	"display_name": "Perfume (vial)",
+	"kind": "misc",
+	"description": "Standard Gear: Perfume (vial).",
+	"weight": 0,
+	"value_gp": 5.0,
+	"stackable": false,
+	"gear_category": "standard-gear",
+	"source": "SRD 5.1"
+}

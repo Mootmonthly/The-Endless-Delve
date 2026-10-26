@@ -1,0 +1,63 @@
+{
+	"schema_version": 1,
+	"id": "invisible_stalker",
+	"display_name": "Invisible Stalker",
+	"size": "medium",
+	"creature_type": "elemental",
+	"alignment": "neutral",
+	"armor_class": 14,
+	"hit_points": 104,
+	"hit_dice": "16d8+32",
+	"speed": 50,
+	"speeds": { "fly": 50, "hover": true, "walk": 50 },
+	"abilities": { "STR": 16, "DEX": 19, "CON": 14, "INT": 10, "WIS": 15, "CHA": 11 },
+	"skills": { "PERCEPTION": 8, "STEALTH": 10 },
+	"damage_resistances": ["bludgeoning, piercing, and slashing from nonmagical weapons"],
+	"damage_immunities": ["poison"],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [
+		"exhaustion",
+		"grappled",
+		"paralyzed",
+		"petrified",
+		"poisoned",
+		"prone",
+		"restrained",
+		"unconscious"
+	],
+	"senses": "darkvision 60 ft., passive Perception 18",
+	"languages": "Auran, understands Common but doesn't speak it",
+	"challenge_rating": 6,
+	"proficiency_bonus": 3,
+	"xp": 2300,
+	"loot_table": "boss",
+	"icon": "ogre",
+	"traits": [
+		{
+			"name": "Invisibility",
+			"kind": "trait",
+			"description": "The stalker is invisible.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Faultless Tracker",
+			"kind": "trait",
+			"description": "The stalker is given a quarry by its summoner. The stalker knows the direction and distance to its quarry as long as the two of them are on the same plane of existence. The stalker also knows the location of its summoner.",
+			"mechanic": "unsupported"
+		}
+	],
+	"multiattack": ["Slam", "Slam"],
+	"multiattack_text": "The stalker makes two slam attacks.",
+	"attacks": [
+		{
+			"name": "Slam",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 6,
+			"damage": "2d6+3",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

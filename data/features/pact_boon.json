@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"id": "pact_boon",
+	"display_name": "Pact Boon",
+	"class": "warlock",
+	"level": 3,
+	"description": "At 3rd level, your otherworldly patron bestows a gift upon you for your loyal service. You gain one of the following features of your choice.",
+	"options": ["pact_of_the_blade", "pact_of_the_chain", "pact_of_the_tome"],
+	"mechanic": "implemented",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "protection_from_evil_and_good",
+	"display_name": "Protection from Evil and Good",
+	"level": 1,
+	"school": "abjuration",
+	"casting_time": "action",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 10 minutes",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S", "M"],
+	"classes": ["cleric", "paladin", "warlock", "wizard"],
+	"source": "SRD 5.1",
+	"description": "Until the spell ends, one willing creature you touch is protected against certain types of creatures: aberrations, celestials, elementals, fey, fiends, and undead.\nThe protection grants several benefits. Creatures of those types have disadvantage on attack rolls against the target. The target also can't be charmed, frightened, or possessed by them. If the target is already charmed, frightened, or possessed by such a creature, the target has advantage on any new saving throw against the relevant effect.",
+	"material": "Holy water or powdered silver and iron, which the spell consumes.",
+	"subclasses": ["devotion", "lore"]
+}

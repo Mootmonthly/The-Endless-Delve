@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "adamantine_armor",
+	"display_name": "Adamantine Armor",
+	"kind": "misc",
+	"description": "This suit of armor is reinforced with adamantine, one of the hardest substances in existence. While you're wearing it, any critical hit against you becomes a normal hit.",
+	"weight": 0,
+	"value_gp": 101,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (medium or heavy, but not hide), uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

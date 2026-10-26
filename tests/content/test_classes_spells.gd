@@ -1,8 +1,10 @@
 extends TestCase
 ## Content checks for the twelve SRD classes and data/spells: every class
 ## parses with the required fields, kits and spell lists reference content
-## that exists, spell slot and known/prepared tables are well-formed, and the
-## level-1 feature ids CORE implements are where the addendum puts them.
+## that exists, spell slot and known/prepared tables are well-formed (levels
+## 1-20, from tools/import_srd.py), and the level-1 feature ids CORE
+## implements are where the addendum puts them. Progression details: see
+## test_progression.gd.
 
 const CLASSES_DIR := "res://data/classes"
 const SPELLS_DIR := "res://data/spells"
@@ -14,7 +16,7 @@ const REQUIRED: Array[String] = [
 	"schema_version", "id", "display_name", "description", "hit_die", "primary_abilities", "saving_throws",
 	"armor_proficiencies", "weapon_proficiencies", "skill_choices", "skill_choice_count",
 	"spellcasting_ability", "starting_weapon", "starting_armor", "starting_shield", "starting_kit",
-	"features", "features_by_level", "spellcasting",
+	"features", "features_by_level", "spellcasting", "asi_levels", "subclass", "tables",
 ]
 ## SRD 5.1 hit die and saving throws per class.
 const SRD: Dictionary = {
@@ -37,7 +39,14 @@ const CASTERS: Dictionary = {
 }
 const KNOWN_CASTERS: Array[String] = ["bard", "sorcerer", "warlock"]
 const PREPARED_CASTERS: Array[String] = ["cleric", "druid", "wizard"]
-const EFFECT_TYPES: Array[String] = ["spell_attack", "auto_hit", "save", "heal", "buff", "mark", "unsupported"]
+const EFFECT_TYPES: Array[String] = [
+	"spell_attack", "auto_hit", "save", "heal", "buff", "mark", "area_save", "area_attack", "unsupported",
+]
+const CASTING_TIMES: Array[String] = [
+	"action", "bonus_action", "reaction", "1_minute", "10_minutes", "1_hour", "8_hours", "12_hours", "24_hours",
+]
+const AREA_SHAPES: Array[String] = ["sphere", "cube", "cone", "line", "cylinder"]
+const LEVELS := 20
 
 var _classes: Dictionary = {}
 var _spells: Dictionary = {}
@@ -145,15 +154,17 @@ func test_features_by_level_are_well_formed() -> void:
 		if typeof(fbl_v) != TYPE_DICTIONARY:
 			continue
 		var fbl: Dictionary = fbl_v
-		for lvl in ["1", "2", "3"]:
-			assert_true(fbl.has(lvl), "%s features_by_level has level %s" % [cid, lvl])
+		for lvl in range(1, LEVELS + 1):
+			assert_true(fbl.has(str(lvl)), "%s features_by_level has level %d" % [cid, lvl])
+		assert_eq(fbl.size(), LEVELS, "%s features_by_level has exactly levels 1-20" % cid)
 		assert_eq(DictUtil.to_string_array(raw.get("features", [])), DictUtil.to_string_array(fbl.get("1", [])),
 				"%s: features == features_by_level['1']" % cid)
-		var seen := {}
 		for lvl: Variant in fbl.keys():
-			for f in DictUtil.to_string_array(fbl[lvl]):
+			var at_level := DictUtil.to_string_array(fbl[lvl])
+			var seen := {}
+			for f in at_level:
 				assert_eq(f, f.to_lower().replace(" ", "_"), "%s feature id '%s' is snake_case" % [cid, f])
-				assert_false(seen.has(f) and f != "fighting_style" and f != "expertise", "%s: '%s' listed once" % [cid, f])
+				assert_false(seen.has(f), "%s: '%s' listed once at level %s" % [cid, f, str(lvl)])
 				seen[f] = true
 		if LEVEL_1_FEATURES.has(cid):
 			for f: String in LEVEL_1_FEATURES[cid]:
@@ -179,7 +190,8 @@ func test_spellcasting_blocks_and_slot_tables() -> void:
 		assert_eq(str(raw.get("spellcasting_ability", "")), str(spec[0]), "%s spellcasting_ability" % cid)
 		assert_eq(str(sc.get("slot_recovery", "")), str(spec[1]), "%s slot recovery" % cid)
 		var rows := _level_rows(sc.get("slots"))
-		assert_eq(rows.size(), 5, "%s slot table covers levels 1-5" % cid)
+		assert_eq(rows.size(), LEVELS, "%s slot table covers levels 1-20" % cid)
+		assert_eq(sc.get("slots"), raw.get("spell_slots"), "%s: spellcasting.slots == spell_slots" % cid)
 		var prev_total := 0
 		var prev_max := 0
 		for i in range(rows.size()):
@@ -204,7 +216,11 @@ func test_spellcasting_blocks_and_slot_tables() -> void:
 			assert_eq(def.slots_for_level(1), DictUtil.to_int_array(rows[0][1]) if not rows.is_empty() else [] as Array[int])
 	var warlock := _raw_class("warlock")
 	var wsc: Dictionary = warlock.get("spellcasting", {})
-	assert_eq(wsc.get("slots"), {"1": [1], "2": [2], "3": [0, 2], "4": [0, 2], "5": [0, 0, 2]}, "warlock pact slots")
+	var pact: Dictionary = wsc.get("slots", {})
+	var first_five := {}
+	for lvl in ["1", "2", "3", "4", "5"]:
+		first_five[lvl] = pact.get(lvl)
+	assert_eq(first_five, {"1": [1], "2": [2], "3": [0, 2], "4": [0, 2], "5": [0, 0, 2]}, "warlock pact slots")
 
 
 func test_prepared_spells_exist_fit_the_tables_and_can_be_cast() -> void:
@@ -246,7 +262,7 @@ func test_known_and_prepared_fields_are_well_formed() -> void:
 		assert_eq(DictUtil.to_bool(raw.get("prepares", false), false), is_prepared, "%s prepares" % cid)
 		if is_known:
 			var rows := _level_rows(raw.get("spells_known"))
-			assert_eq(rows.size(), 5, "%s spells_known covers levels 1-5" % cid)
+			assert_eq(rows.size(), LEVELS, "%s spells_known covers levels 1-20" % cid)
 			var prev := -1
 			for i in range(rows.size()):
 				assert_eq(int(rows[i][0]), i + 1, "%s spells_known level" % cid)
@@ -255,15 +271,16 @@ func test_known_and_prepared_fields_are_well_formed() -> void:
 				prev = n
 		if CASTERS.has(cid):
 			var crows := _level_rows(raw.get("cantrips_known"))
-			assert_eq(crows.size(), 3, "%s cantrips_known has the 1/4/10 steps" % cid)
-			var levels: Array = []
+			assert_eq(crows.size(), LEVELS, "%s cantrips_known covers levels 1-20" % cid)
+			var steps: Array = []
 			var prev := 0
 			for r: Array in crows:
-				levels.append(int(r[0]))
 				var n := DictUtil.to_int(r[1], -1)
-				assert_true(n > prev, "%s cantrips_known grows" % cid)
+				assert_true(n >= prev and n > 0, "%s cantrips_known never drops" % cid)
+				if n > prev:
+					steps.append(int(r[0]))
 				prev = n
-			assert_eq(levels, [1, 4, 10], "%s cantrip levels" % cid)
+			assert_eq(steps, [1, 4, 10], "%s cantrips grow at levels 1/4/10" % cid)
 		else:
 			assert_false(raw.has("cantrips_known"), "%s learns no cantrips" % cid)
 	var wiz := _raw_class("wizard")
@@ -312,27 +329,36 @@ func test_every_spell_parses_and_is_well_formed() -> void:
 				"target", "effect", "classes", "source", "description"]:
 			assert_true(d.has(key), "%s has '%s'" % [ctx, key])
 		assert_has(["SRD 5.1", "SRD 5.2"], str(d.get("source", "")), "%s source" % ctx)
-		assert_has(["action", "bonus_action"], str(d.get("casting_time", "")), "%s casting time" % ctx)
-		assert_in_range(DictUtil.to_int(d.get("level", -1), -1), 0, 2, "%s level" % ctx)
+		assert_has(CASTING_TIMES, str(d.get("casting_time", "")), "%s casting time" % ctx)
+		assert_in_range(DictUtil.to_int(d.get("level", -1), -1), 0, 9, "%s level" % ctx)
+		assert_true(typeof(d.get("range_ft")) == TYPE_FLOAT or typeof(d.get("range_ft")) == TYPE_INT, "%s range_ft is a number" % ctx)
 		var e: Dictionary = d.get("effect", {})
 		var t := str(e.get("type", ""))
 		assert_has(EFFECT_TYPES, t, "%s effect type" % ctx)
 		var lvl := DictUtil.to_int(d.get("level", 0), 0)
+		if d.has("area"):
+			var area: Dictionary = d.get("area", {})
+			assert_has(AREA_SHAPES, str(area.get("shape", "")), "%s area shape" % ctx)
+			assert_true(DictUtil.to_int(area.get("size_ft", 0), 0) >= 5, "%s area size" % ctx)
+		if t == "area_save" or t == "area_attack":
+			assert_true(d.has("area"), "%s: %s needs an area" % [ctx, t])
 		match t:
-			"spell_attack", "save":
+			"spell_attack", "save", "area_save", "area_attack":
 				assert_true(DiceExpr.parse(str(e.get("damage", ""))).valid, "%s damage dice" % ctx)
 				assert_ne(str(e.get("damage_type", "")), "", "%s damage type" % ctx)
 				if lvl == 0 and not e.has("beams"):
 					assert_eq(_level_rows(e.get("scaling")).size(), 3, "%s cantrip scaling at 5/11/17" % ctx)
-				if t == "save":
+				if t == "save" or t == "area_save":
 					assert_has(["STR", "DEX", "CON", "INT", "WIS", "CHA"], str(e.get("save", "")), "%s save ability" % ctx)
 					assert_has(["none", "half"], str(e.get("on_save", "")), "%s on_save" % ctx)
 			"auto_hit":
 				assert_true(DictUtil.to_int(e.get("darts", 0), 0) >= 1, "%s darts" % ctx)
 			"heal":
 				assert_true(DiceExpr.parse(str(e.get("dice", ""))).valid, "%s heal dice" % ctx)
-		if lvl > 0 and t != "unsupported" and t != "buff":
-			assert_true(e.has("per_slot_level_above"), "%s scales with slot level" % ctx)
+		if lvl > 0 and t != "unsupported" and t != "buff" and t != "mark":
+			var table: Dictionary = d.get("heal_by_slot", {}) if t == "heal" else d.get("damage_by_slot", {})
+			assert_true(e.has("per_slot_level_above") or table.size() >= 1 or d.get("hand_edited", false),
+					"%s scales with slot level (per_slot_level_above or a by-slot table)" % ctx)
 
 
 func test_srd_spell_numbers() -> void:

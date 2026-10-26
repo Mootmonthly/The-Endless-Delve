@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "giant_insect",
+	"display_name": "Giant Insect",
+	"level": 4,
+	"school": "transmutation",
+	"casting_time": "action",
+	"range_ft": 30,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "up to 10 minutes",
+	"concentration": true,
+	"ritual": false,
+	"components": ["V", "S"],
+	"classes": ["druid"],
+	"source": "SRD 5.1",
+	"description": "You transform up to ten centipedes, three spiders, five wasps, or one scorpion within range into giant versions of their natural forms for the duration. A centipede becomes a giant centipede, a spider becomes a giant spider, a wasp becomes a giant wasp, and a scorpion becomes a giant scorpion.\nEach creature obeys your verbal commands, and in combat, they act on your turn each round. The GM has the statistics for these creatures and resolves their actions and movement.\nA creature remains in its giant size for the duration, until it drops to 0 hit points, or until you use an action to dismiss the effect on it.\nThe GM might allow you to choose different targets. For example, if you transform a bee, its giant version might have the same statistics as a giant wasp."
+}

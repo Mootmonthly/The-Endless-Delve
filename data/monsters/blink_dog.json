@@ -1,0 +1,53 @@
+{
+	"schema_version": 1,
+	"id": "blink_dog",
+	"display_name": "Blink Dog",
+	"size": "medium",
+	"creature_type": "fey",
+	"alignment": "lawful good",
+	"armor_class": 13,
+	"hit_points": 22,
+	"hit_dice": "4d8+4",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 12, "DEX": 17, "CON": 12, "INT": 10, "WIS": 13, "CHA": 11 },
+	"skills": { "PERCEPTION": 3, "STEALTH": 5 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "passive Perception 10",
+	"languages": "Blink Dog, understands Sylvan but can't speak it",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "goblin",
+	"traits": [
+		{
+			"name": "Keen Hearing and Smell",
+			"kind": "trait",
+			"description": "The dog has advantage on Wisdom (Perception) checks that rely on hearing or smell.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Teleport",
+			"kind": "action",
+			"description": "The dog magically teleports, along with any equipment it is wearing or carrying, up to 40 ft. to an unoccupied space it can see. Before or after teleporting, the dog can make one bite attack.",
+			"usage": { "dice": "1d6", "min_value": 4, "type": "recharge on roll" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "1d6+1",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) piercing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

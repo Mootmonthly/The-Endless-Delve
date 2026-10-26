@@ -1,0 +1,20 @@
+{
+	"schema_version": 1,
+	"id": "gentle_repose",
+	"display_name": "Gentle Repose",
+	"level": 2,
+	"school": "necromancy",
+	"casting_time": "action",
+	"range_ft": 5,
+	"target": "creature",
+	"effect": { "type": "unsupported", "reason": "utility or condition effect" },
+	"duration": "10 days",
+	"concentration": false,
+	"ritual": true,
+	"components": ["V", "S", "M"],
+	"classes": ["cleric", "wizard"],
+	"source": "SRD 5.1",
+	"description": "You touch a corpse or other remains. For the duration, the target is protected from decay and can't become undead.\nThe spell also effectively extends the time limit on raising the target from the dead, since days spent under the influence of this spell don't count against the time limit of spells such as raise dead.",
+	"material": "A pinch of salt and one copper piece placed on each of the corpse's eyes, which must remain there for the duration.",
+	"subclasses": ["lore"]
+}

@@ -1,0 +1,17 @@
+{
+	"schema_version": 1,
+	"id": "timeless_body",
+	"display_name": "Timeless Body",
+	"class": "druid",
+	"classes": ["druid", "monk"],
+	"level": 15,
+	"levels": [15, 18],
+	"levels_by_class": { "druid": [18], "monk": [15] },
+	"description": "Starting at 18th level, the primal magic that you wield causes you to age more slowly. For every 10 years that pass, your body ages only 1 year.",
+	"description_by_class": {
+		"druid": "Starting at 18th level, the primal magic that you wield causes you to age more slowly. For every 10 years that pass, your body ages only 1 year.",
+		"monk": "At 15th level, your ki sustains you so that you suffer none of the frailty of old age, and you can't be aged magically. You can still die of old age, however. In addition, you no longer need food or water."
+	},
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

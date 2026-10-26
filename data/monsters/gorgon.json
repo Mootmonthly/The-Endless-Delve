@@ -1,0 +1,64 @@
+{
+	"schema_version": 1,
+	"id": "gorgon",
+	"display_name": "Gorgon",
+	"size": "large",
+	"creature_type": "monstrosity",
+	"alignment": "unaligned",
+	"armor_class": 19,
+	"armor_note": "natural",
+	"hit_points": 114,
+	"hit_dice": "12d10+48",
+	"speed": 40,
+	"speeds": { "walk": 40 },
+	"abilities": { "STR": 20, "DEX": 11, "CON": 18, "INT": 2, "WIS": 12, "CHA": 7 },
+	"skills": { "PERCEPTION": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": ["petrified"],
+	"senses": "darkvision 60 ft., passive Perception 14",
+	"languages": "",
+	"challenge_rating": 5,
+	"proficiency_bonus": 3,
+	"xp": 1800,
+	"loot_table": "boss",
+	"icon": "giant_spider",
+	"traits": [
+		{
+			"name": "Trampling Charge",
+			"kind": "trait",
+			"description": "If the gorgon moves at least 20 feet straight toward a creature and then hits it with a gore attack on the same turn, that target must succeed on a DC 16 Strength saving throw or be knocked prone. If the target is prone, the gorgon can make one attack with its hooves against it as a bonus action.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Petrifying Breath",
+			"kind": "action",
+			"description": "The gorgon exhales petrifying gas in a 30-foot cone. Each creature in that area must succeed on a DC 13 Constitution saving throw. On a failed save, a target begins to turn to stone and is restrained. The restrained target must repeat the saving throw at the end of its next turn. On a success, the effect ends on the target. On a failure, the target is petrified until freed by the greater restoration spell or other magic.",
+			"usage": { "dice": "1d6", "min_value": 5, "type": "recharge on roll" },
+			"dc": { "ability": "CON", "value": 13, "on_success": "none" },
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Gore",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 8,
+			"damage": "2d12+5",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 18 (2d12 + 5) piercing damage."
+		},
+		{
+			"name": "Hooves",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 8,
+			"damage": "2d10+5",
+			"damage_type": "bludgeoning",
+			"description": "Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 16 (2d10 + 5) bludgeoning damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

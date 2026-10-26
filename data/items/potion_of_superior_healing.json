@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"id": "potion_of_superior_healing",
+	"display_name": "Potion of Superior Healing",
+	"kind": "consumable",
+	"description": "You regain 8d4 + 8 hit points when you drink this potion. The potion's red liquid glimmers when agitated.",
+	"weight": 0.5,
+	"value_gp": 501,
+	"stackable": true,
+	"use": { "action": "action", "effect": "heal", "dice": "8d4+8", "target": "self" },
+	"magic": true,
+	"magic_category": "potion",
+	"item_line": "Potion, rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"mechanic": "implemented",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

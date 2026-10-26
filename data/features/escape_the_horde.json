@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "escape_the_horde",
+	"display_name": "Defensive Tactics: Escape the Horde",
+	"class": "ranger",
+	"subclass": "hunter",
+	"level": 7,
+	"description": "Opportunity attacks against you are made with disadvantage.",
+	"option_of": "defensive_tactics",
+	"mechanic": "unsupported",
+	"source": "SRD 5.1"
+}

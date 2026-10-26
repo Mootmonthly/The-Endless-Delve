@@ -1,0 +1,52 @@
+{
+	"schema_version": 1,
+	"id": "giant_owl",
+	"display_name": "Giant Owl",
+	"size": "large",
+	"creature_type": "beast",
+	"alignment": "neutral",
+	"armor_class": 12,
+	"hit_points": 19,
+	"hit_dice": "3d10+3",
+	"speed": 5,
+	"speeds": { "fly": 60, "walk": 5 },
+	"abilities": { "STR": 13, "DEX": 15, "CON": 12, "INT": 8, "WIS": 13, "CHA": 10 },
+	"skills": { "PERCEPTION": 5, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "darkvision 120 ft., passive Perception 15",
+	"languages": "Giant Owl, understands Common, Elvish, and Sylvan but can't speak",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "giant_rat",
+	"traits": [
+		{
+			"name": "Flyby",
+			"kind": "trait",
+			"description": "The owl doesn't provoke opportunity attacks when it flies out of an enemy's reach.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Keen Hearing and Sight",
+			"kind": "trait",
+			"description": "The owl has advantage on Wisdom (Perception) checks that rely on hearing or sight.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Talons",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 3,
+			"damage": "2d6+1",
+			"damage_type": "slashing",
+			"description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 8 (2d6 + 1) slashing damage."
+		}
+	],
+	"source": "SRD 5.1"
+}

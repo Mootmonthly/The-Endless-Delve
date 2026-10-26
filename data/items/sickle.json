@@ -1,0 +1,12 @@
+{
+	"schema_version": 1,
+	"id": "sickle",
+	"display_name": "Sickle",
+	"kind": "weapon",
+	"description": "Simple melee weapon: 1d4 slashing (light, monk).",
+	"weight": 2,
+	"value_gp": 1.0,
+	"stackable": true,
+	"weapon_id": "sickle",
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,68 @@
+{
+	"schema_version": 1,
+	"id": "pseudodragon",
+	"display_name": "Pseudodragon",
+	"size": "tiny",
+	"creature_type": "dragon",
+	"alignment": "neutral good",
+	"armor_class": 13,
+	"armor_note": "natural",
+	"hit_points": 7,
+	"hit_dice": "2d4+2",
+	"speed": 15,
+	"speeds": { "fly": 60, "walk": 15 },
+	"abilities": { "STR": 6, "DEX": 15, "CON": 13, "INT": 10, "WIS": 12, "CHA": 10 },
+	"skills": { "PERCEPTION": 3, "STEALTH": 4 },
+	"damage_resistances": [],
+	"damage_immunities": [],
+	"damage_vulnerabilities": [],
+	"condition_immunities": [],
+	"senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 13",
+	"languages": "understands Common and Draconic but can't speak",
+	"challenge_rating": 0.25,
+	"proficiency_bonus": 2,
+	"xp": 50,
+	"loot_table": "monster_small",
+	"icon": "kobold",
+	"traits": [
+		{
+			"name": "Keen Senses",
+			"kind": "trait",
+			"description": "The pseudodragon has advantage on Wisdom (Perception) checks that rely on sight, hearing, or smell.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Magic Resistance",
+			"kind": "trait",
+			"description": "The pseudodragon has advantage on saving throws against spells and other magical effects.",
+			"mechanic": "unsupported"
+		},
+		{
+			"name": "Limited Telepathy",
+			"kind": "trait",
+			"description": "The pseudodragon can magically communicate simple ideas, emotions, and images telepathically with any creature within 100 ft. of it that can understand a language.",
+			"mechanic": "unsupported"
+		}
+	],
+	"attacks": [
+		{
+			"name": "Bite",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 4 (1d4 + 2) piercing damage."
+		},
+		{
+			"name": "Sting",
+			"kind": "melee",
+			"reach_ft": 5,
+			"to_hit": 4,
+			"damage": "1d4+2",
+			"damage_type": "piercing",
+			"description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 4 (1d4 + 2) piercing damage, and the target must succeed on a DC 11 Constitution saving throw or become poisoned for 1 hour. If the saving throw fails by 5 or more, the target falls unconscious for the same duration, or until it takes damage or another creature uses an action to shake it awake."
+		}
+	],
+	"source": "SRD 5.1"
+}

@@ -1,0 +1,18 @@
+{
+	"schema_version": 1,
+	"id": "ring_of_feather_falling",
+	"display_name": "Ring of Feather Falling",
+	"kind": "misc",
+	"description": "When you fall while wearing this ring, you descend 60 feet per round and take no damage from falling.",
+	"weight": 0,
+	"value_gp": 501,
+	"stackable": false,
+	"magic": true,
+	"magic_category": "ring",
+	"item_line": "Ring, rare (requires attunement)",
+	"rarity": "rare",
+	"requires_attunement": true,
+	"mechanic": "unsupported",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}
