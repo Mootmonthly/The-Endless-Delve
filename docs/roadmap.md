@@ -92,14 +92,17 @@ each item.
 
 - **Goal:** the MMO layer.
 - **In scope:** PVP server rules (engagement, arrival protection, stairs no-PVP ring); safe zone hub
-  servers with chat, trade and regrouping; matchmaker service; persistence service with PostgreSQL;
-  accounts; report and block tools.
+  servers with the global text chat, trade and regrouping; proximity voice chat inside instances
+  (distance falloff, wall occlusion, push-to-talk, mute); matchmaker service; persistence service with
+  PostgreSQL; accounts; report and block tools for text and voice.
 - **Out of scope:** Steam payments and cosmetics store.
 - **Exit criteria:**
   - A party queues in a safe zone, is placed in an instance, finishes it and arrives in the next safe zone.
   - Trades are atomic and logged; a killed server loses no completed trade.
   - PVP engagement and arrival protection behave as specified (integration tests).
-- **Key risks:** griefing; operational cost; data loss.
+  - Two players on the same floor hear each other only inside the hearing radius, and not through walls;
+    a muted player is silent for the muter. Global text chat reaches every safe zone of the same server type.
+- **Key risks:** griefing (now including voice harassment); voice bandwidth and relay cost; data loss.
 
 ## M6 - Content Production Pipeline for 100 floors
 

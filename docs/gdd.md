@@ -287,6 +287,9 @@ with no combat of any kind.
 - Entering counts as a long rest (full hit points, spent Hit Dice regained up to half the total, all spell slots and
   long-rest features restored), and applies the milestone level-up.
 - Trade between players, an SRD-priced merchant for basic gear, chat, and logging off with progress kept.
+- **Global text chat:** every safe zone carries a global text channel shared across all safe zones of that
+  server type (PVP or PVE), so the whole population can talk, recruit and trade-talk regardless of depth.
+  It is text only; voice does not exist in safe zones.
 - Disband and regroup: players may leave their party, form a new one and queue for the next instance
   solo or with up to 4 others.
 - **Proposal (needs owner sign-off):** each safe zone is a separate lightweight "hub" server per server
@@ -314,8 +317,15 @@ Sketch only; tuned in M4.
 - **Matchmaking:** queue solo or as a party for the instance matching your depth; solo players can opt
   in to be grouped with other solo players. **Proposal (needs owner sign-off):** a looking-for-group board
   in each safe zone shows class, level and deepest-floor badge.
-- **Chat:** party, floor-local (proximity) and safe zone channels; whispers between friends. Profanity
-  filter on by default. Report and block tools from M5.
+- **Proximity voice chat:** inside an instance, players hear each other by voice when they are within
+  earshot on the same floor. Volume falls off with tile distance and is cut by walls, so a party coordinates
+  freely while rivals must get close to overhear. Push-to-talk by default with an open-mic option; per-player
+  mute; voice is off entirely in safe zones. On PVE servers this is party-plus-nearby-strangers; on PVP
+  servers it is also a tactical signal (talking can give you away). **Proposal (needs owner sign-off):**
+  hearing radius of 12 tiles (60 ft), with full volume inside 4 tiles; combat does not change the radius.
+- **Chat:** party, floor-local (proximity) and the safe zone global text channel; whispers between friends.
+  Profanity filter on by default. Report and block tools from M5 cover voice (mute, report with a short
+  server-side voice buffer for review) as well as text.
 
 ## 13. Postgame
 
@@ -360,6 +370,11 @@ Clearing floor 100 ends the main journey "for now". The player may then:
 15. **Region and server count.** How many PVP and PVE servers per region at launch?
 16. **Floor 100 completion.** What happens to the character after clearing floor 100: retired to a hall
     of fame, kept for floor 101, or both?
+17. **Voice transport and cost:** which voice stack (Steam Voice via a Steamworks wrapper, or a WebRTC/Opus
+    mesh) do we use, is audio relayed through the instance server or peer-to-peer, and what does it cost at
+    100 players per instance?
+18. **Voice moderation:** how long is the server-side voice buffer kept for reports, who reviews it, and what
+    are the privacy and regional-law implications of recording player voice at all?
 
 ## 15. Glossary
 

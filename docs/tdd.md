@@ -163,6 +163,18 @@ snapshots, channel 2 for chat, so chat bursts never delay combat results.
   local player is reconsidered in M3 if playtests demand it.
 - Encounters are event driven, not tick driven: nothing happens until an intent, AI decision or timer.
 
+### 6.3 Voice and global chat (M5)
+
+- **Proximity voice** rides beside the game transport, not inside it. Candidates: Steam Voice through a
+  Steamworks GDExtension (cheapest, Steam-only, matches the platform choice) or a WebRTC/Opus mesh. Either way
+  the instance server stays the authority on *who can hear whom*: each tick it computes, per player, the set of
+  audible peers from tile distance and a wall-occlusion test on the floor's walk map, and sends that set with a
+  gain factor; the voice layer only mixes what the server allows. Voice packets never pass through the core.
+- **Global text chat** is a hub-server channel fanned out to every safe zone hub of the same server type via a
+  small chat relay service (M5). Text passes through the profanity filter and the report pipeline; rate limited
+  per account.
+- Decision deferred to an ADR in M5 after a bandwidth test at 100 players.
+
 ## 7. Offline mode
 
 The offline game runs the instance server and the client in one process. Because Godot's
@@ -304,3 +316,4 @@ A headless benchmark with 100 simulated clients is an exit criterion of M3.
 | 6 | Netcode complexity | Server authority, no prediction in M1, turn-based combat, one transport interface shared with offline mode. |
 | 7 | Persistence and data loss | Versioned JSON character documents, checkpoint writes, migrations tested in CI, backups before EA. |
 | 8 | Scope creep | Pillars in the GDD as a filter; anything not in the current milestone goes to the backlog; ADRs for any architectural change. |
+| 9 | Voice chat cost and moderation | Server-decided audibility sets, push-to-talk default, per-player mute, bandwidth test before committing to a stack, legal review of any voice buffering. |
