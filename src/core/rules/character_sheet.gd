@@ -263,6 +263,12 @@ func unarmed_strike() -> Dictionary:
 	}
 
 
+## Kills the character outright (e.g. the server finishing off a downed
+## player after a party wipe). Clears stability and sets hit points to 0.
+func kill() -> void:
+	_die()
+
+
 func _die() -> void:
 	dead = true
 	current_hp = 0

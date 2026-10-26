@@ -31,6 +31,13 @@ func broadcast_result(_result: Dictionary) -> void:
 
 
 ## The peer id this process's client uses (1 offline).
+## Delivers queued messages. Queue-based transports (LocalTransport) override
+## this; network transports deliver as packets arrive and return 0. The server
+## calls it once at the start of every tick.
+func pump(_max_messages: int = 10000) -> int:
+	return 0
+
+
 func local_peer_id() -> int:
 	push_error("Transport.local_peer_id: not implemented")
 	return 0

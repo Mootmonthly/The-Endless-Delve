@@ -84,7 +84,16 @@ func add_combatant(c: Combatant) -> bool:
 	_combatants[c.id] = c
 	if state == State.ACTIVE:
 		intent_log.append({"v": INTENT_VERSION, "type": LOG_JOIN, "entry": entry})
-	_emit("combatant_joined", {"id": c.id, "initiative": c.initiative, "position": GridMath.vec_to_arr(c.position)})
+	_emit("combatant_joined", {
+		"id": c.id,
+		"name": c.display_name,
+		"team": c.team,
+		"initiative": c.initiative,
+		"position": GridMath.vec_to_arr(c.position),
+		"hp": c.sheet.current_hp,
+		"max_hp": c.sheet.max_hp,
+		"ac": c.sheet.armor_class(),
+	})
 	_pending.clear()
 	return true
 
