@@ -1,0 +1,41 @@
+# --- Godot 4 ---
+# Editor/import cache (regenerated on open/import)
+.godot/
+# NOTE: *.import and *.uid files are intentionally NOT ignored; commit them.
+
+# Export output and secrets
+export_presets.cfg
+export_credentials.cfg
+*.pck
+*.zip
+build/
+dist/
+exports/
+
+# Godot binaries downloaded locally or by CI
+Godot_v*
+godot.*.x86_64
+
+# --- OS junk ---
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*~
+*.swp
+*.swo
+
+# --- Editors ---
+.vscode/
+.idea/
+*.code-workspace
+
+# --- Node / Python tooling (helper scripts only) ---
+node_modules/
+npm-debug.log*
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env

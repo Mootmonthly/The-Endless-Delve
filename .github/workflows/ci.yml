@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  GODOT_VERSION: "4.5-stable"
+
+jobs:
+  tests:
+    name: Headless tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Godot download
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot
+          curl -fsSL --retry 3 -o ~/godot/godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+
+      - name: Install Godot
+        run: |
+          cd ~/godot
+          unzip -o -q godot.zip
+          chmod +x "Godot_v${GODOT_VERSION}_linux.x86_64"
+          sudo ln -sf "$HOME/godot/Godot_v${GODOT_VERSION}_linux.x86_64" /usr/local/bin/godot
+          godot --headless --version
+
+      # The import pass builds the .godot/ cache (global class_name table,
+      # imported resources). On a fresh checkout with no .godot/ folder some
+      # Godot 4.x versions exit non-zero from --import even when the import
+      # succeeded, so this ONE step tolerates failure. Real problems still
+      # surface in the test step below, which must exit 0.
+      - name: Import project
+        run: godot --headless --path . --import || true
+
+      - name: Run tests
+        run: godot --headless --path . -s res://tests/run_tests.gd

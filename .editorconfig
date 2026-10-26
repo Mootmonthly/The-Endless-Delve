@@ -1,0 +1,22 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = tab
+indent_size = 4
+
+# GDScript and Godot text resources use tabs (Godot convention)
+[*.{gd,tscn,tres,godot,cfg}]
+indent_style = tab
+indent_size = 4
+
+[*.{yml,yaml,json,md}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+# Two trailing spaces are a Markdown line break
+trim_trailing_whitespace = false
