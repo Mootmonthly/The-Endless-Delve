@@ -41,9 +41,11 @@ extends Node
 ##     every further intent is rejected.
 ##
 ## Exploration intents (explore_move, use_stairs, short_rest, equip, unequip,
-## use_item, open_chest, drop_item, level_up) are refused
+## open_chest, drop_item, level_up, dismiss_companion) are refused
 ## while the sender's character is in combat; combat intents are refused
-## while it explores. use_stairs needs the stairs tile and no active encounter
+## while it explores. use_item and cast are dual (Messages.is_dual_intent):
+## the Encounter resolves them in a fight, the server out of combat;
+## reaction_policy is accepted any time. use_stairs needs the stairs tile and no active encounter
 ## on the floor; short_rest needs the stairs tile (recover_slots: Arcane /
 ## Natural Recovery as it ends; Song of Rest from the living party's bards).
 ## Errors go only to the sending peer as ERROR results.
@@ -66,6 +68,25 @@ extends Node
 ## time; a fighting player gets it when its encounter ends); the level_up
 ## intent applies LevelUp.apply and answers CHARACTER_STATE {leveled_to,
 ## levels_pending} (+ the next offer) or ERROR.
+##
+## Out-of-combat casting: a cast intent while exploring runs OutOfCombat.cast
+## on the player's sheet (content cache, CAST_STREAM rng, the player as the
+## only target in M2, options slot_level / form): Find Familiar / Animate Dead
+## companions, heals, temporary HP, restorations, revives and Mage Armor.
+## Spells with casting times longer than an action (1 minute, 10 minutes,
+## 1 hour) and rituals take no real time in M2: the cast resolves at once (a
+## ritual still spends a slot, as OutOfCombat.cast does). Success:
+## OUT_OF_COMBAT_EVENTS {entity_id, spell, slot_level, result, events}, then
+## CHARACTER_STATE (extra spell_cast); a spell that only works in a fight, an
+## unprepared spell, no slot, an unconscious or dead caster or another target
+## -> ERROR. Companions on the sheet get a server id ("c<n>") on every
+## CHARACTER_STATE; dismiss_companion {companion_id} removes one (out of
+## combat). The next encounter spawns the sheet's companions beside their
+## owner (Encounter._spawn_companions).
+##
+## Reaction policy: stored per player, handed to its encounter at once
+## (Encounter.set_reaction_policy) and to every later combatant it becomes
+## (ServerEntity.make_combatant), on this floor and the next ones.
 ##
 ## Items and chests: use_item is resolved by the Encounter while the actor
 ## fights, else here (no action cost). Chest state lasts one floor visit;
@@ -91,6 +112,8 @@ const FLOOR_STREAM := 1 << 21
 const ITEM_STREAM := 1 << 22
 const LEVEL_STREAM := 1 << 23
 const LOOT_STREAM := 1 << 24
+## Rng.fork stream id (root) for out-of-combat spells (heal and temp HP dice).
+const CAST_STREAM := 1 << 25
 ## XP every living player gets when the stairs are taken (not split).
 const FLOOR_CLEAR_XP := 100
 ## A hidden chest is revealed once a player stands within this many tiles.
@@ -112,6 +135,7 @@ var _rest_rng: Rng = null
 var _item_rng: Rng = null
 var _level_rng: Rng = null
 var _loot_rng: Rng = null  # per floor: forked from _floor_rng
+var _cast_rng: Rng = null
 var _monster_defs: Dictionary = {}  # id -> MonsterDefinition
 var _entities: Dictionary = {}  # id -> ServerEntity, insertion order
 var _peer_entities: Dictionary = {}  # peer id -> entity id
@@ -166,6 +190,7 @@ func configure(transport: Transport, floor_data: FloorData, instance_seed: int) 
 	_rest_rng = _root_rng.fork(REST_STREAM)
 	_item_rng = _root_rng.fork(ITEM_STREAM)
 	_level_rng = _root_rng.fork(LEVEL_STREAM)
+	_cast_rng = _root_rng.fork(CAST_STREAM)
 	_loot_rng = _floor_rng.fork(LOOT_STREAM)
 	if _monster_defs.is_empty():
 		_monster_defs = ContentLoader.load_monsters()
@@ -390,6 +415,10 @@ func _on_intent_received(peer_id: int, intent: Dictionary) -> void:
 			_handle_unequip(peer_id, entity, str(intent["slot"]))
 		Messages.USE_ITEM:
 			_handle_use_item(peer_id, entity, intent)
+		Messages.CAST:
+			_handle_cast_out_of_combat(peer_id, entity, intent)
+		Messages.DISMISS_COMPANION:
+			_handle_dismiss_companion(peer_id, entity, str(intent["companion_id"]))
 		Messages.DROP_ITEM:
 			_handle_drop_item(peer_id, entity, str(intent["item"]), DictUtil.to_int(intent["qty"], 0))
 		Messages.OPEN_CHEST:
@@ -553,16 +582,17 @@ func _clear_set(extras: Dictionary = {}) -> void:
 
 
 ## Stores the player's reaction policy (any time, also off-turn) and hands it
-## to its active encounter through Encounter.set_reaction_policy when the core
-## provides it (logged there for replays); later encounters get it as the
-## combatant joins. Answers CHARACTER_STATE with "reaction_policy".
+## to its active encounter through Encounter.set_reaction_policy (logged there
+## for replays); later encounters, on this floor or the next, get it as the
+## combatant joins (ServerEntity.make_combatant). Answers CHARACTER_STATE with
+## "reaction_policy".
 func _handle_reaction_policy(entity: ServerEntity, policy: Dictionary) -> void:
 	entity.reaction_policy = {}
 	for key: Variant in policy.keys():
 		entity.reaction_policy[str(key)] = str(policy[key])
 	var enc := get_encounter_for(entity.id)
-	if enc != null and enc.has_method("set_reaction_policy"):
-		enc.call("set_reaction_policy", entity.id, entity.reaction_policy.duplicate())
+	if enc != null:
+		enc.set_reaction_policy(entity.id, entity.reaction_policy.duplicate())
 	_send_character_state(entity, {"reaction_policy": entity.reaction_policy.duplicate()})
 
 
@@ -674,6 +704,103 @@ func _handle_use_item(peer_id: int, entity: ServerEntity, intent: Dictionary) ->
 			for condition in item.use_conditions:
 				sheet.conditions.erase(condition)
 	_send_character_state(entity, extra)
+
+
+## Out-of-combat cast (see the class comment): OutOfCombat.cast with the
+## player's own sheet as the target, then OUT_OF_COMBAT_EVENTS and
+## CHARACTER_STATE to the caster, or ERROR (nothing changed).
+func _handle_cast_out_of_combat(peer_id: int, entity: ServerEntity, intent: Dictionary) -> void:
+	var spell_id := str(intent["spell"])
+	var content := ContentLoader.cache()
+	var spells: Dictionary = content.get("spells", {})
+	var spell: SpellDefinition = spells.get(spell_id, null)
+	if spell == null:
+		_send_error(peer_id, "unknown spell '%s'" % spell_id)
+		return
+	var ids: Array[String] = []
+	if intent.has("targets"):
+		ids = DictUtil.to_string_array(intent["targets"])
+	elif intent.has("target"):
+		ids.append(str(intent["target"]))
+	for id in ids:
+		if id != entity.id:
+			_send_error(peer_id, "out of combat, %s can only target yourself for now" % spell.display_name)
+			return
+	var options := {}
+	if intent.has("slot_level"):
+		options["slot_level"] = DictUtil.to_int(intent["slot_level"], 0)
+	if intent.has("form"):
+		options["form"] = str(intent["form"])
+	var sheet := entity.sheet
+	var targets: Array[CharacterSheet] = [sheet]
+	var conditions_before: Array[String] = []
+	conditions_before.assign(sheet.conditions.duplicate())
+	var res := OutOfCombat.cast(sheet, spell_id, content, _cast_rng, targets, options)
+	if res.get("ok", false) != true:
+		_send_error(peer_id, str(res.get("error", "the spell fails")))
+		return
+	_stamp_companion_ids(entity)
+	var slot := DictUtil.to_int(res.get("slot_level", 0), 0)
+	var result: Dictionary = res.get("result", {})
+	var events: Array = [{
+		"kind": "cast", "actor": entity.id, "spell": spell_id, "target": entity.id, "slot_level": slot,
+		"casting_time": spell.casting_time, "ritual": spell.raw.get("ritual", false) == true,
+	}]
+	if result.has("companions"):
+		var count := DictUtil.to_int(result["companions"], 0)
+		var new_ids: Array = []
+		for i in range(maxi(0, sheet.companions.size() - count), sheet.companions.size()):
+			new_ids.append(str(sheet.companions[i].get("id", "")))
+		events.append({"kind": "companion_summoned", "caster": entity.id, "spell": spell_id,
+			"monster": str(result.get("monster", "")), "count": count, "companion_ids": new_ids})
+	if result.has("revived"):
+		events.append({"kind": "revived", "target": entity.id, "hp": DictUtil.to_int(result.get("hp", sheet.current_hp), sheet.current_hp)})
+	if typeof(result.get("healed")) == TYPE_DICTIONARY:
+		var healed: Dictionary = result["healed"]
+		for key: Variant in healed.keys():
+			events.append({"kind": "heal", "target": entity.id, "amount": DictUtil.to_int(healed[key], 0), "hp_after": sheet.current_hp})
+	if result.has("temp_hp"):
+		events.append({"kind": "temp_hp", "target": entity.id, "amount": DictUtil.to_int(result["temp_hp"], 0), "temp_hp_after": sheet.temp_hp})
+	if result.has("exhaustion"):
+		var removed: Array = []
+		for cond in conditions_before:
+			if not sheet.conditions.has(cond):
+				removed.append(cond)
+		events.append({"kind": "restored", "target": entity.id, "conditions_removed": removed, "exhaustion": sheet.exhaustion})
+	if result.has("ac"):
+		events.append({"kind": "buff", "target": entity.id, "buff": spell.buff, "ac": DictUtil.to_int(result["ac"], sheet.armor_class())})
+	_transport.send_result(peer_id, Messages.make_result(Messages.OUT_OF_COMBAT_EVENTS, {
+		"entity_id": entity.id, "spell": spell_id, "slot_level": slot, "result": result, "events": events,
+	}))
+	_send_character_state(entity, {"spell_cast": spell_id})
+
+
+## Removes a companion (by its server id) from the player's sheet.
+func _handle_dismiss_companion(peer_id: int, entity: ServerEntity, companion_id: String) -> void:
+	_stamp_companion_ids(entity)
+	var list := entity.sheet.companions
+	for i in range(list.size()):
+		if str(list[i].get("id", "")) == companion_id:
+			var gone: Dictionary = list[i]
+			list.remove_at(i)
+			_send_character_state(entity, {"companion_dismissed": {"id": companion_id, "monster": str(gone.get("monster", ""))}})
+			return
+	_send_error(peer_id, "%s has no companion '%s'" % [entity.display_name, companion_id])
+
+
+## Gives every companion on a player's sheet without an "id" the next free
+## "c<n>" (ids already on the sheet are kept and never reused).
+func _stamp_companion_ids(e: ServerEntity) -> void:
+	if e == null or e.sheet == null:
+		return
+	for entry in e.sheet.companions:
+		var id := str(entry.get("id", ""))
+		if id.begins_with("c") and id.substr(1).is_valid_int():
+			e.companion_serial = maxi(e.companion_serial, id.substr(1).to_int())
+	for entry in e.sheet.companions:
+		if str(entry.get("id", "")).is_empty():
+			e.companion_serial += 1
+			entry["id"] = "c%d" % e.companion_serial
 
 
 func _handle_drop_item(peer_id: int, entity: ServerEntity, item_id: String, qty: int) -> void:
@@ -1179,6 +1306,7 @@ func _send_floor_loaded(e: ServerEntity) -> void:
 
 
 func _send_character_state(e: ServerEntity, extra: Dictionary = {}) -> void:
+	_stamp_companion_ids(e)
 	var fields := {"sheet": e.sheet.to_dict(), "entity_id": e.id}
 	fields.merge(extra)
 	_transport.send_result(e.peer_id, Messages.make_result(Messages.CHARACTER_STATE, fields))

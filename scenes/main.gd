@@ -9,8 +9,9 @@ extends Node
 ## The SettingsMenu overlay is a child kept after the active scene, so it sees
 ## unhandled input first. The open_settings action (Escape) opens it as a
 ## pause menu over the game (Resume / Settings / Quit to character creator;
-## the offline server keeps ticking) or straight to Settings over the creator,
-## which also has a Settings button.
+## the offline server keeps ticking; "Reactions" closes the menu and opens the
+## game HUD's Reactions panel) or straight to Settings over the creator, which
+## also has a Settings button.
 
 const CREATOR_SCENE := "res://scenes/ui/character_creator.tscn"
 const GAME_SCENE := "res://scenes/game/game_scene.tscn"
@@ -68,7 +69,7 @@ func open_pause_menu() -> void:
 	if _current is GameScene:
 		var game := _current as GameScene
 		var paused := game.set_simulation_paused(true)
-		menu.open_pause(true, paused)
+		menu.open_pause(true, paused, ClientState.reaction_policy_supported())
 	else:
 		menu.open_settings(false)
 
@@ -94,8 +95,16 @@ func _ensure_menu() -> SettingsMenu:
 		_menu.setup(settings if settings != null else GameSettings.new(settings_path))
 		_menu.quit_requested.connect(show_creator)
 		_menu.closed.connect(_on_menu_closed)
+		_menu.reactions_requested.connect(_on_reactions_requested)
 		add_child(_menu)
 	return _menu
+
+
+func _on_reactions_requested() -> void:
+	if _current is GameScene:
+		var game := _current as GameScene
+		if game.hud != null:
+			game.hud.open_reactions()
 
 
 func _on_character_created(sheet: CharacterSheet) -> void:

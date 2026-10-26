@@ -17,11 +17,14 @@ Code shared by `src/server/` and `src/client/`; depends only on `src/core/`.
   progression answers (subclass, fighting_style, expertise, skills,
   invocations, metamagic, feature_options) that `LevelUp.apply` checks. Exploration intents
   (`EXPLORE_INTENTS`): explore_move, use_stairs, short_rest, equip, unequip,
-  use_item, open_chest, drop_item, level_up. `use_item` is in both lists
-  (`is_dual_intent`): the server routes it by whether the actor is in combat.
+  use_item, cast, open_chest, drop_item, level_up, reaction_policy,
+  dismiss_companion (`companion_id`). `use_item`, `cast` and `reaction_policy`
+  are in both lists (`is_dual_intent`): the server routes them by whether the
+  actor is in combat (`cast` also takes `targets` [id] and `form`).
   Results: encounter_events, explore_state, error, floor_loaded (+ `chests`),
   character_state, game_over, floor_cleared, set_cleared, loot_gained,
-  chest_opened, chest_revealed, level_up_available.
+  chest_opened, chest_revealed, level_up_available, out_of_combat_events
+  (`{entity_id, spell, events: [{kind, ...}], slot_level, result}`).
 - `transport.gd` (`Transport`): the interface server and client code talk
   through (`send_intent`, `send_result`, `broadcast_result`, signals
   `intent_received` / `result_received`).

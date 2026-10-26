@@ -17,7 +17,17 @@ extends RefCounted
 ##                "retarget"?: bool}
 ##   cast        {"spell": id, "target"?: id, "slot_level"?: int 0..9,
 ##                "point"?: [x, y] (area spells), "sculpt"?: [id],
-##                "metamagic"?: [id], "twin_target"?: id}
+##                "metamagic"?: [id], "twin_target"?: id, "targets"?: [id],
+##                "form"?: monster id (Find Familiar / Animate Dead form)}
+##                                                    BOTH: resolved by the encounter
+##                                                    when the actor is in one, else
+##                                                    out of combat by the server
+##                                                    (OutOfCombat.cast: companions,
+##                                                    heals, temp HP, restorations,
+##                                                    revives, Mage Armor; long casting
+##                                                    times and rituals take no real
+##                                                    time in M2); answered with
+##                                                    OUT_OF_COMBAT_EVENTS + CHARACTER_STATE
 ##   use_feature {"feature": id, "target"?: id, "amount"?: int >= 0,
 ##                "mode"?: String, "slot_level"?: int 0..9,
 ##                "allocations"?: {id: int >= 1}, "frenzy"?: bool}
@@ -36,13 +46,18 @@ extends RefCounted
 ##   unequip     {"slot": "main_hand"|"off_hand"|"armor"}
 ##   open_chest  {"chest_id": id}                     on or adjacent to the chest
 ##   drop_item   {"item": id, "qty": int >= 1}        discarded (nothing on the floor in M2)
+##   dismiss_companion {"companion_id": id}           out of combat: removes a companion
+##                                                    (sheet.companions entry "id") from
+##                                                    the sheet; CHARACTER_STATE extra
+##                                                    "companion_dismissed"
 ##   reaction_policy {"policy": {trigger or reaction id: "auto"|"never"}}
 ##                                                    BOTH (any time, also off-turn):
 ##                                                    the server stores it and hands it
 ##                                                    to the character's encounters
-##                                                    (Encounter.set_reaction_policy when
-##                                                    the core has it); answered with
-##                                                    CHARACTER_STATE "reaction_policy"
+##                                                    (Encounter.set_reaction_policy; kept
+##                                                    across encounters and floors);
+##                                                    answered with CHARACTER_STATE
+##                                                    "reaction_policy"
 ##   level_up    {"choices": {"hp": "average"|"roll", "asi"?: {ABILITY: int},
 ##                "learn_cantrips"?: [id], "learn_spells"?: [id], "prepared"?: [id],
 ##                "subclass"?: id, "fighting_style"?: id, "expertise"?: [SKILL],
@@ -61,7 +76,18 @@ extends RefCounted
 ##                    extras: "entity_id", "healed", "xp_gained", "floor_clear_xp",
 ##                    "leveled_to" (after a level_up intent), "long_rest", "item_used",
 ##                    "equipped", "unequipped", "dropped", "slots_recovered" ([levels],
-##                    after a short_rest with recover_slots), "recovery_error"
+##                    after a short_rest with recover_slots), "recovery_error",
+##                    "reaction_policy", "spell_cast" (out-of-combat cast),
+##                    "companion_dismissed" {"id", "monster"}
+##                    sheet "companions" entries carry a server-given "id"
+##   out_of_combat_events {"entity_id": id, "spell": id, "events": [event dicts, each
+##                    with "kind"]}  an out-of-combat cast; extras "slot_level" and
+##                    "result" (OutOfCombat.cast's result dict). Event kinds:
+##                    cast {actor, spell, target, slot_level, casting_time, ritual},
+##                    companion_summoned {caster, spell, monster, count, companion_ids},
+##                    heal {target, amount, hp_after}, temp_hp {target, amount,
+##                    temp_hp_after}, revived {target, hp}, restored {target,
+##                    conditions_removed, exhaustion}, buff {target, buff, ac}
 ##   loot_gained      {"entity_id", "items": [{"item", "qty"}], "source": "chest"|"monster"|"floor"}
 ##                    extras: "chest_id" (chest loot)
 ##   chest_opened     {"chest_id": id}                  extras: "entity_id" (the opener)
@@ -98,6 +124,7 @@ const OPEN_CHEST := "open_chest"
 const DROP_ITEM := "drop_item"
 const LEVEL_UP := "level_up"
 const REACTION_POLICY := "reaction_policy"
+const DISMISS_COMPANION := "dismiss_companion"
 ## Reaction triggers of a reaction policy (Combatant.reaction_policy); a key
 ## may also be a reaction id. Values: "auto" (react when able) or "never".
 const REACTION_TRIGGERS: Array[String] = [
@@ -117,10 +144,11 @@ const MAX_SLOT_LEVEL := 9
 const ENCOUNTER_INTENTS: Array[String] = [
 	MOVE, STAND, ATTACK, DASH, DODGE, DISENGAGE, END_TURN, CAST, USE_ITEM, USE_FEATURE, REACTION_POLICY,
 ]
-## Intents resolved by the real-time floor simulation. USE_ITEM is in both
-## lists: the server routes it to the encounter when the actor is in one.
+## Intents resolved by the real-time floor simulation. USE_ITEM and CAST are
+## in both lists: the server routes them to the encounter when the actor is in one.
 const EXPLORE_INTENTS: Array[String] = [
-	EXPLORE_MOVE, USE_STAIRS, SHORT_REST, EQUIP, UNEQUIP, USE_ITEM, OPEN_CHEST, DROP_ITEM, LEVEL_UP, REACTION_POLICY,
+	EXPLORE_MOVE, USE_STAIRS, SHORT_REST, EQUIP, UNEQUIP, USE_ITEM, CAST, OPEN_CHEST, DROP_ITEM, LEVEL_UP,
+	REACTION_POLICY, DISMISS_COMPANION,
 ]
 
 # --- Result kinds (server -> client) ---
@@ -136,6 +164,7 @@ const LOOT_GAINED := "loot_gained"
 const CHEST_OPENED := "chest_opened"
 const CHEST_REVEALED := "chest_revealed"
 const LEVEL_UP_AVAILABLE := "level_up_available"
+const OUT_OF_COMBAT_EVENTS := "out_of_combat_events"
 
 ## LOOT_GAINED "source" values.
 const LOOT_SOURCE_CHEST := "chest"
@@ -144,7 +173,7 @@ const LOOT_SOURCE_FLOOR := "floor"
 
 const RESULT_KINDS: Array[String] = [
 	ENCOUNTER_EVENTS, EXPLORE_STATE, ERROR, FLOOR_LOADED, CHARACTER_STATE, GAME_OVER, FLOOR_CLEARED,
-	SET_CLEARED, LOOT_GAINED, CHEST_OPENED, CHEST_REVEALED, LEVEL_UP_AVAILABLE,
+	SET_CLEARED, LOOT_GAINED, CHEST_OPENED, CHEST_REVEALED, LEVEL_UP_AVAILABLE, OUT_OF_COMBAT_EVENTS,
 ]
 
 
@@ -174,14 +203,15 @@ static func is_intent_type(type: String) -> bool:
 	return ENCOUNTER_INTENTS.has(type) or EXPLORE_INTENTS.has(type)
 
 
-## True for intents only an Encounter resolves. USE_ITEM is NOT included (it is
-## valid both in and out of combat; see is_dual_intent).
+## True for intents only an Encounter resolves. USE_ITEM and CAST are NOT
+## included (they are valid both in and out of combat; see is_dual_intent).
 static func is_encounter_intent(d: Dictionary) -> bool:
 	var type := str(d.get("type", ""))
 	return ENCOUNTER_INTENTS.has(type) and not EXPLORE_INTENTS.has(type)
 
 
-## True for intents valid both in an encounter and out of combat (use_item).
+## True for intents valid both in an encounter and out of combat (use_item,
+## cast, reaction_policy).
 static func is_dual_intent(d: Dictionary) -> bool:
 	var type := str(d.get("type", ""))
 	return ENCOUNTER_INTENTS.has(type) and EXPLORE_INTENTS.has(type)
@@ -239,6 +269,10 @@ static func validate_intent(d: Dictionary) -> String:
 					return "cast: '%s' must be an array of non-empty strings" % key
 			if d.has("twin_target") and not Messages._is_non_empty_string(d["twin_target"]):
 				return "cast: 'twin_target' must be a non-empty string"
+			if d.has("targets") and not Messages._is_id_list(d["targets"]):
+				return "cast: 'targets' must be an array of non-empty strings"
+			if d.has("form") and not Messages._is_non_empty_string(d["form"]):
+				return "cast: 'form' must be a non-empty string"
 		USE_ITEM:
 			if not Messages._is_non_empty_string(d.get("item")):
 				return "use_item: missing or empty 'item'"
@@ -288,6 +322,9 @@ static func validate_intent(d: Dictionary) -> String:
 		LEVEL_UP:
 			if typeof(d.get("choices")) != TYPE_DICTIONARY:
 				return "level_up: 'choices' must be a dictionary"
+		DISMISS_COMPANION:
+			if not Messages._is_non_empty_string(d.get("companion_id")):
+				return "dismiss_companion: missing or empty 'companion_id'"
 		REACTION_POLICY:
 			if typeof(d.get("policy")) != TYPE_DICTIONARY:
 				return "reaction_policy: 'policy' must be a dictionary {trigger: \"auto\"|\"never\"}"
@@ -389,6 +426,16 @@ static func validate_result(d: Dictionary) -> String:
 				return "chest_revealed: chest without an 'id'"
 			if not Messages.is_position(chest.get("position")):
 				return "chest_revealed: chest '%s' has no [x, y] position" % str(chest.get("id"))
+		OUT_OF_COMBAT_EVENTS:
+			if not Messages._is_non_empty_string(d.get("entity_id")):
+				return "out_of_combat_events: missing or empty 'entity_id'"
+			if not Messages._is_non_empty_string(d.get("spell")):
+				return "out_of_combat_events: missing or empty 'spell'"
+			if typeof(d.get("events")) != TYPE_ARRAY:
+				return "out_of_combat_events: 'events' must be an array"
+			for e: Variant in (d["events"] as Array):
+				if typeof(e) != TYPE_DICTIONARY or not Messages._is_non_empty_string((e as Dictionary).get("kind")):
+					return "out_of_combat_events: every event must be a dictionary with a 'kind'"
 		LEVEL_UP_AVAILABLE:
 			if not Messages._is_non_empty_string(d.get("entity_id")):
 				return "level_up_available: missing or empty 'entity_id'"

@@ -1,7 +1,9 @@
 class_name SettingsMenu
 extends CanvasLayer
 ## Modal overlay with two pages:
-## - Pause (Escape in the game): Resume / Settings / Quit to character creator.
+## - Pause (Escape in the game): Resume / Reactions (in a game: closes the
+##   menu and opens the HUD's Reactions panel) / Settings / Quit to character
+##   creator.
 ##   The offline InstanceServer keeps ticking while it is open (M2: there is no
 ##   pause in an MMO instance; an offline game is paused by Main while open).
 ## - Settings (from Pause, or the creator's Settings button): tabs Audio
@@ -18,6 +20,9 @@ extends CanvasLayer
 
 signal closed
 signal quit_requested
+## The pause page's "Reactions" entry: the menu closed, the game should show
+## its reaction settings.
+signal reactions_requested
 signal applied(settings: GameSettings)
 
 enum Page { NONE, PAUSE, SETTINGS }
@@ -44,6 +49,7 @@ var _pause_note: Label
 var _settings_panel: PanelContainer
 var _resume_button: Button
 var _settings_button: Button
+var _reactions_button: Button
 var _quit_button: Button
 var _tabs: TabContainer
 var _sliders: Dictionary[String, HSlider] = {}
@@ -85,10 +91,12 @@ func is_capturing() -> bool:
 
 # --- Pages ----------------------------------------------------------------------
 
-## Pause page; `allow_quit` shows "Quit to character creator".
-func open_pause(allow_quit: bool = true, simulation_paused: bool = false) -> void:
+## Pause page; `allow_quit` shows "Quit to character creator", `show_reactions`
+## the "Reactions" entry.
+func open_pause(allow_quit: bool = true, simulation_paused: bool = false, show_reactions: bool = false) -> void:
 	_build_ui()
 	_quit_button.visible = allow_quit
+	_reactions_button.visible = show_reactions
 	_pause_title.text = "Paused" if simulation_paused else "Menu"
 	_pause_note.text = (
 		"Offline game: the dungeon waits while this menu is open."
@@ -133,7 +141,7 @@ func back() -> void:
 			working = settings.duplicate_settings()
 			settings.apply_audio()
 			if _from_pause:
-				open_pause(_quit_button.visible)
+				open_pause(_quit_button.visible, _pause_title.text == "Paused", _reactions_button.visible)
 			else:
 				close()
 		Page.PAUSE:
@@ -321,6 +329,10 @@ func _build_pause_panel() -> PanelContainer:
 	_pause_note = note
 	_resume_button = _button("Resume", close)
 	box.add_child(_resume_button)
+	_reactions_button = _button("Reactions", _on_reactions_pressed)
+	_reactions_button.tooltip_text = "Which reactions your character takes on its own"
+	_reactions_button.visible = false
+	box.add_child(_reactions_button)
 	_settings_button = _button("Settings", open_settings.bind(true))
 	box.add_child(_settings_button)
 	_quit_button = _button("Quit to character creator", _on_quit_pressed)
@@ -482,3 +494,8 @@ func _on_quit_pressed() -> void:
 		settings.apply_audio()
 	_show_page(Page.NONE)
 	quit_requested.emit()
+
+
+func _on_reactions_pressed() -> void:
+	close()
+	reactions_requested.emit()

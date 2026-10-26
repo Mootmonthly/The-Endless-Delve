@@ -268,3 +268,124 @@ func test_level_up_screen_choice_sections_and_cards() -> void:
 	assert_eq(LevelUp.apply(s, sent[0], {}, null), "", "the screen's answer is valid")
 	assert_true(screen._features_box.get_child_count() > 0, "feature cards")
 	screen.free()
+
+
+## A wizard exploring the _wizard_state() floor with Find Familiar and Shield prepared.
+func _ooc_wizard_state() -> ClientState:
+	var st := _wizard_state()
+	for id: String in ["find_familiar", "shield"]:
+		st.sheet.spells_known.append(id)
+		st.sheet.spells_prepared.append(id)
+	return st
+
+
+func _buttons_in(box: Container) -> Array[Button]:
+	var out: Array[Button] = []
+	for child in box.get_children():
+		if child is Button:
+			out.append(child as Button)
+		elif child is Container:
+			out.append_array(_buttons_in(child as Container))
+	return out
+
+
+func test_spells_popup_out_of_combat_casts_at_once() -> void:
+	var hud := Hud.new()
+	hud._ready()
+	var st := _ooc_wizard_state()
+	var sent: Array[Dictionary] = []
+	hud.intent_requested.connect(func(i: Dictionary) -> void: sent.append(i))
+	hud.refresh(st)
+	assert_false(hud._buttons["spells"].disabled, "Q works while exploring")
+	hud.toggle_spells()
+	assert_true(hud.is_spells_open())
+	var familiar: Button = null
+	var texts: PackedStringArray = []
+	for b in _buttons_in(hud._spells_box):
+		texts.append(b.text)
+		if b.text.begins_with("Find Familiar"):
+			familiar = b
+	assert_not_null(familiar, str(texts))
+	assert_has(familiar.text, "1 hour (ritual)")
+	assert_false(familiar.disabled)
+	for t in texts:
+		assert_false(t.begins_with("Fire Bolt"), "combat spells are hidden while exploring")
+	var forms: OptionButton = null
+	for row in hud._spells_box.get_children():
+		for child in row.get_children():
+			if child is OptionButton and (child as OptionButton).tooltip_text == "Form of the companion":
+				forms = child
+	assert_not_null(forms, "a form picker")
+	assert_eq(str(forms.get_selected_metadata()), "owl", "the default form")
+	for i in range(forms.item_count):
+		if str(forms.get_item_metadata(i)) == "cat":
+			forms.select(i)
+	familiar.pressed.emit()
+	assert_eq(sent.size(), 1)
+	assert_eq(sent[0].get("type"), Messages.CAST)
+	assert_eq(sent[0].get("spell"), "find_familiar")
+	assert_eq(sent[0].get("form"), "cat")
+	assert_false(hud.is_spells_open(), "the popup closes")
+	hud.free()
+
+
+func test_companions_line_and_dismiss_button() -> void:
+	var hud := Hud.new()
+	hud._ready()
+	var st := _ooc_wizard_state()
+	var sent: Array[Dictionary] = []
+	hud.intent_requested.connect(func(i: Dictionary) -> void: sent.append(i))
+	hud.refresh(st)
+	assert_false(hud._companions_box.visible, "no companions yet")
+	var sheet := st.sheet
+	sheet.companions = [{"id": "c1", "monster": "owl", "spell": "find_familiar", "hp": 1}] as Array[Dictionary]
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": sheet.to_dict()}))
+	hud.refresh(st)
+	assert_true(hud._companions_box.visible)
+	var title: Label = hud._companions_box.get_child(0)
+	assert_has(title.text, "Companions: Owl 1/")
+	var dismiss: Button = null
+	for b in _buttons_in(hud._companions_box):
+		if b.text == "Dismiss companion":
+			dismiss = b
+	assert_not_null(dismiss)
+	assert_false(dismiss.disabled)
+	dismiss.pressed.emit()
+	assert_eq(sent.size(), 1)
+	assert_eq(sent[0].get("type"), Messages.DISMISS_COMPANION)
+	assert_eq(sent[0].get("companion_id"), "c1")
+	hud.free()
+
+
+func test_reactions_popup_names_the_reactions_and_sends_the_policy() -> void:
+	var hud := Hud.new()
+	hud._ready()
+	var st := _ooc_wizard_state()
+	var sent: Array[Dictionary] = []
+	hud.intent_requested.connect(func(i: Dictionary) -> void: sent.append(i))
+	hud.refresh(st)
+	assert_true(hud._buttons["reactions"].visible, "the rules engine has reaction policies")
+	assert_false(hud._buttons["reactions"].disabled, "available out of combat")
+	hud.open_reactions()
+	assert_true(hud.is_reactions_open())
+	var reach: CheckBox = null
+	var hit: CheckBox = null
+	for child in hud._reactions_box.get_children():
+		if child is CheckBox:
+			var c := child as CheckBox
+			if c.text.begins_with("A creature leaves my reach"):
+				reach = c
+			elif c.text.begins_with("A creature hits me"):
+				hit = c
+	assert_not_null(reach)
+	assert_eq(reach.text, "A creature leaves my reach: Opportunity attack")
+	assert_not_null(hit)
+	assert_eq(hit.text, "A creature hits me: Shield")
+	assert_true(reach.button_pressed)
+	reach.button_pressed = false
+	assert_eq(sent.size(), 1)
+	assert_eq(sent[0].get("type"), Messages.REACTION_POLICY)
+	assert_eq(sent[0].get("policy"), {"creature_left_reach": "never"})
+	hud.open_reactions()
+	assert_true(hud.is_reactions_open(), "open_reactions never toggles it shut")
+	hud.free()

@@ -1620,12 +1620,248 @@ func test_reaction_policy_is_stored_and_handed_to_encounters() -> void:
 	var enc := server.get_encounter_for("p1")
 	assert_not_null(enc)
 	var me := enc.get_combatant("p1")
-	if "reaction_policy" in me:
-		assert_eq(me.get("reaction_policy"), {"creature_left_reach": "never"}, "the combatant joins with the policy")
+	assert_eq(me.reaction_policy, {"creature_left_reach": "never"}, "the combatant joins with the policy")
 	# Off-turn changes reach the active encounter too.
 	_send(Messages.REACTION_POLICY, {"policy": {"creature_left_reach": "auto", "creature_hit_me": "never"}})
 	_tick()
 	_flush()
 	assert_eq(_of_kind(Messages.ERROR).size(), 0, "allowed any time")
-	if "reaction_policy" in me:
-		assert_eq(me.get("reaction_policy"), {"creature_left_reach": "auto", "creature_hit_me": "never"})
+	assert_eq(me.reaction_policy, {"creature_left_reach": "auto", "creature_hit_me": "never"})
+
+
+## Sets p1's policy while exploring (when given), walks into z1 next to the
+## rat, ends the turn and makes the rat walk out of p1's reach. True when p1
+## made an opportunity attack.
+func _rat_walks_away(policy: Dictionary) -> bool:
+	var sheet := _fighter()
+	sheet.max_hp = 200
+	sheet.current_hp = 200
+	_setup(false, sheet)
+	var rat := server.get_entity(RAT).sheet
+	rat.max_hp = 500
+	rat.current_hp = 500
+	if not policy.is_empty():
+		_send(Messages.REACTION_POLICY, {"policy": policy})
+		_tick()
+		_flush()
+		assert_false(server.get_entity("p1").in_combat(), "the policy was set out of combat")
+	_walk_to(Vector2i(10, 1))
+	var enc := _wait_for_my_turn()
+	assert_not_null(enc, "p1's turn comes")
+	assert_eq(enc.get_combatant("p1").reaction_policy, policy, "the encounter got the stored policy")
+	_close_in(enc)
+	_send(Messages.END_TURN)
+	_tick()
+	_flush()
+	var rat_c := enc.get_combatant(RAT)
+	assert_eq(enc.current_actor(), rat_c, "the rat's turn, not resolved yet")
+	var me := enc.get_combatant("p1")
+	assert_true(GridMath.is_adjacent(me.position, rat_c.position), "the rat starts next to p1")
+	var path: Array[Vector2i] = []
+	for y in range(enc.region.position.y, enc.region.end.y):
+		for x in range(enc.region.position.x, enc.region.end.x):
+			var t := Vector2i(x, y)
+			if GridMath.distance_tiles(t, me.position) < 2 or not path.is_empty():
+				continue
+			var p := enc.walk_map.path_to(rat_c.position, t, enc.occupied_cells(RAT))
+			if not p.is_empty() and p.size() <= rat_c.movement_remaining:
+				path = p
+	assert_false(path.is_empty(), "a tile out of reach")
+	var res := enc.submit(Messages.make_intent(Messages.MOVE, {"actor": RAT, "path": GridMath.vec_list_to_arr(path)}))
+	assert_true(res.get("ok", false), str(res.get("error", "")))
+	for ev: Dictionary in res.get("events", []):
+		if str(ev.get("kind", "")) == "opportunity_attack" and str(ev.get("attacker", "")) == "p1":
+			return true
+	return false
+
+
+func test_reaction_policy_set_out_of_combat_applies_in_the_next_encounter() -> void:
+	assert_true(_rat_walks_away({}), "by default p1 makes the opportunity attack")
+	server.free()
+	before_each()
+	assert_false(_rat_walks_away({"creature_left_reach": "never"}), "never: no opportunity attack")
+
+
+func test_reaction_policy_persists_to_the_next_floor() -> void:
+	_setup_set(_fighter())
+	_send(Messages.REACTION_POLICY, {"policy": {"creature_hit_me": "never", "uncanny_dodge": "auto"}})
+	_tick()
+	_flush()
+	server._enter_floor(1, _floor_b())
+	_walk_to(Vector2i(2, 3))
+	var enc := server.get_encounter_for("p1")
+	assert_not_null(enc, "floor B's zone starts a fight")
+	assert_eq(enc.get_combatant("p1").reaction_policy, {"creature_hit_me": "never", "uncanny_dodge": "auto"})
+	assert_eq(enc.setup_snapshot().filter(func(d: Dictionary) -> bool: return str(d.get("id", "")) == "p1")[0].get("reaction_policy"),
+		{"creature_hit_me": "never", "uncanny_dodge": "auto"}, "part of the replay setup")
+
+
+# --- out-of-combat casting -------------------------------------------------------------
+
+func _wizard_with_familiar() -> CharacterSheet:
+	var sheet := _class_sheet("wizard", "Mage")
+	for list: Array[String] in [sheet.spells_known, sheet.spells_prepared]:
+		if not list.has("find_familiar"):
+			list.append("find_familiar")
+	return sheet
+
+
+func test_find_familiar_out_of_combat_adds_a_companion_that_joins_the_next_fight() -> void:
+	_setup(false, _wizard_with_familiar())
+	_flush()
+	results.clear()
+	_send(Messages.CAST, {"spell": "find_familiar", "slot_level": 1, "form": "cat"})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0, str(_of_kind(Messages.ERROR)))
+	var kinds: Array[String] = []
+	for r in results:
+		kinds.append(str(r["kind"]))
+		assert_eq(Messages.validate_result(r), "", "well-formed %s" % str(r["kind"]))
+	assert_eq(kinds, [Messages.OUT_OF_COMBAT_EVENTS, Messages.CHARACTER_STATE] as Array[String])
+	var ooc := results[0]
+	assert_eq(str(ooc["entity_id"]), "p1")
+	assert_eq(str(ooc["spell"]), "find_familiar")
+	assert_eq(int(ooc["slot_level"]), 1)
+	var events: Array = ooc["events"]
+	assert_eq(str(events[0]["kind"]), "cast")
+	assert_eq(str(events[0]["casting_time"]), "1_hour", "a long casting time resolves at once in M2")
+	assert_true(events[0]["ritual"] == true)
+	assert_eq(str(events[1]["kind"]), "companion_summoned")
+	assert_eq(str(events[1]["monster"]), "cat")
+	assert_eq(events[1]["companion_ids"], ["c1"])
+	var me := server.get_entity("p1")
+	assert_eq(me.sheet.companions.size(), 1)
+	assert_eq(str(me.sheet.companions[0]["monster"]), "cat")
+	assert_eq(str(me.sheet.companions[0]["id"]), "c1")
+	assert_eq(me.sheet.slots_left(1), 1, "a 1st-level slot was spent")
+	var state := results[1]
+	assert_eq(str(state["spell_cast"]), "find_familiar")
+	assert_eq(str((state["sheet"]["companions"] as Array)[0]["id"]), "c1", "the client sees the id")
+	# The next encounter spawns it next to its owner.
+	_walk_to(Vector2i(10, 1))
+	var enc := server.get_encounter_for("p1")
+	assert_not_null(enc)
+	var familiar: Dictionary = {}
+	for e in _all_events():
+		if str(e.get("kind", "")) == "combatant_joined" and str(e.get("owner", "")) == "p1":
+			familiar = e
+	assert_false(familiar.is_empty(), "combatant_joined with owner p1")
+	var fam := enc.get_combatant(str(familiar["id"]))
+	assert_not_null(fam)
+	assert_eq(fam.monster_id, "cat")
+	assert_true(GridMath.distance_tiles(fam.position, enc.get_combatant("p1").position) <= 1, "beside the owner")
+
+
+func test_cure_wounds_out_of_combat_heals_and_spends_a_slot() -> void:
+	var sheet := _class_sheet("cleric", "Priest")
+	sheet.current_hp = 100
+	_setup(true, sheet)
+	_flush()
+	results.clear()
+	_send(Messages.CAST, {"spell": "cure_wounds", "target": "p1"})
+	_tick()
+	_flush()
+	assert_eq(_of_kind(Messages.ERROR).size(), 0, str(_of_kind(Messages.ERROR)))
+	var me := server.get_entity("p1")
+	assert_true(me.sheet.current_hp > 100, "healed")
+	assert_eq(me.sheet.slots_left(1), 1, "a slot spent")
+	var ooc := _last(Messages.OUT_OF_COMBAT_EVENTS)
+	var heal: Dictionary = (ooc["events"] as Array)[1]
+	assert_eq(str(heal["kind"]), "heal")
+	assert_eq(int(heal["amount"]), me.sheet.current_hp - 100)
+	assert_eq(int(heal["hp_after"]), me.sheet.current_hp)
+	assert_eq(int(_last(Messages.CHARACTER_STATE)["sheet"]["current_hp"]), me.sheet.current_hp)
+	# Same seed, same heal: the cast stream is deterministic.
+	var healed := me.sheet.current_hp
+	server.free()
+	before_each()
+	var again := _class_sheet("cleric", "Priest")
+	again.current_hp = 100
+	_setup(true, again)
+	_send(Messages.CAST, {"spell": "cure_wounds"})
+	_tick()
+	_flush()
+	assert_eq(server.get_entity("p1").sheet.current_hp, healed)
+
+
+func test_out_of_combat_cast_rejections() -> void:
+	var sheet := _wizard_with_familiar()
+	_setup(true, sheet)
+	_flush()
+	var me := server.get_entity("p1")
+	var cases: Array[Array] = [
+		[{"spell": "fire_bolt", "target": RAT}, "yourself"],
+		[{"spell": "fire_bolt"}, "outside a fight"],
+		[{"spell": "magic_missile"}, "outside a fight"],
+		[{"spell": "cure_wounds"}, "has not prepared"],
+		[{"spell": "no_such_spell"}, "unknown spell"],
+		[{"spell": "find_familiar", "form": "ogre"}, "cannot bring"],
+	]
+	for c in cases:
+		results.clear()
+		_send(Messages.CAST, c[0])
+		_tick()
+		_flush()
+		var errors := _of_kind(Messages.ERROR)
+		assert_eq(errors.size(), 1, "rejected: %s" % str(c[0]))
+		if errors.size() == 1:
+			assert_has(str(errors[0]["message"]), str(c[1]))
+		assert_eq(_of_kind(Messages.OUT_OF_COMBAT_EVENTS).size(), 0)
+	assert_eq(me.sheet.slots_left(1), 2, "no slot spent by a rejected cast")
+	assert_true(me.sheet.companions.is_empty())
+	# No slot left.
+	me.sheet.use_spell_slot(1)
+	me.sheet.use_spell_slot(1)
+	results.clear()
+	_send(Messages.CAST, {"spell": "find_familiar"})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR).get("message", "")), "no level 1+ spell slot")
+	# Unconscious, then dead.
+	me.sheet.spell_slots[0] = 2
+	me.sheet.current_hp = 0
+	_send(Messages.CAST, {"spell": "find_familiar"})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR).get("message", "")), "cannot cast")
+	me.sheet.kill()
+	_send(Messages.CAST, {"spell": "find_familiar"})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR).get("message", "")), "is dead")
+	assert_true(me.sheet.companions.is_empty())
+
+
+func test_dismiss_companion() -> void:
+	_setup(false, _wizard_with_familiar())
+	_send(Messages.CAST, {"spell": "find_familiar"})
+	_tick()
+	_flush()
+	var me := server.get_entity("p1")
+	assert_eq(me.sheet.companions.size(), 1)
+	results.clear()
+	_send(Messages.DISMISS_COMPANION, {"companion_id": "c9"})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR).get("message", "")), "no companion 'c9'")
+	_send(Messages.DISMISS_COMPANION, {"companion_id": "c1"})
+	_tick()
+	_flush()
+	assert_true(me.sheet.companions.is_empty(), "dismissed")
+	var state := _last(Messages.CHARACTER_STATE)
+	assert_eq(state.get("companion_dismissed"), {"id": "c1", "monster": "owl"})
+	assert_eq((state["sheet"]["companions"] as Array).size(), 0)
+	# A new familiar gets a fresh id; dismissing is refused in a fight.
+	_send(Messages.CAST, {"spell": "find_familiar"})
+	_tick()
+	_flush()
+	assert_eq(str(me.sheet.companions[0]["id"]), "c2")
+	_walk_to(Vector2i(10, 1))
+	assert_true(me.in_combat())
+	results.clear()
+	_send(Messages.DISMISS_COMPANION, {"companion_id": "c2"})
+	_tick()
+	_flush()
+	assert_has(str(_last(Messages.ERROR).get("message", "")), "in combat")
+	assert_eq(me.sheet.companions.size(), 1)

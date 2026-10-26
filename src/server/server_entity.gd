@@ -27,8 +27,11 @@ var encounter_id: String = ""  # "" while exploring
 var combatant: Combatant = null  # set while in an encounter
 var step_timer: int = 0  # ticks since the last exploration step
 ## Players: reaction policy (trigger or reaction id -> "auto" | "never"),
-## handed to every encounter it joins.
+## handed to every encounter it joins (kept across encounters and floors).
 var reaction_policy: Dictionary = {}
+## Players: last number used for a companion id ("c<n>", see
+## InstanceServer._stamp_companion_ids).
+var companion_serial: int = 0
 
 
 func is_player() -> bool:
@@ -63,8 +66,7 @@ func make_combatant() -> Combatant:
 		for attack in attacks:
 			c.attacks.append(attack.duplicate(true))
 	c.position = position
-	if not reaction_policy.is_empty() and "reaction_policy" in c:
-		c.set("reaction_policy", reaction_policy.duplicate())  # cores without the policy ignore it
+	c.reaction_policy = reaction_policy.duplicate()
 	return c
 
 

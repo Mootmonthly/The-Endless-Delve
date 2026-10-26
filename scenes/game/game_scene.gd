@@ -19,7 +19,7 @@ extends Node2D
 ## targeting mode; right click or `cancel` (Escape) = leave targeting mode,
 ## then close HUD panels (else Main opens the pause menu); move_* = one step;
 ## end_turn; action_attack / action_dash / action_dodge / action_disengage;
-## open_spells; open_features; toggle_inventory; descend; rest; mouse wheel
+## open_spells (also while exploring: out-of-combat casts); open_features; toggle_inventory; descend; rest; mouse wheel
 ## = zoom. The LevelUpScreen opens by itself on a new LEVEL_UP_AVAILABLE when
 ## out of combat; the HUD's "Level up available" button reopens it.
 ## While an area spell is aimed, the ReachOverlay shows its footprint under

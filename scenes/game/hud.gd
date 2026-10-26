@@ -6,7 +6,9 @@ extends CanvasLayer
 ##   divinity, lay on hands pool, bardic inspiration with its die, rage,
 ##   action surge, ...), gold, floor, mode, movement / action (with the
 ##   "Attack 2/2" counter of Extra Attack) / bonus action / reaction, the
-##   targeting hint and a "Level up available" button;
+##   targeting hint, a "Level up available" button and the Companions line
+##   (name, hp per companion on the sheet, with a Dismiss button while
+##   exploring);
 ## - initiative order with status tags (dodging, raging, marked, ...),
 ##   conditions with their remaining duration and the concentration spell;
 ## - attack options row (only the character's): Reckless, Divine Smite slot,
@@ -16,13 +18,20 @@ extends CanvasLayer
 ##   End Turn [Space], Inventory [Tab], Short rest [R] and the stairs [F];
 ## - Spells popup (prepared spells, upcast slot choice per leveled spell, a
 ##   metamagic picker for sorcerers, a concentration warning, greyed out when
-##   not castable now or not supported by the rules engine yet) and Features
+##   not castable now or not supported by the rules engine yet). While
+##   exploring it lists the spells that work outside a fight (companions,
+##   heals, temporary HP, restorations, Mage Armor) with their casting time
+##   and a form picker for Find Familiar / Animate Dead; they cast at once on
+##   yourself (no real-time wait for long casting times in M2). Features
 ##   popup (every usable feature with its cost and resource: Second Wind,
 ##   Action Surge, Rage / Frenzy, Lay on Hands with an amount, Bardic
 ##   Inspiration, ki features with their modes, Channel Divinity, Font of
 ##   Magic, Pact Weapon, and the bonus-action attacks);
-## - Reactions popup (when the rules engine has reaction policies): one check
-##   box per trigger, sent as the reaction_policy intent;
+## - Reactions popup (in and out of combat; also reachable from the pause
+##   menu): one check box per trigger with the reactions of this character it
+##   governs (opportunity attack, Shield, Uncanny Dodge, Counterspell, ...),
+##   and one check box per reaction when a trigger governs several, sent as
+##   the reaction_policy intent;
 ## - InventoryPanel (Tab): equipment slots, items with icon / qty / weight,
 ##   weapon properties (two-handed, light, versatile...) and Use / Equip /
 ##   Unequip / Drop, gold, carried weight and the AC breakdown;
@@ -49,13 +58,7 @@ const POPUP_WIDTH := 380
 const ICON_SIZE := 24
 const GREY := Color(0.6, 0.6, 0.6)
 const WARN := Color(1.0, 0.7, 0.45)
-## Reaction policy triggers shown in the Reactions popup.
-const REACTION_LABELS: Dictionary[String, String] = {
-	"creature_left_reach": "A creature leaves my reach (opportunity attack)",
-	"creature_hit_me": "A creature hits me", "damage_taken": "I take damage", "missed": "An attack misses me",
-	"failed_save": "I fail a saving throw", "ally_attacked": "An ally is attacked", "ally_hit": "An ally is hit",
-	"spell_cast_in_range": "A spell is cast within range",
-}
+const ALLY_TINT := Color(0.7, 1.0, 0.75)
 
 var _state: ClientState = null
 var _icons: EntityIcons = null
@@ -72,6 +75,8 @@ var _mode_label: Label
 var _turn_label: Label
 var _hint_label: Label
 var _level_up_button: Button
+var _companions_box: VBoxContainer
+var _companions_key: String = ""
 var _order_label: Label
 var _order_panel: PanelContainer
 var _log: RichTextLabel
@@ -176,6 +181,10 @@ func _build_status(root: Control) -> void:
 	_level_up_button.visible = false
 	_level_up_button.modulate = Color(1.0, 0.95, 0.5)
 	box.add_child(_level_up_button)
+	_companions_box = VBoxContainer.new()
+	_companions_box.modulate = ALLY_TINT
+	_companions_box.visible = false
+	box.add_child(_companions_box)
 
 
 func _build_order(root: Control) -> void:
@@ -329,7 +338,7 @@ func _popup_panel(root: Control, title_text: String) -> Array:
 
 
 func _build_spells_popup(root: Control) -> void:
-	var parts := _popup_panel(root, "Spells (prepared)")
+	var parts := _popup_panel(root, "Spells (prepared) [Q]")
 	_spells_panel = parts[0]
 	_spells_box = parts[1]
 
@@ -472,6 +481,20 @@ func toggle_reactions() -> void:
 		refresh(_state)
 
 
+## Opens the Reactions popup (the pause menu's "Reactions" entry).
+func open_reactions() -> void:
+	if not _reactions_panel.visible:
+		toggle_reactions()
+
+
+func is_reactions_open() -> bool:
+	return _reactions_panel.visible
+
+
+func is_spells_open() -> bool:
+	return _spells_panel.visible
+
+
 func toggle_features() -> void:
 	var show := not _features_panel.visible
 	close_popups()
@@ -556,6 +579,7 @@ func refresh(state: ClientState) -> void:
 	_level_up_button.disabled = not state.can_level_up()
 	_level_up_button.text = "Level up available! (level %d)" % DictUtil.to_int(state.level_up_offer.get("new_level", 0), 0) \
 		if state.can_level_up() else "Level up available after the fight"
+	_refresh_companions(state)
 	_refresh_order(state)
 	_refresh_attack_picker(state)
 	var my_action := state.can_take_action()
@@ -606,6 +630,37 @@ func refresh(state: ClientState) -> void:
 
 
 # --- sections ---------------------------------------------------------------------
+
+## The Companions line and, while exploring, a Dismiss button per companion.
+func _refresh_companions(state: ClientState) -> void:
+	var entries := state.companion_entries()
+	var can_dismiss := state.can_dismiss_companion()
+	var key := "%s|%s" % [str(entries), can_dismiss]
+	if key == _companions_key:
+		return
+	_companions_key = key
+	_clear(_companions_box)
+	_companions_box.visible = not entries.is_empty()
+	if entries.is_empty():
+		return
+	var title := Label.new()
+	title.text = state.companions_text()
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_companions_box.add_child(title)
+	for c in entries:
+		var cid := str(c["id"])
+		if cid.is_empty():
+			continue
+		var row := HBoxContainer.new()
+		_companions_box.add_child(row)
+		var l := Label.new()
+		l.text = "%s (%s)" % [str(c["name"]), state.spell_name(str(c["spell"]))]
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
+		var b := _make_button("Dismiss companion", func() -> void: intent_requested.emit(state.dismiss_companion_intent(cid)))
+		b.disabled = not can_dismiss
+		b.tooltip_text = "Send %s away for good" % str(c["name"]) if can_dismiss else "Only while exploring"
+		row.add_child(b)
 
 func _refresh_order(state: ClientState) -> void:
 	_order_panel.visible = state.in_encounter
@@ -679,17 +734,28 @@ func _refresh_attack_picker(state: ClientState) -> void:
 
 
 func _refresh_spells(state: ClientState) -> void:
-	var entries := state.spell_entries()
-	var key := "%s|%s|%s|%s" % [str(entries), state.slots_text(), str(state.concentration), state.resources_text()]
+	var all_entries := state.spell_entries()
+	var exploring := not state.in_encounter
+	var entries: Array[Dictionary] = []
+	for entry in all_entries:
+		if not exploring or bool(entry["out_of_combat"]):
+			entries.append(entry)
+	var key := "%s|%s|%s|%s|%s" % [str(entries), state.slots_text(), str(state.concentration), state.resources_text(), exploring]
 	if key == _spells_key:
 		return
 	_spells_key = key
 	_clear(_spells_box)
-	if entries.is_empty():
+	if all_entries.is_empty():
 		_spells_box.add_child(_note("No prepared spells."))
 		return
 	if not state.slots_text().is_empty():
 		_spells_box.add_child(_note(state.slots_text()))
+	if exploring:
+		var hidden := all_entries.size() - entries.size()
+		_spells_box.add_child(_note("Out of combat: spells cast on yourself at once, long casting times included.%s" % (
+			" %d combat spell%s hidden." % [hidden, "" if hidden == 1 else "s"] if hidden > 0 else "")))
+		if entries.is_empty():
+			_spells_box.add_child(_note("None of your prepared spells works outside a fight."))
 	for entry in entries:
 		var row := HBoxContainer.new()
 		_spells_box.add_child(row)
@@ -710,6 +776,8 @@ func _refresh_spells(state: ClientState) -> void:
 				meta_picker.set_item_tooltip(mi, str(m["error"]))
 		var label := "%s (%s%s, %s)" % [str(entry["name"]), "cantrip" if level == 0 else ClientState.ordinal(level) + " level",
 			", bonus" if bool(entry["bonus"]) else "", _range_text(int(entry["range_tiles"]), str(entry["target"]))]
+		if exploring or not ClientState.is_quick_casting_time(str(entry["casting_time"])) or bool(entry["ritual"]):
+			label += " - %s" % str(entry["casting_time_text"])
 		var slot_picker: OptionButton = null
 		var slots: Array[int] = []
 		slots.assign(entry["slots"])
@@ -719,6 +787,18 @@ func _refresh_spells(state: ClientState) -> void:
 			for s in slots:
 				slot_picker.add_item("%s slot (%d)" % [ClientState.ordinal(s), state.sheet.slots_left(s)], s)
 		var spell := state.spell_def(id)
+		var form_picker: OptionButton = null
+		var forms := DictUtil.to_string_array(spell.raw_effect.get("forms", [])) if spell != null and exploring else ([] as Array[String])
+		if forms.size() > 1:
+			form_picker = OptionButton.new()
+			form_picker.focus_mode = Control.FOCUS_NONE
+			form_picker.tooltip_text = "Form of the companion"
+			var default_form := str(spell.raw_effect.get("monster", ""))
+			for f in forms:
+				form_picker.add_item(state.monster_name(f))
+				form_picker.set_item_metadata(form_picker.item_count - 1, f)
+				if f == default_form:
+					form_picker.select(form_picker.item_count - 1)
 		if spell != null and spell.is_area():
 			label += ", %d ft %s" % [spell.area_size_ft, spell.area_shape]
 		if spell != null and spell.concentration:
@@ -731,7 +811,8 @@ func _refresh_spells(state: ClientState) -> void:
 			var meta: Array[String] = []
 			if meta_picker != null and not str(meta_picker.get_selected_metadata()).is_empty():
 				meta.append(str(meta_picker.get_selected_metadata()))
-			_begin_cast(id, slot, meta))
+			var form := str(form_picker.get_selected_metadata()) if form_picker != null and form_picker.selected >= 0 else ""
+			_begin_cast(id, slot, meta, form))
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var error := str(entry["error"])
@@ -750,6 +831,9 @@ func _refresh_spells(state: ClientState) -> void:
 		if meta_picker != null:
 			meta_picker.disabled = b.disabled
 			row.add_child(meta_picker)
+		if form_picker != null:
+			form_picker.disabled = b.disabled
+			row.add_child(form_picker)
 
 
 static func _range_text(tiles: int, target: String) -> String:
@@ -821,21 +905,43 @@ func _refresh_features(state: ClientState) -> void:
 			row.add_child(_lay_amount)
 
 
-## One check box per trigger: checked = react automatically ("auto").
+## One check box per trigger (checked = react automatically, "auto") naming
+## the character's reactions it governs; a trigger with several of them gets
+## one indented check box per reaction too.
 func _refresh_reactions(state: ClientState) -> void:
-	var key := str(state.reaction_policy)
+	var entries := state.reaction_entries()
+	var key := str(entries)
 	if key == _reactions_key:
 		return
 	_reactions_key = key
 	_clear(_reactions_box)
-	for trigger: String in Messages.REACTION_TRIGGERS:
+	_reactions_box.add_child(_note("Reactions resolve on their own when checked; settings are kept between fights and floors."))
+	for entry in entries:
+		var trigger := str(entry["trigger"])
+		var mine: Array[Dictionary] = []
+		mine.assign(entry["reactions"])
+		var names: PackedStringArray = []
+		for r in mine:
+			names.append(str(r["name"]))
 		var c := CheckBox.new()
-		c.text = REACTION_LABELS.get(trigger, trigger.replace("_", " "))
+		c.text = "%s: %s" % [str(entry["label"]), ", ".join(names) if not names.is_empty() else "none of yours yet"]
 		c.focus_mode = Control.FOCUS_NONE
-		c.button_pressed = state.reacts_to(trigger)
-		var t := trigger
-		c.toggled.connect(func(on: bool) -> void: intent_requested.emit(state.reaction_policy_intent(t, on)))
+		c.button_pressed = bool(entry["on"])
+		c.tooltip_text = "Trigger: %s" % trigger
+		if names.is_empty():
+			c.modulate = GREY
+		c.toggled.connect(func(on: bool) -> void: intent_requested.emit(state.reaction_toggle_intent(trigger, "", on)))
 		_reactions_box.add_child(c)
+		if mine.size() < 2:
+			continue
+		for r in mine:
+			var rid := str(r["id"])
+			var sub := CheckBox.new()
+			sub.text = "    %s" % str(r["name"])
+			sub.focus_mode = Control.FOCUS_NONE
+			sub.button_pressed = bool(r["on"])
+			sub.toggled.connect(func(on: bool) -> void: intent_requested.emit(state.reaction_toggle_intent(trigger, rid, on)))
+			_reactions_box.add_child(sub)
 
 
 ## Font of Magic: a picker of create / convert choices and a Use button.
@@ -1003,11 +1109,11 @@ func _on_attack_picked(index: int) -> void:
 	state_changed.emit()
 
 
-func _begin_cast(spell_id: String, slot_level: int, metamagic: Array[String] = []) -> void:
+func _begin_cast(spell_id: String, slot_level: int, metamagic: Array[String] = [], form: String = "") -> void:
 	if _state == null:
 		return
 	close_popups()
-	var intent := _state.begin_cast(spell_id, slot_level, metamagic)
+	var intent := _state.begin_cast(spell_id, slot_level, metamagic, {"form": form} if not form.is_empty() else {})
 	if not intent.is_empty():
 		intent_requested.emit(intent)
 	state_changed.emit()

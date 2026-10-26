@@ -48,3 +48,15 @@ Tests: `tests/client/test_client_progression.gd` (every new event and field),
 `test_offline_smoke_progression.gd` (a wizard with Burning Hands and Fire Bolt,
 a fighter to level 5 on a six-floor in-test set), `test_hud.gd` (HUD and
 level-up screen sections off-tree).
+
+## Out of combat: casting, companions, reactions
+| Where | Class | Role |
+|---|---|---|
+| `src/client/client_state.gd` | `ClientState` | while exploring `cast_error` follows `OutOfCombat.cast` (`castable_out_of_combat`: companions, heals, temp HP, restorations, Mage Armor; the player is the only target in M2) and `begin_cast` returns the cast intent at once (`form` for Find Familiar / Animate Dead); `spell_entries` carry `casting_time` / `casting_time_text` ("1 hour (ritual)") / `ritual` / `out_of_combat`; OUT_OF_COMBAT_EVENTS logs the cast and its outcome; `companion_entries` / `companions_text` / `dismiss_companion_intent`; summons and companions in a fight (`combatant_joined` with `owner`) are `KIND_ALLY`; `reaction_entries` (trigger label + the character's reactions it governs), `reaction_toggle_intent`, `reacts_with`, `has_reaction` |
+| `scenes/game/hud.gd` | `Hud` | Spells popup (Q) while exploring: only out-of-combat spells, casting time, form picker; Companions line with "Dismiss companion"; Reactions popup naming each trigger's reactions, per-reaction boxes when a trigger governs several; `open_reactions` |
+| `scenes/ui/settings_menu.gd`, `scenes/main.gd` | `SettingsMenu`, `Main` | pause page "Reactions" entry (`reactions_requested`) opens the HUD's Reactions popup |
+
+Long casting times (1 minute, 10 minutes, 1 hour) and rituals take no real
+time in M2: the server resolves the cast at once (a ritual still spends a slot).
+Tests: `test_client_out_of_combat.gd`, `test_hud.gd`, `test_game_settings.gd`,
+`test_offline_smoke_progression.gd` (Find Familiar before the first fight).

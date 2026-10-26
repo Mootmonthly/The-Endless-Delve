@@ -64,15 +64,31 @@ extends RefCounted
 ##   the point; area_preview(tile) gives the footprint and the creatures it
 ##   would catch (Sculpt Spells allies left out). Metamagic rides on cast
 ##   intents; Twinned Spell asks for a second target.
-## - `reaction_policy` (CHARACTER_STATE "reaction_policy") and
-##   reaction_policy_intent() when the core has reaction policies
-##   (reaction_policy_supported()); reaction_used / damage_reduced mark the
-##   player's reaction as spent.
+## - `reaction_policy` (CHARACTER_STATE "reaction_policy"),
+##   reaction_entries() (each trigger with its label and the player's own
+##   reactions it governs: opportunity attack, Shield, Uncanny Dodge, ...) and
+##   reaction_policy_intent() / reaction_toggle_intent(); usable in and out of
+##   combat. reaction_used / damage_reduced mark the player's reaction as spent.
+##
+## Out of combat (round B UI):
+## - spell_entries() carry "casting_time" / "casting_time_text" / "ritual" /
+##   "out_of_combat"; while exploring cast_error() follows OutOfCombat.cast
+##   (companions, heals, temp HP, restorations, Mage Armor; the player is the
+##   only target in M2) and begin_cast() returns the cast intent at once.
+## - OUT_OF_COMBAT_EVENTS logs the cast and its outcome (companion summoned,
+##   heal, temp HP, revive, restoration, buff); the CHARACTER_STATE after it
+##   carries the new sheet (slots, companions, hp).
+## - companion_entries() / companions_text() read sheet.companions (server
+##   ids "c<n>"); dismiss_companion_intent() removes one (exploring only).
+## - Summons and companions in a fight (combatant_joined with "owner") are
+##   KIND_ALLY entities: never hostile, never valid ally-spell targets.
 
 enum Mode { LOADING, EXPLORING, COMBAT, GAME_OVER, FLOOR_CLEARED, SET_CLEARED }
 
 const KIND_PLAYER := "player"
 const KIND_MONSTER := "monster"
+## A summon or companion fighting on the players' side (combatant_joined "owner").
+const KIND_ALLY := "ally"
 const PLAYER_ID_PREFIX := "p"
 const MAX_LOG_LINES := 200
 const TEAM_PLAYERS := 0
@@ -125,6 +141,33 @@ const FEATURE_NAMES: Dictionary[String, String] = {
 }
 const SLOT_NAMES: Dictionary[String, String] = {"main_hand": "Main hand", "off_hand": "Off hand", "armor": "Armor"}
 const LOOT_SOURCES: Dictionary[String, String] = {"chest": "from the chest", "monster": "from the fallen", "floor": "found on the floor"}
+## Reaction policy triggers (Messages.REACTION_TRIGGERS) as the player reads them.
+const REACTION_TRIGGER_LABELS: Dictionary[String, String] = {
+	"creature_left_reach": "A creature leaves my reach",
+	"creature_hit_me": "A creature hits me", "damage_taken": "I take damage", "missed": "An attack misses me",
+	"failed_save": "I fail a saving throw", "ally_attacked": "An ally next to me is attacked", "ally_hit": "An ally is hit",
+	"spell_cast_in_range": "A hostile casts a spell within range",
+}
+## The reactions (and save rescues) each trigger governs, as the Encounter checks them.
+const REACTIONS_BY_TRIGGER: Dictionary[String, Array] = {
+	"creature_left_reach": ["opportunity_attack"],
+	"creature_hit_me": ["shield", "deflect_missiles", "uncanny_dodge", "giant_killer"],
+	"damage_taken": ["hellish_rebuke", "retaliation"],
+	"missed": ["stand_against_the_tide", "giant_killer"],
+	"failed_save": ["dark_ones_own_luck", "indomitable", "diamond_soul"],
+	"ally_attacked": ["protection"],
+	"ally_hit": ["cutting_words"],
+	"spell_cast_in_range": ["counterspell"],
+}
+const REACTION_NAMES: Dictionary[String, String] = {
+	"opportunity_attack": "Opportunity attack", "shield": "Shield", "deflect_missiles": "Deflect Missiles",
+	"uncanny_dodge": "Uncanny Dodge", "giant_killer": "Giant Killer", "hellish_rebuke": "Hellish Rebuke",
+	"retaliation": "Retaliation", "stand_against_the_tide": "Stand Against the Tide",
+	"dark_ones_own_luck": "Dark One's Own Luck", "indomitable": "Indomitable", "diamond_soul": "Diamond Soul",
+	"protection": "Protection (fighting style)", "cutting_words": "Cutting Words", "counterspell": "Counterspell",
+}
+## Reactions that are spells (need the spell prepared).
+const REACTION_SPELLS: Array[String] = ["shield", "hellish_rebuke", "counterspell"]
 
 var player_id: String = ""
 var mode: Mode = Mode.LOADING
@@ -282,6 +325,8 @@ func apply(result: Dictionary) -> void:
 			_log("%s cleared! You reach the safe zone." % (set_name if not set_name.is_empty() else "The set"))
 		Messages.LOOT_GAINED:
 			_apply_loot(result)
+		Messages.OUT_OF_COMBAT_EVENTS:
+			_apply_out_of_combat(result)
 		Messages.CHEST_OPENED:
 			var chest_id := str(result["chest_id"])
 			if chests.has(chest_id):
@@ -353,6 +398,9 @@ func _apply_character_state(result: Dictionary) -> void:
 	if typeof(result.get("reaction_policy")) == TYPE_DICTIONARY:
 		reaction_policy = (result["reaction_policy"] as Dictionary).duplicate()
 		_log("Reaction settings saved.")
+	if typeof(result.get("companion_dismissed")) == TYPE_DICTIONARY:
+		var gone: Dictionary = result["companion_dismissed"]
+		_log("%s dismisses the %s." % [who, monster_name(str(gone.get("monster", "")))])
 	var recovered := DictUtil.to_string_array(result.get("slots_recovered", []))
 	if not recovered.is_empty():
 		var levels: PackedStringArray = []
@@ -520,6 +568,7 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 		"combatant_joined":
 			var id := str(ev.get("id", ""))
 			_apply_world_effect(ev)
+			_mark_ally(ev)
 			initiatives[id] = DictUtil.to_int(ev.get("initiative", 0), 0)
 			if in_encounter:
 				if not order.has(id):
@@ -716,6 +765,18 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 			_apply_world_effect(ev)
 			_log("%s is destroyed by %s's %s!" % [display_name(str(ev.get("target", ""))), display_name(str(ev.get("source", ""))),
 				ClientState.feature_name(str(ev.get("feature", "destroy_undead")))])
+		"summoned":
+			var id := str(ev.get("id", ""))
+			var monster := str(ev.get("monster", ""))
+			if entities.has(id) and not monster.is_empty():
+				var e: Dictionary = entities[id]
+				e["monster_id"] = monster
+			if in_encounter or str(ev.get("caster", "")) == player_id:
+				_log("%s's %s appears." % [display_name(str(ev.get("caster", ""))), monster_name(monster) if not monster.is_empty() else display_name(id)])
+		"summon_ended":
+			var id := str(ev.get("id", ""))
+			if in_encounter:
+				_log("%s %s." % [display_name(id), "falls" if str(ev.get("reason", "")) == "dropped" else "vanishes"])
 		"combatant_removed":
 			var id := str(ev.get("id", ""))
 			order.erase(id)
@@ -734,6 +795,68 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 					_log("The fight is over.")
 		_:
 			pass
+
+
+## A combatant_joined with an "owner" (summons, companions) is an ally: it
+## keeps its name, owner and hit points and is never a hostile.
+func _mark_ally(ev: Dictionary) -> void:
+	var owner := str(ev.get("owner", ""))
+	if owner.is_empty():
+		return
+	var e := _entity_or_new(str(ev.get("id", "")))
+	e["kind"] = KIND_ALLY
+	e["owner"] = owner
+	if typeof(ev.get("name")) == TYPE_STRING and not str(ev["name"]).is_empty():
+		e["name"] = str(ev["name"])
+	if DictUtil.is_number(ev.get("hp")):
+		e["hp"] = DictUtil.to_int(ev["hp"], -1)
+	if DictUtil.is_number(ev.get("max_hp")):
+		e["max_hp"] = DictUtil.to_int(ev["max_hp"], -1)
+
+
+## OUT_OF_COMBAT_EVENTS for this character: logs the cast and what it did
+## (the sheet itself changes with the CHARACTER_STATE that follows).
+func _apply_out_of_combat(result: Dictionary) -> void:
+	if str(result["entity_id"]) != player_id:
+		return
+	var events: Array = result["events"]
+	for ev_v: Variant in events:
+		var ev: Dictionary = ev_v
+		match str(ev["kind"]):
+			"cast":
+				var spell_id := str(ev.get("spell", ""))
+				var slot := DictUtil.to_int(ev.get("slot_level", 0), 0)
+				var timing := ClientState.casting_time_text(str(ev.get("casting_time", "action")), DictUtil.to_bool(ev.get("ritual", false), false))
+				var line := "%s casts %s" % [display_name(str(ev.get("actor", player_id))), spell_name(spell_id)]
+				var notes: PackedStringArray = []
+				if slot > 0:
+					notes.append("level %d slot" % slot)
+				if not ClientState.is_quick_casting_time(str(ev.get("casting_time", "action"))):
+					notes.append("%s, done at once" % timing)
+				if not notes.is_empty():
+					line += " (%s)" % ", ".join(notes)
+				_log(line + ".")
+			"companion_summoned":
+				var count := DictUtil.to_int(ev.get("count", 1), 1)
+				var what := monster_name(str(ev.get("monster", "")))
+				_log("%s %s at your side: it will join your next fight." % [ClientState.quantity_text(what, count),
+					"stands" if count == 1 else "stand"])
+			"heal":
+				_log("%s regains %d HP (%d HP)." % [display_name(str(ev.get("target", ""))), DictUtil.to_int(ev.get("amount", 0), 0),
+					DictUtil.to_int(ev.get("hp_after", 0), 0)])
+			"temp_hp":
+				_log("%s gains %d temporary HP." % [display_name(str(ev.get("target", ""))), DictUtil.to_int(ev.get("amount", 0), 0)])
+			"revived":
+				_log("%s returns to life with %d HP!" % [display_name(str(ev.get("target", ""))), DictUtil.to_int(ev.get("hp", 1), 1)])
+			"restored":
+				var removed := DictUtil.to_string_array(ev.get("conditions_removed", []))
+				var line := "%s is restored" % display_name(str(ev.get("target", "")))
+				if not removed.is_empty():
+					line += ": no longer %s" % ", ".join(removed)
+				_log(line + " (exhaustion %d)." % DictUtil.to_int(ev.get("exhaustion", 0), 0))
+			"buff":
+				_log("%s is protected by %s (AC %d)." % [display_name(str(ev.get("target", ""))),
+					str(ev.get("buff", "")).replace("_", " ").capitalize(), DictUtil.to_int(ev.get("ac", 0), 0)])
 
 
 ## Position / health changes that hold no matter whose encounter they belong to.
@@ -1498,11 +1621,11 @@ func short_rest_intent(hit_dice: int = 1, recover_slots: bool = false) -> Dictio
 	return Messages.make_intent(Messages.SHORT_REST, fields)
 
 
-## cast; extra may add "point", "metamagic", "twin_target", "sculpt".
+## cast; extra may add "point", "metamagic", "twin_target", "sculpt", "form", "targets".
 func cast_intent(spell_id: String, target: String = "", slot_level: int = 0, extra: Dictionary = {}) -> Dictionary:
 	var fields := {"actor": player_id, "spell": spell_id,
 		"target": target if not target.is_empty() else player_id, "slot_level": slot_level}
-	for key: String in ["point", "metamagic", "twin_target", "sculpt"]:
+	for key: String in ["point", "metamagic", "twin_target", "sculpt", "form", "targets"]:
 		if extra.has(key):
 			var v: Variant = extra[key]
 			if typeof(v) == TYPE_ARRAY and (v as Array).is_empty():
@@ -1517,10 +1640,22 @@ func stand_intent() -> Dictionary:
 
 
 ## The reaction_policy intent with one trigger switched to "auto" (on) or
-## "never" (off), the other entries kept.
+## "never" (off), the other entries kept. Per-reaction overrides of the
+## reactions that trigger governs are dropped, so the trigger decides again.
 func reaction_policy_intent(trigger: String, on: bool) -> Dictionary:
+	return reaction_toggle_intent(trigger, "", on)
+
+
+## The reaction_policy intent for one check box: a trigger (reaction "") or
+## one reaction under it (a per-reaction key, as Combatant.reaction_allowed reads).
+func reaction_toggle_intent(trigger: String, reaction: String, on: bool) -> Dictionary:
 	var policy := reaction_policy.duplicate()
-	policy[trigger] = "auto" if on else "never"
+	if reaction.is_empty():
+		policy[trigger] = "auto" if on else "never"
+		for r: Variant in REACTIONS_BY_TRIGGER.get(trigger, []):
+			policy.erase(str(r))
+	else:
+		policy[reaction] = "auto" if on else "never"
 	return Messages.make_intent(Messages.REACTION_POLICY, {"actor": player_id, "policy": policy})
 
 
@@ -1529,14 +1664,89 @@ func reacts_to(trigger: String) -> bool:
 	return str(reaction_policy.get(trigger, "auto")) != "never"
 
 
-static var _policy_supported: int = -1
+## Combatant.reaction_allowed: a reaction's own key wins over its trigger's.
+func reacts_with(trigger: String, reaction: String) -> bool:
+	if reaction_policy.has(reaction):
+		return str(reaction_policy[reaction]) != "never"
+	return reacts_to(trigger)
 
 
-## True when the rules engine has reaction policies (Combatant.reaction_policy).
+## Whether the character has a reaction (prepared spell, feature, style;
+## everyone has the opportunity attack).
+func has_reaction(reaction: String) -> bool:
+	if sheet == null:
+		return false
+	if reaction == "opportunity_attack":
+		return true
+	if REACTION_SPELLS.has(reaction):
+		return sheet.is_spell_prepared(reaction)
+	if reaction == "protection":
+		return sheet.fighting_styles.has("protection")
+	if reaction == "uncanny_dodge":
+		return sheet.has_feature("uncanny_dodge") or sheet.has_feature("superior_hunters_defense_uncanny_dodge")
+	return sheet.has_feature(reaction)
+
+
+## One entry per reaction trigger for the Reactions panel: {"trigger",
+## "label", "on", "reactions": [{"id", "name", "on"}]} with only the
+## reactions this character has.
+func reaction_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for trigger in Messages.REACTION_TRIGGERS:
+		var mine: Array[Dictionary] = []
+		for r_v: Variant in REACTIONS_BY_TRIGGER.get(trigger, []):
+			var r := str(r_v)
+			if has_reaction(r):
+				mine.append({"id": r, "name": str(REACTION_NAMES.get(r, r.replace("_", " ").capitalize())), "on": reacts_with(trigger, r)})
+		out.append({"trigger": trigger, "label": str(REACTION_TRIGGER_LABELS.get(trigger, trigger.replace("_", " ").capitalize())),
+			"on": reacts_to(trigger), "reactions": mine})
+	return out
+
+
+## Always true: the rules engine resolves reactions by policy
+## (Encounter.set_reaction_policy, Messages.REACTION_TRIGGERS).
 static func reaction_policy_supported() -> bool:
-	if _policy_supported < 0:
-		_policy_supported = 1 if "reaction_policy" in Combatant.new() else 0
-	return _policy_supported == 1
+	return not Messages.REACTION_TRIGGERS.is_empty()
+
+
+# --- companions -----------------------------------------------------------------------
+
+## The sheet's companions: {"id", "monster", "name", "spell", "hp", "max_hp", "dead"}.
+func companion_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if sheet == null:
+		return out
+	var monsters: Dictionary = _content().get("monsters", {})
+	for entry in sheet.companions:
+		var mid := str(entry.get("monster", ""))
+		var def: MonsterDefinition = monsters.get(mid, null)
+		var max_hp := def.hit_points_avg if def != null else DictUtil.to_int(entry.get("hp", 0), 0)
+		out.append({"id": str(entry.get("id", "")), "monster": mid, "name": monster_name(mid), "spell": str(entry.get("spell", "")),
+			"hp": DictUtil.to_int(entry.get("hp", max_hp), max_hp), "max_hp": max_hp, "dead": entry.get("dead", false) == true})
+	return out
+
+
+## "Companions: Cat 2/2 HP, Skeleton 13/13 HP", or "" with none.
+func companions_text() -> String:
+	var parts: PackedStringArray = []
+	for c in companion_entries():
+		parts.append("%s %d/%d HP%s" % [str(c["name"]), int(c["hp"]), int(c["max_hp"]), " (dead)" if bool(c["dead"]) else ""])
+	return "" if parts.is_empty() else "Companions: %s" % ", ".join(parts)
+
+
+## Companions may be dismissed while exploring.
+func can_dismiss_companion() -> bool:
+	return mode == Mode.EXPLORING and not in_encounter and sheet != null and not sheet.companions.is_empty()
+
+
+func dismiss_companion_intent(companion_id: String) -> Dictionary:
+	return Messages.make_intent(Messages.DISMISS_COMPANION, {"actor": player_id, "companion_id": companion_id})
+
+
+func monster_name(monster_id: String) -> String:
+	var monsters: Dictionary = _content().get("monsters", {})
+	var def: MonsterDefinition = monsters.get(monster_id, null)
+	return def.display_name if def != null else monster_id.replace("_", " ").capitalize()
 
 
 ## use_feature; target "" = self, amount only for lay_on_hands; extra may add
@@ -1779,7 +1989,9 @@ func range_tiles() -> Dictionary:
 ## The prepared spells for the Spells list, cantrips first, each
 ## {"id", "name", "level", "supported", "bonus", "target", "range_tiles",
 ##  "slots": Array[int] (slot levels with a slot left, >= the spell's level),
-##  "error": "" when castable right now}.
+##  "casting_time" (data id), "casting_time_text" ("1 hour (ritual)"),
+##  "ritual", "out_of_combat" (OutOfCombat.cast resolves it),
+##  "error": "" when castable right now (in or out of combat)}.
 func spell_entries() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if sheet == null:
@@ -1792,6 +2004,9 @@ func spell_entries() -> Array[Dictionary]:
 			"id": id, "name": def.display_name, "level": def.level, "supported": def.is_supported(),
 			"bonus": def.uses_bonus_action(), "target": def.target, "range_tiles": def.range_tiles(),
 			"slots": cast_slot_options(id), "error": cast_error(id),
+			"casting_time": def.casting_time, "ritual": def.raw.get("ritual", false) == true,
+			"casting_time_text": ClientState.casting_time_text(def.casting_time, def.raw.get("ritual", false) == true),
+			"out_of_combat": ClientState.castable_out_of_combat(def),
 		})
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if int(a["level"]) != int(b["level"]):
@@ -1820,6 +2035,8 @@ func cast_error(spell_id: String, slot_level: int = 0, metamagic: Array[String] 
 		return "unknown spell"
 	if not def.is_supported():
 		return "not supported yet"
+	if not in_encounter:
+		return _out_of_combat_cast_error(def, slot_level)
 	if not def.is_combat_castable():
 		return "takes too long to cast in combat"
 	if not sheet.is_spell_prepared(spell_id):
@@ -1841,6 +2058,67 @@ func cast_error(spell_id: String, slot_level: int = 0, metamagic: Array[String] 
 		if slot == 0 or slot < def.level or sheet.slots_left(slot) <= 0:
 			return "no spell slot left"
 	return ""
+
+
+## cast_error while exploring (OutOfCombat.cast's checks, the player as the
+## only target; no action economy, no real-time casting wait in M2).
+func _out_of_combat_cast_error(def: SpellDefinition, slot_level: int) -> String:
+	if not sheet.is_spell_prepared(def.id):
+		return "not prepared"
+	if mode != Mode.EXPLORING:
+		return "not now"
+	if not ClientState.castable_out_of_combat(def):
+		return "only in a fight"
+	if not sheet.is_conscious():
+		return "you cannot cast now"
+	match def.effect_type:
+		SpellDefinition.EFFECT_REVIVE:
+			return "needs a fallen ally (not in this version)"
+		SpellDefinition.EFFECT_HEAL, SpellDefinition.EFFECT_AREA_HEAL, SpellDefinition.EFFECT_HEAL_POOL:
+			if sheet.current_hp >= sheet.max_hp:
+				return "you are at full health"
+		SpellDefinition.EFFECT_BUFF:
+			if sheet.armor_base > 0:
+				return "not while wearing armor"
+	if def.level > 0:
+		var slot := slot_level if slot_level > 0 else sheet.lowest_available_slot(def.level)
+		if slot == 0 or slot < def.level or sheet.slots_left(slot) <= 0:
+			return "no spell slot left"
+	return ""
+
+
+## Spells OutOfCombat.cast resolves: lasting companions (Find Familiar,
+## Animate Dead, ...), revives other than Spare the Dying, heals, temporary
+## hit points, restorations and Mage Armor.
+static func castable_out_of_combat(def: SpellDefinition) -> bool:
+	if def == null or not def.is_supported():
+		return false
+	match def.effect_type:
+		SpellDefinition.EFFECT_SUMMON:
+			return def.raw_effect.get("companion", false) == true
+		SpellDefinition.EFFECT_REVIVE:
+			return def.raw_effect.get("stabilize", false) != true
+		SpellDefinition.EFFECT_HEAL, SpellDefinition.EFFECT_AREA_HEAL, SpellDefinition.EFFECT_HEAL_POOL, \
+				SpellDefinition.EFFECT_TEMP_HP, SpellDefinition.EFFECT_DISPEL:
+			return true
+		SpellDefinition.EFFECT_BUFF:
+			return def.buff == SpellDefinition.BUFF_MAGE_ARMOR
+	return false
+
+
+## "1 action", "1 bonus action", "1 reaction", "1 minute", "10 minutes",
+## "1 hour"... plus " (ritual)".
+static func casting_time_text(casting_time: String, ritual: bool = false) -> String:
+	var t := casting_time
+	if t in ["action", "bonus_action", "reaction"]:
+		t = "1 " + t
+	t = t.replace("_", " ")
+	return t + (" (ritual)" if ritual else "")
+
+
+## An action or bonus action (or a reaction): no long casting time.
+static func is_quick_casting_time(casting_time: String) -> bool:
+	return casting_time in ["action", "bonus_action", "reaction"]
 
 
 ## "" when target is a valid target for spell_id from where the player stands.
@@ -1869,17 +2147,26 @@ func cast_target_error(spell_id: String, target: String) -> String:
 	return ""
 
 
-## Starts casting: a self-only spell returns its intent at once; others enter
+## Starts casting. Out of combat the cast intent comes back at once (the
+## player is the only target; extra_fields may set "form"). In combat a
+## self-only spell returns its intent at once; others enter
 ## targeting mode and return {}. {} with `hint` set when it cannot be cast.
 ## Area spells centred on the caster cast at once; other area spells enter
 ## targeting with "area": true (the click picks the point). Twinned Spell
 ## asks for a second target after the first.
-func begin_cast(spell_id: String, slot_level: int = 0, metamagic: Array[String] = []) -> Dictionary:
+func begin_cast(spell_id: String, slot_level: int = 0, metamagic: Array[String] = [], extra_fields: Dictionary = {}) -> Dictionary:
 	hint = cast_error(spell_id, slot_level, metamagic)
 	if not hint.is_empty():
 		return {}
 	var def := spell_def(spell_id)
 	var slot := 0 if def.level == 0 else (slot_level if slot_level > 0 else sheet.lowest_available_slot(def.level))
+	if not in_encounter:
+		# Out of combat the player is the only target (M2): cast at once.
+		targeting = {}
+		var fields := {}
+		if extra_fields.has("form"):
+			fields["form"] = extra_fields["form"]
+		return cast_intent(spell_id, player_id, slot, fields)
 	var extra := {"metamagic": metamagic.duplicate()}
 	var warning := concentration_warning(spell_id)
 	if def.is_area():

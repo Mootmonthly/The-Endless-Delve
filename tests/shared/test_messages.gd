@@ -118,7 +118,10 @@ func test_intent_survives_json_round_trip() -> void:
 func test_encounter_intent_classification() -> void:
 	assert_true(Messages.is_encounter_intent(Messages.make_intent(Messages.DODGE, {"actor": "p1"})))
 	assert_false(Messages.is_encounter_intent(Messages.make_intent(Messages.USE_STAIRS, {"actor": "p1"})))
-	assert_true(Messages.is_encounter_intent(Messages.make_intent(Messages.CAST, {"actor": "p1"})))
+	var cast := Messages.make_intent(Messages.CAST, {"actor": "p1"})
+	assert_false(Messages.is_encounter_intent(cast), "cast also works out of combat")
+	assert_true(Messages.is_dual_intent(cast))
+	assert_false(Messages.is_dual_intent(Messages.make_intent(Messages.DISMISS_COMPANION, {"actor": "p1"})), "exploration only")
 	assert_true(Messages.is_encounter_intent(Messages.make_intent(Messages.USE_FEATURE, {"actor": "p1"})))
 	assert_false(Messages.is_encounter_intent(Messages.make_intent(Messages.EQUIP, {"actor": "p1"})))
 	var use := Messages.make_intent(Messages.USE_ITEM, {"actor": "p1"})
@@ -243,3 +246,21 @@ func test_reaction_policy_intent() -> void:
 	for bad: Dictionary in [{"actor": "p1"}, {"actor": "p1", "policy": "never"}, {"actor": "p1", "policy": {"missed": "sometimes"}},
 			{"actor": "p1", "policy": {"missed": true}}]:
 		assert_ne(Messages.validate_intent(Messages.make_intent(Messages.REACTION_POLICY, bad)), "", str(bad))
+
+
+func test_out_of_combat_cast_and_companion_messages() -> void:
+	var cast := Messages.make_intent(Messages.CAST, {"actor": "p1", "spell": "find_familiar", "targets": ["p1"], "form": "cat", "slot_level": 1})
+	assert_eq(Messages.validate_intent(cast), "")
+	for bad: Dictionary in [{"targets": "p1"}, {"targets": [""]}, {"form": ""}, {"form": 3}]:
+		var d := {"actor": "p1", "spell": "find_familiar"}
+		d.merge(bad)
+		assert_ne(Messages.validate_intent(Messages.make_intent(Messages.CAST, d)), "", str(bad))
+	assert_eq(Messages.validate_intent(Messages.make_intent(Messages.DISMISS_COMPANION, {"actor": "p1", "companion_id": "c1"})), "")
+	assert_ne(Messages.validate_intent(Messages.make_intent(Messages.DISMISS_COMPANION, {"actor": "p1"})), "")
+	assert_ne(Messages.validate_intent(Messages.make_intent(Messages.DISMISS_COMPANION, {"actor": "p1", "companion_id": 1})), "")
+	var ok := Messages.make_result(Messages.OUT_OF_COMBAT_EVENTS, {"entity_id": "p1", "spell": "cure_wounds",
+		"events": [{"kind": "cast", "actor": "p1", "spell": "cure_wounds"}, {"kind": "heal", "target": "p1", "amount": 5}]})
+	assert_eq(Messages.validate_result(ok), "")
+	for bad: Dictionary in [{"spell": "x", "events": []}, {"entity_id": "p1", "events": []}, {"entity_id": "p1", "spell": "x"},
+			{"entity_id": "p1", "spell": "x", "events": [{"amount": 1}]}, {"entity_id": "p1", "spell": "x", "events": ["heal"]}]:
+		assert_ne(Messages.validate_result(Messages.make_result(Messages.OUT_OF_COMBAT_EVENTS, bad)), "", str(bad))

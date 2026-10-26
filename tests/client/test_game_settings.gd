@@ -325,3 +325,21 @@ func test_menu_pause_page() -> void:
 	menu._resume_button.pressed.emit()
 	assert_false(menu.is_open())
 	menu.free()
+
+
+func test_menu_pause_page_reactions_entry() -> void:
+	var menu := _menu()
+	var asked: Array[int] = [0]
+	menu.reactions_requested.connect(func() -> void: asked[0] += 1)
+	menu.open_pause(true)
+	assert_false(menu._reactions_button.visible, "only when the game asks for it")
+	menu.open_pause(true, true, true)
+	assert_true(menu._reactions_button.visible)
+	menu._settings_button.pressed.emit()
+	menu.back()
+	assert_true(menu._reactions_button.visible, "kept when coming back from settings")
+	assert_eq(menu._pause_title.text, "Paused")
+	menu._reactions_button.pressed.emit()
+	assert_false(menu.is_open(), "the menu closes")
+	assert_eq(asked[0], 1)
+	menu.free()

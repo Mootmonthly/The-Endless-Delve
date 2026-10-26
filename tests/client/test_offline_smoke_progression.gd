@@ -5,6 +5,8 @@ extends TestCase
 ## would send (begin_cast / intent_for_click / begin_feature / attack_intent).
 ## - a level 1 wizard opens with Burning Hands (a cone aimed by clicking the
 ##   nearest goblin) and finishes the fight with Fire Bolt;
+## - a wizard casts Find Familiar out of combat (the Spells popup's begin_cast)
+##   before the first fight; the familiar joins that fight beside its owner;
 ## - a fighter plays a long in-test set (six floors of ogres), levels up
 ##   interactively with LevelUpDraft.first_valid on every offer up to level 5
 ##   and then uses Extra Attack and Action Surge.
@@ -123,6 +125,8 @@ func _answer_level_up(st: ClientState, transport: LocalTransport) -> bool:
 
 func test_wizard_casts_burning_hands_and_fire_bolt() -> void:
 	_errors.clear()
+	_burned = false
+	_bolts = 0
 	var floor_data := FloorData.from_dict({
 		"schema_version": 1, "id": "smoke_wizard", "display_name": "Smoke Study", "floor_number": 1,
 		"rows": ["############", "#A.........#", "#..........#", "#.........S#", "############"],
@@ -235,4 +239,89 @@ func test_fighter_levels_to_5_on_a_long_set_and_uses_extra_attack() -> void:
 	assert_true(_level_ups_sent >= 4, "every level from 2 to 5 answered on its own offer")
 	assert_true(_second_attacks >= 1, "Extra Attack rolls were made")
 	assert_true(_surges >= 1, "Action Surge was used")
+	server.free()
+
+
+var _joined: Array[Dictionary] = []
+
+
+func _record_joined(result: Dictionary) -> void:
+	if str(result.get("kind", "")) != Messages.ENCOUNTER_EVENTS:
+		return
+	for ev: Dictionary in result["events"]:
+		if str(ev.get("kind", "")) == "combatant_joined":
+			_joined.append(ev)
+
+
+func test_wizard_casts_find_familiar_before_the_first_fight() -> void:
+	_errors.clear()
+	_joined.clear()
+	_burned = true  # Fire Bolt only
+	var floor_data := FloorData.from_dict({
+		"schema_version": 1, "id": "smoke_familiar", "display_name": "Smoke Study", "floor_number": 1,
+		"rows": ["############", "#A.........#", "#..........#", "#.........S#", "############"],
+		"arrival": [1, 1], "stairs": [10, 3],
+		"encounter_zones": [{"id": "z1", "rect": [6, 1, 5, 3], "monster_ids": ["goblin"], "spawn_points": [[9, 2]]}],
+	})
+	var sheet := _sheet("wizard", 400)
+	for list: Array[String] in [sheet.spells_known, sheet.spells_prepared]:
+		if not list.has("find_familiar"):
+			list.append("find_familiar")
+	var transport := LocalTransport.new()
+	var st := ClientState.new(ClientState.player_id_for_peer(transport.local_peer_id()))
+	transport.result_received.connect(_on_result.bind(st))
+	transport.result_received.connect(_record_joined)
+	var server := InstanceServer.new()
+	server.configure(transport, floor_data, 777)
+	server.add_player(transport.local_peer_id(), sheet)
+	server.run_tick()
+	assert_eq(st.mode, ClientState.Mode.EXPLORING)
+	# The Spells popup lists Find Familiar while exploring and casts it at once.
+	var listed := false
+	for e in st.spell_entries():
+		if str(e["id"]) == "find_familiar":
+			listed = bool(e["out_of_combat"]) and str(e["error"]).is_empty()
+	assert_true(listed, "Find Familiar is castable before the fight")
+	var cast := st.begin_cast("find_familiar")
+	assert_false(cast.is_empty(), st.hint)
+	transport.send_intent(cast)
+	server.run_tick()
+	transport.pump()
+	assert_eq(_errors, [] as Array[String])
+	assert_eq(st.sheet.companions.size(), 1, "the client sheet has the familiar")
+	assert_has(st.companions_text(), "Owl")
+	assert_eq(st.sheet.slots_left(1), 1)
+	var logged := false
+	for line in st.log_lines:
+		if line.contains("casts Find Familiar") and line.contains("done at once"):
+			logged = true
+	assert_true(logged, "the cast was logged")
+	# Walk into the zone; the familiar joins the fight beside the wizard.
+	transport.send_intent(st.intent_for_click(Vector2i(7, 1)))
+	for _t in range(MAX_TICKS):
+		if st.in_encounter:
+			break
+		server.run_tick()
+	assert_true(st.in_encounter, "the fight started")
+	var familiar: Dictionary = {}
+	for ev in _joined:
+		if str(ev.get("owner", "")) == st.player_id:
+			familiar = ev
+	assert_false(familiar.is_empty(), "combatant_joined with owner set")
+	var fid := str(familiar.get("id", ""))
+	assert_eq(str(st.get_entity(fid).get("kind", "")), ClientState.KIND_ALLY)
+	assert_true(st.order.has(fid), "the familiar is in the initiative order")
+	assert_true(GridMath.distance_tiles(Messages.to_position(familiar["position"]), st.player_position()) <= 1, "beside its owner")
+	for _t in range(MAX_TICKS):
+		if not st.in_encounter or st.mode == ClientState.Mode.GAME_OVER:
+			break
+		if st.is_my_turn():
+			var intent := _wizard_turn(st)
+			if not intent.is_empty():
+				transport.send_intent(intent)
+		server.run_tick()
+	transport.pump()
+	assert_eq(_errors, [] as Array[String], "the server rejected no client intent")
+	assert_true(server.is_zone_cleared("z1"), "the wizard won")
+	assert_eq(st.sheet.companions.size(), server.get_entity("p1").sheet.companions.size(), "companions match the server")
 	server.free()

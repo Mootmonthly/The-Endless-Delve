@@ -63,7 +63,25 @@ outside a pump (exploration, monster turns, `add_player`) arrive on the next one
   after `Messages.validate_intent`; the encounter's events (conditions,
   concentration, area effects, pushes, reactions) are broadcast as they come.
   The core resolves reactions (Uncanny Dodge, Deflect Missiles) by itself, so
-  there is no reaction prompt.
+  there is no reaction prompt. `reaction_policy {policy}` is accepted any time:
+  stored on the ServerEntity, handed to the active encounter
+  (`Encounter.set_reaction_policy`) and to every later combatant
+  (`make_combatant`), on this floor and the next ones (CHARACTER_STATE extra
+  `reaction_policy`).
+- `cast` is dual like `use_item`: in a fight the Encounter resolves it; out of
+  combat the server runs `OutOfCombat.cast(sheet, spell, cache, cast_rng,
+  [sheet], {slot_level, form})` (`root.fork(CAST_STREAM)`; the player is the
+  only target in M2, any other `target` / `targets` id is refused). Long
+  casting times (1 minute, 10 minutes, 1 hour) and rituals resolve at once in
+  M2 (a ritual still spends a slot). Success: OUT_OF_COMBAT_EVENTS `{entity_id,
+  spell, slot_level, result, events}` (events: `cast`, `companion_summoned`,
+  `heal`, `temp_hp`, `revived`, `restored`, `buff`), then CHARACTER_STATE
+  (`spell_cast`). A spell that only works in a fight, not prepared, no slot,
+  an unconscious or dead caster -> ERROR, nothing changed.
+- Companions (`sheet.companions`) get a server id `c<n>` before every
+  CHARACTER_STATE; `dismiss_companion {companion_id}` (out of combat) removes
+  one (extra `companion_dismissed {id, monster}`). The Encounter spawns the
+  sheet's companions beside their owner when the next fight starts.
 - Death saves before wipe (core rule): a fight lasts while each of two teams
   has a member who is conscious or still dying, so downed players roll their
   death saves while the monsters keep attacking them.
@@ -124,6 +142,7 @@ outside a pump (exploration, monster turns, `add_player`) arrive on the next one
   (with the bonus), EXPLORE_STATE, [CHEST_REVEALED], [ENCOUNTER_EVENTS if the
   arrival is in a zone]; last floor: CHARACTER_STATE (`long_rest` + bonus),
   SET_CLEARED; single floor: CHARACTER_STATE (bonus). Then LEVEL_UP_AVAILABLE.
+- Out-of-combat cast: OUT_OF_COMBAT_EVENTS, CHARACTER_STATE (or ERROR).
 - Level-up: LEVEL_UP_AVAILABLE -> `level_up` intent -> CHARACTER_STATE
   (`leveled_to`, `levels_pending`) [-> LEVEL_UP_AVAILABLE for the next level],
   or ERROR.

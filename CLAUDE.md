@@ -179,3 +179,12 @@ Append one entry per working session (newest last).
   compulsion, unmodelled summons, illusions, special outcomes), every class
   feature for levels 6-12 except pact_of_the_chain/tome and slow_fall.
   Suite: 673 green. Paused by owner before round C (levels 13-20).
+- **2026-10-26 — Out-of-combat casting + reactions UI.** `cast` is a dual
+  intent: out of combat it runs `OutOfCombat.cast` (companions such as Find
+  Familiar and Animate Dead, heals, revives, buffs; long casting times and
+  rituals resolve at once in M2), result `out_of_combat_events`, intent
+  `dismiss_companion`; HUD Companions line; Reactions popup reachable from
+  the pause menu, policies persist per player across floors. Core gaps noted
+  for round C: `OutOfCombat.castable`, event emission and per-target keys in
+  OutOfCombat, ritual casting, core-owned companion ids, a core table of
+  reactions per trigger. Suite: 689 green.
