@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"hand_edited": true,
+	"id": "shield_plus_1",
+	"display_name": "Shield, +1",
+	"kind": "shield",
+	"description": "While holding this shield, you have a +1 bonus to AC in addition to the shield's normal bonus to AC.",
+	"weight": 6,
+	"value_gp": 111,
+	"stackable": false,
+	"shield": { "bonus": 2 },
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (shield), uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"bonus": 1,
+	"bonus_applies_to": "shield",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

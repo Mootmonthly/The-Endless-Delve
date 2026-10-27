@@ -186,24 +186,39 @@ func test_loot_tables_are_well_formed() -> void:
 	for path in ContentLoader.json_files(LOOT_DIR):
 		var raw := _raw(path)
 		var tid := str(raw.get("id", ""))
-		assert_true(DictUtil.to_int(raw.get("rolls", 0), 0) >= 1, "%s rolls >= 1" % tid)
-		var entries := DictUtil.to_dict_array(raw.get("entries", []))
-		assert_false(entries.is_empty(), "%s has entries" % tid)
-		for e in entries:
-			assert_true(DictUtil.to_int(e.get("weight", 0), 0) >= 1, "%s: weight >= 1 in %s" % [tid, str(e)])
-			if DictUtil.to_bool(e.get("nothing", false), false):
-				assert_false(e.has("item"), "%s: a nothing entry names no item" % tid)
-				continue
-			var iid := str(e.get("item", ""))
-			assert_true(_items.has(iid), "%s: item '%s' exists" % [tid, iid])
-			if e.has("qty"):
-				var q := DictUtil.to_int_array(e["qty"])
-				assert_eq(q.size(), 2, "%s %s: qty is [min, max]" % [tid, iid])
-				if q.size() == 2:
-					assert_true(q[0] >= 1 and q[1] >= q[0], "%s %s: qty %s" % [tid, iid, str(q)])
-				var it := _item(iid)
-				if it != null and q.size() == 2 and q[1] > 1:
-					assert_true(it.stackable, "%s %s: multi-quantity drops are stackable" % [tid, iid])
+		var bags: Array[Dictionary] = []
+		if typeof(raw.get("rolls")) == TYPE_ARRAY and not (raw["rolls"] as Array).is_empty() \
+				and typeof((raw["rolls"] as Array)[0]) == TYPE_DICTIONARY:
+			# Category rolls: each group is its own weighted bag.
+			for g in DictUtil.to_dict_array(raw["rolls"]):
+				assert_ne(str(g.get("name", "")), "", "%s: every category roll has a name" % tid)
+				bags.append({"ctx": "%s/%s" % [tid, str(g.get("name", ""))], "entries": DictUtil.to_dict_array(g.get("entries", []))})
+			assert_false(raw.has("entries"), "%s: category rolls or entries, not both" % tid)
+		else:
+			assert_true(DictUtil.to_int(raw.get("rolls", 0), 0) >= 1, "%s rolls >= 1" % tid)
+			bags.append({"ctx": tid, "entries": DictUtil.to_dict_array(raw.get("entries", []))})
+		for bag in bags:
+			_check_entries(str(bag["ctx"]), bag["entries"])
+		assert_true(_loot.has(tid), "%s loads" % tid)
+
+
+func _check_entries(tid: String, entries: Array[Dictionary]) -> void:
+	assert_false(entries.is_empty(), "%s has entries" % tid)
+	for e in entries:
+		assert_true(DictUtil.to_int(e.get("weight", 0), 0) >= 1, "%s: weight >= 1 in %s" % [tid, str(e)])
+		if DictUtil.to_bool(e.get("nothing", false), false):
+			assert_false(e.has("item"), "%s: a nothing entry names no item" % tid)
+			continue
+		var iid := str(e.get("item", ""))
+		assert_true(_items.has(iid), "%s: item '%s' exists" % [tid, iid])
+		if e.has("qty"):
+			var q := DictUtil.to_int_array(e["qty"])
+			assert_eq(q.size(), 2, "%s %s: qty is [min, max]" % [tid, iid])
+			if q.size() == 2:
+				assert_true(q[0] >= 1 and q[1] >= q[0], "%s %s: qty %s" % [tid, iid, str(q)])
+			var it := _item(iid)
+			if it != null and q.size() == 2 and q[1] > 1:
+				assert_true(it.stackable, "%s %s: multi-quantity drops are stackable" % [tid, iid])
 
 
 func test_required_tables_and_their_shape() -> void:
@@ -262,3 +277,56 @@ func test_rolls_only_produce_existing_items() -> void:
 				var iid := str(drop.get("item", ""))
 				assert_true(_items.has(iid), "%s rolled unknown item '%s'" % [tid, iid])
 				assert_true(DictUtil.to_int(drop.get("qty", 0), 0) >= 1, "%s rolled qty >= 1" % tid)
+
+
+func test_tiered_chest_tables_hold_wanted_gear() -> void:
+	for tid in ["chest_stairs_t1", "chest_stairs_t2", "cache_t1", "cache_t2"]:
+		var table: LootTable = _loot.get(tid)
+		assert_not_null(table, tid)
+		if table == null:
+			continue
+		var gear := table.groups[0]
+		assert_eq(str(gear["name"]), "gear", "%s rolls gear first" % tid)
+		var plus_weight := 0
+		var total := 0
+		for e: Dictionary in (gear["entries"] as Array):
+			var it := _item(str(e["item"]))
+			assert_not_null(it, "%s gear item %s" % [tid, str(e["item"])])
+			if it == null:
+				continue
+			assert_has(["weapon", "armor", "shield"], it.kind, "%s gear is a weapon, armor or shield (%s)" % [tid, it.id])
+			assert_true(it.kind != "armor" or it.armor_category != "heavy", "%s: no heavy armor (%s)" % [tid, it.id])
+			total += DictUtil.to_int(e["weight"])
+			if it.bonus > 0:
+				plus_weight += DictUtil.to_int(e["weight"])
+		if tid == "chest_stairs_t1":
+			assert_eq(plus_weight, 0, "tier 1 stairs gear is mundane")
+		elif tid == "cache_t2":
+			assert_in_range(float(plus_weight) / total, 0.4, 0.6, "cache_t2: +1 gear about half the time")
+		else:
+			assert_in_range(float(plus_weight) / total, 0.2, 0.3, "%s: +1 gear about a quarter of the time" % tid)
+		for wanted in ["longsword", "shortsword", "battleaxe", "rapier", "longbow", "scale_mail", "chain_shirt", "shield"]:
+			assert_has(table.item_ids(), wanted, "%s offers %s" % [tid, wanted])
+
+
+func test_plus_one_gear_is_equippable() -> void:
+	for iid in ["longsword_plus_1", "shortsword_plus_1", "longbow_plus_1", "shield_plus_1", "chain_shirt_plus_1", "leather_armor_plus_1"]:
+		var it := _item(iid)
+		assert_not_null(it, iid)
+		if it == null:
+			continue
+		assert_eq(it.bonus, 1, "%s bonus" % iid)
+		assert_has(["weapon", "armor", "shield"], it.kind, "%s kind" % iid)
+		var raw := _raw("%s/%s.json" % [ITEMS_DIR, iid])
+		assert_eq([raw.get("magic"), raw.get("mechanic")], [true, "bonus"], "%s magic item schema" % iid)
+
+
+func test_door_keys() -> void:
+	for colour in ["bronze", "iron", "silver", "brass", "copper", "bone"]:
+		var it := _item("key_" + colour)
+		assert_not_null(it, "key_" + colour)
+		if it == null:
+			continue
+		assert_eq([it.kind, it.display_name, it.weight, it.value_gp, it.stackable],
+			["key", "%s Key" % colour.capitalize(), 0.1, 1.0, false], "key_" + colour)
+		assert_eq(it.description, "Opens a matching lock on this floor.")

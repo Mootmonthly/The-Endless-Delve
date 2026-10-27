@@ -68,3 +68,81 @@ func test_generator_check_passes_for_every_floor() -> void:
 		args.append(ProjectSettings.globalize_path(FloorFile.floor_path(floor_id)))
 	var res := _run(args)
 	assert_eq(int(res["code"]), 0, "gen_floor.py --check: %s" % str(res["text"]))
+
+
+# --- door keys -------------------------------------------------------------------------
+
+const KEY_ITEMS: Array[String] = ["key_bronze", "key_iron", "key_silver", "key_brass", "key_copper", "key_bone"]
+
+
+func test_every_floor_has_key_doors_with_reachable_key_props() -> void:
+	var items := ContentLoader.load_items()
+	for floor_id in _floor_ids():
+		var f := FloorFile.load(FloorFile.floor_path(floor_id))
+		if f == null:
+			fail("%s did not load" % floor_id)
+			continue
+		var blocked := f.prop_blockers()
+		var locked := 0
+		for d in f.doors:
+			if d.is_locked():
+				blocked[d.position] = true
+				locked += 1
+		var colours := {}
+		for d in f.doors:
+			if d.key_item.is_empty():
+				continue
+			var ctx := "%s door %s (%s)" % [floor_id, d.id, d.key_item]
+			assert_true(d.is_locked(), "%s is locked" % ctx)
+			assert_true(d.dc > 0, "%s keeps its DC: thieves' tools still work" % ctx)
+			assert_has(KEY_ITEMS, d.key_item, "%s is a key colour" % ctx)
+			assert_true(items.has(d.key_item) and (items[d.key_item] as ItemDefinition).kind == ItemDefinition.KIND_KEY, "%s is a key item" % ctx)
+			assert_false(colours.has(d.key_item), "%s: one door per colour" % ctx)
+			colours[d.key_item] = true
+			var holders: Array[PropData] = []
+			for p in f.props:
+				if p.drops_item(d.key_item):
+					holders.append(p)
+			assert_eq(holders.size(), 1, "%s: exactly one prop drops the key" % ctx)
+			if holders.size() != 1:
+				continue
+			var holder := holders[0]
+			assert_has(["crate", "barrel"], holder.kind, "%s: a crate or barrel holds the key" % ctx)
+			for l in f.get_landings():
+				var reach := f.walk_map.reachable(l.position, f.walk_map.width * f.walk_map.height, blocked)
+				var ok := false
+				for n in GridMath.neighbors8(holder.position):
+					ok = ok or reach.has(n)
+				assert_true(ok, "%s: key prop %s reachable from landing %s past no locked door" % [ctx, holder.id, l.id])
+			# The key sits on the landings' side, a short walk from its door.
+			var from_door := f.walk_map.reachable(d.position, 40, f.prop_blockers())
+			var near := 999
+			for n in GridMath.neighbors8(holder.position):
+				if from_door.has(n):
+					near = mini(near, int(from_door[n]) + 1)
+			assert_in_range(near, 2, 30, "%s: key prop %s is near its door (%d)" % [ctx, holder.id, near])
+		var keyed := colours.size()
+		assert_true(keyed >= 1, "%s has at least one key door" % floor_id)
+		assert_true(keyed <= mini(KEY_ITEMS.size(), locked), "%s: at most one key door per colour and locked door" % floor_id)
+		assert_true(locked > keyed or locked == 1, "%s keeps DC-only locked doors too" % floor_id)
+
+
+func test_key_doors_follow_the_share_and_move_nothing_else() -> void:
+	if _python.is_empty():
+		assert_true(true, "python3 not available: skipped")
+		return
+	var none := _run(PackedStringArray(["--preset", "floor_003", "--stdout", "--key-doors", "0"]))
+	var half := _run(PackedStringArray(["--preset", "floor_003", "--stdout"]))
+	assert_eq(int(none["code"]), 0)
+	var a: Dictionary = JSON.parse_string(str(none["text"]))
+	var b: Dictionary = JSON.parse_string(str(half["text"]))
+	assert_false(str(none["text"]).contains("key_item"), "--key-doors 0: no keys")
+	assert_eq(a["rows"], b["rows"], "keys never move the layout")
+	assert_eq(a["chests"], b["chests"])
+	assert_eq((a["props"] as Array).size(), (b["props"] as Array).size(), "no prop added or removed")
+	var keyed := 0
+	for d: Variant in (b["doors"] as Array):
+		if (d as Dictionary).has("key_item"):
+			keyed += 1
+	assert_true(keyed >= 1, "the default share keys some doors")
+	assert_true(str(b["generated_by"]).contains("--key-doors 0.5"), str(b["generated_by"]))

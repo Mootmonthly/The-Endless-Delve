@@ -101,11 +101,16 @@ extends Node
 ##   - doors: a closed or locked door is a wall of the exploration map
 ##     (explore_map(): movement and line of sight) and of every new
 ##     encounter's map copy; open_door / close_door (adjacent, out of combat),
-##     unlock_door {method: key | tools | spell}; DOOR_CHANGED is broadcast.
+##     unlock_door {method: key | tools | spell}; DOOR_CHANGED is broadcast
+##     (a key is used up: "consumed": key item id). Keys belong to one floor:
+##     any key-kind item a player still carries is gone when the instance
+##     descends (CHARACTER_STATE extra "keys_lost": [item ids]).
 ##   - props: intact blocking props are obstacles (exploration: occupied
 ##     tiles; encounters: walls of the map copy). interact {prop_id}
-##     (adjacent, out of combat) breaks one: PROP_DESTROYED, its loot table to
-##     the breaker (LOOT_GAINED source "prop"). Props cannot be attacked in a
+##     (adjacent, out of combat) breaks one: PROP_DESTROYED, its guaranteed
+##     drops (a door's key) then its loot table roll to the breaker
+##     (LOOT_GAINED source "prop", drops listed first). FLOOR_LOADED shows each
+##     door's key_item (the colour it wants) but never a prop's drops or table. Props cannot be attacked in a
 ##     fight (the core has no object targets; see the D2 report).
 ##   - respawns (schema 2 floors): a cleared zone with `respawns` comes back
 ##     after the floor's pack_seconds (boss zones: boss_seconds), never while
@@ -630,6 +635,12 @@ func _enter_floor(index: int, floor_data: FloorData, extras: Dictionary = {}) ->
 		e.position = _free_tile_near(landing.position) if e.is_alive() else landing.position
 		_entities[e.id] = e
 	for e in players:
+		var lost := _drop_floor_keys(e)
+		if not lost.is_empty():
+			var fields: Dictionary = (extras.get(e.id, {}) as Dictionary).duplicate()
+			fields["keys_lost"] = lost
+			extras[e.id] = fields
+	for e in players:
 		_send_floor_loaded(e)
 		_send_character_state(e, extras.get(e.id, {}))
 	_broadcast_explore_state()
@@ -637,6 +648,21 @@ func _enter_floor(index: int, floor_data: FloorData, extras: Dictionary = {}) ->
 		_reveal_chests_near(e)
 	for e in players:
 		_check_zone_entry(e)
+
+
+## Removes every key-kind item from e (keys open locks on their own floor
+## only); returns the removed item ids.
+func _drop_floor_keys(e: ServerEntity) -> Array[String]:
+	var lost: Array[String] = []
+	var items: Dictionary = ContentLoader.cache().get("items", {})
+	for entry in e.sheet.inventory.duplicate():
+		var item_id := str(entry["item"])
+		var def: ItemDefinition = items.get(item_id, null)
+		if def != null and def.kind == ItemDefinition.KIND_KEY:
+			lost.append(item_id)
+	for item_id in lost:
+		e.sheet.remove_item(item_id, e.sheet.count_item(item_id), ContentLoader.cache())
+	return lost
 
 
 ## Last floor's stairs: long rest for every living player, then SET_CLEARED.
@@ -1410,7 +1436,7 @@ func _send_floor_loaded(e: ServerEntity) -> void:
 	for p in _floor.props:
 		props.append(_prop_wire(p))
 	floor_dict["doors"] = doors  # current states, never key items
-	floor_dict["props"] = props  # never loot tables
+	floor_dict["props"] = props  # never loot tables or drops
 	var landings: Array = []
 	for l in _floor.get_landings():
 		landings.append(l.to_dict())
@@ -1551,7 +1577,8 @@ func _landing_position(e: ServerEntity) -> Vector2i:
 	return l.position if l != null else _floor.arrival
 
 
-## The wire form of a door: {id, position, state, dc?, keyed?} (never key_item).
+## The wire form of a door: {id, position, state, dc?, keyed?, key_item?}
+## (players see which key a door wants; the prop that drops it stays hidden).
 func _door_wire(d: DoorData) -> Dictionary:
 	var out := {"id": d.id, "position": GridMath.vec_to_arr(d.position), "state": door_state(d.id)}
 	var dc := _door_dc(d)
@@ -1559,10 +1586,12 @@ func _door_wire(d: DoorData) -> Dictionary:
 		out["dc"] = dc
 	if not d.key_item.is_empty():
 		out["keyed"] = true
+		out["key_item"] = d.key_item
 	return out
 
 
-## The wire form of a prop: {id, kind, position, hp, blocks, destroyed} (never loot_table).
+## The wire form of a prop: {id, kind, position, hp, blocks, destroyed} (never
+## loot_table or drops: a key's hiding place is found by breaking things).
 func _prop_wire(p: PropData) -> Dictionary:
 	return {"id": p.id, "kind": p.kind, "position": GridMath.vec_to_arr(p.position), "hp": p.hp, "blocks": p.blocks,
 		"destroyed": _destroyed_props.has(p.id)}
@@ -1572,12 +1601,13 @@ func _door_dc(d: DoorData) -> int:
 	return DictUtil.to_int(_door_dcs.get(d.id, d.dc), d.dc)
 
 
-func _set_door_state(d: DoorData, state: String, by: String, method: String, spell: String = "") -> void:
+func _set_door_state(d: DoorData, state: String, by: String, method: String, spell: String = "", extra: Dictionary = {}) -> void:
 	_door_states[d.id] = state
 	_rebuild_floor_maps()
 	var fields := {"door_id": d.id, "state": state, "by": by, "method": method}
 	if not spell.is_empty():
 		fields["spell"] = spell
+	fields.merge(extra)
 	_transport.broadcast_result(Messages.make_result(Messages.DOOR_CHANGED, fields))
 
 
@@ -1628,7 +1658,8 @@ func _handle_close_door(peer_id: int, entity: ServerEntity, door_id: String) -> 
 	_set_door_state(d, DoorData.STATE_CLOSED, entity.id, "hand")
 
 
-## unlock_door: key (carried, kept), tools (thieves' tools: d20 + DEX +
+## unlock_door: key (the door's key_item, carried; used up: DOOR_CHANGED
+## "consumed"), tools (thieves' tools: d20 + DEX +
 ## proficiency when the class has the tool proficiency, against the door's
 ## dc; a failure may be retried) or spell (casts the spell, Knock by default,
 ## at the door through the out-of-combat cast; the exploration_effect opens
@@ -1658,8 +1689,9 @@ func _handle_unlock_door(peer_id: int, entity: ServerEntity, intent: Dictionary)
 		if d.key_item.is_empty() or not entity.sheet.has_item(d.key_item):
 			_send_error(peer_id, "%s has no key for this door" % entity.display_name)
 			return
-		_set_door_state(d, DoorData.STATE_CLOSED, entity.id, Messages.UNLOCK_KEY)
-		_send_character_state(entity, {"door_unlocked": {"door_id": door_id, "method": Messages.UNLOCK_KEY}})
+		entity.sheet.remove_item(d.key_item, 1, ContentLoader.cache())
+		_set_door_state(d, DoorData.STATE_CLOSED, entity.id, Messages.UNLOCK_KEY, "", {"consumed": d.key_item})
+		_send_character_state(entity, {"door_unlocked": {"door_id": door_id, "method": Messages.UNLOCK_KEY, "consumed": d.key_item}})
 		return
 	var dc := _door_dc(d)
 	if dc <= 0:
@@ -1688,9 +1720,9 @@ static func tools_check_bonus(sheet: CharacterSheet) -> int:
 	return bonus
 
 
-## interact {prop_id}: breaks an adjacent intact prop (no roll), rolls its
-## loot table: PROP_DESTROYED is broadcast, the breaker gets LOOT_GAINED
-## (source "prop", only when the prop has a table) and CHARACTER_STATE.
+## interact {prop_id}: breaks an adjacent intact prop (no roll): PROP_DESTROYED
+## is broadcast, the breaker gets LOOT_GAINED (source "prop": the prop's drops
+## first, then its loot table roll; only when it has either) and CHARACTER_STATE.
 func _handle_interact(peer_id: int, entity: ServerEntity, prop_id: String) -> void:
 	var p := _floor.get_prop(prop_id)
 	if p == null:
@@ -1711,8 +1743,13 @@ func _destroy_prop(p: PropData, by: ServerEntity) -> void:
 	_destroyed_props[p.id] = true
 	_rebuild_floor_maps()
 	_transport.broadcast_result(Messages.make_result(Messages.PROP_DESTROYED, {"prop_id": p.id, "by": by.id, "kind": p.kind}))
-	if not p.loot_table.is_empty() and by.is_player():
-		_give_loot(by, _roll_loot(p.loot_table), Messages.LOOT_SOURCE_PROP, {"prop_id": p.id})
+	if (not p.loot_table.is_empty() or not p.drops.is_empty()) and by.is_player():
+		var items: Array[Dictionary] = []
+		for drop in p.drops:
+			LootTable.merge_into(items, str(drop["item"]), DictUtil.to_int(drop["qty"], 1))
+		for rolled in _roll_loot(p.loot_table):
+			LootTable.merge_into(items, str(rolled["item"]), DictUtil.to_int(rolled["qty"]))
+		_give_loot(by, items, Messages.LOOT_SOURCE_PROP, {"prop_id": p.id})
 		_send_character_state(by)
 
 

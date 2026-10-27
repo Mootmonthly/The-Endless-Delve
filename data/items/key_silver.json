@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"hand_edited": true,
+	"id": "key_silver",
+	"display_name": "Silver Key",
+	"kind": "key",
+	"description": "Opens a matching lock on this floor.",
+	"weight": 0.1,
+	"value_gp": 1,
+	"stackable": false
+}

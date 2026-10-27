@@ -214,3 +214,13 @@ Append one entry per working session (newest last).
   move-only blockers, floor light levels, tool proficiencies on sheets,
   key items, Messages lacks hide/search/shove/grapple/help/move_effect
   validation. Suite: 886 green.
+- **2026-10-27 — Playtest round 2 fixes.** Window opens maximized with a
+  Window mode setting; creator unclipped (Start under Suggested scores,
+  scrolling columns); ability score methods: standard array, point buy,
+  rolled. Door keys: six key items, props carry guaranteed `drops`, the
+  generator pairs about half the locked doors with a crate or barrel holding
+  the key (reachable without passing any locked door, unique colour per
+  floor), keys are consumed and lost on descent. Chest loot: category-roll
+  loot tables (gear + potions + gold + optional supplies), chest_stairs_t1/t2
+  and cache_t1/t2 by floor, nine +1 items with bonuses applied on equip.
+  Suite: 929 green.

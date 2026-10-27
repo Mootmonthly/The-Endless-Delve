@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"hand_edited": true,
+	"id": "scale_mail_plus_1",
+	"display_name": "Scale Mail, +1",
+	"kind": "armor",
+	"description": "You have a +1 bonus to AC while wearing this magic scale mail.",
+	"weight": 45,
+	"value_gp": 551,
+	"stackable": false,
+	"armor": { "base": 14, "max_dex": 2, "category": "medium", "stealth_disadvantage": true },
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (scale mail), rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"bonus": 1,
+	"bonus_applies_to": "armor",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

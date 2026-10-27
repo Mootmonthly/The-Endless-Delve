@@ -184,6 +184,8 @@ const FEATURE_NAMES: Dictionary[String, String] = {
 	"flurry_strike": "Flurry of Blows strike", "frenzy_attack": "Frenzy attack",
 	"deflect_missiles": "Deflect Missiles", "uncanny_dodge": "Uncanny Dodge", "destroy_undead": "Destroy Undead",
 }
+const INVENTORY_ITEMS_HEADING := "Items"
+const INVENTORY_KEYS_HEADING := "Keys"
 const SLOT_NAMES: Dictionary[String, String] = {"main_hand": "Main hand", "off_hand": "Off hand", "armor": "Armor"}
 const LOOT_SOURCES: Dictionary[String, String] = {"chest": "from the chest", "monster": "from the fallen", "floor": "found on the floor",
 	"prop": "from the wreckage"}
@@ -308,7 +310,7 @@ var log_lines: Array[String] = []
 var revision: int = 0
 
 ## Floor objects (Round D): door id -> "open" | "closed" | "locked"; door
-## id -> {"dc", "keyed"}; prop id -> true once broken.
+## id -> {"dc", "keyed", "key_item"}; prop id -> true once broken.
 var door_states: Dictionary = {}
 var door_info: Dictionary = {}
 var destroyed_props: Dictionary = {}
@@ -525,8 +527,13 @@ func _apply_character_state(result: Dictionary) -> void:
 		var du: Dictionary = result["door_unlocked"]
 		if str(du.get("method", "")) == Messages.UNLOCK_TOOLS:
 			_log("%s picks the lock (%d vs DC %d)." % [who, DictUtil.to_int(du.get("total", 0), 0), DictUtil.to_int(du.get("dc", 0), 0)])
+		elif typeof(du.get("consumed")) == TYPE_STRING:
+			_log("The %s turns in the lock and stays there: it is used up." % item_name(str(du["consumed"])))
 		else:
 			_log("%s unlocks the door with the key." % who)
+	if typeof(result.get("keys_lost")) == TYPE_ARRAY:
+		for key_v: Variant in (result["keys_lost"] as Array):
+			_log("The %s crumbles to dust: its lock was on the floor above." % item_name(str(key_v)))
 	if typeof(result.get("unlock_failed")) == TYPE_DICTIONARY:
 		var uf: Dictionary = result["unlock_failed"]
 		_log("%s fails to pick the lock (%d vs DC %d)." % [who, DictUtil.to_int(uf.get("total", 0), 0), DictUtil.to_int(uf.get("dc", 0), 0)])
@@ -566,6 +573,13 @@ func _apply_loot(result: Dictionary) -> void:
 		parts.append(ClientState.quantity_text(item_name(id), qty, id == CharacterSheet.GOLD_ITEM))
 	var source := str(result.get("source", ""))
 	var where: String = LOOT_SOURCES.get(source, "")
+	for it_v: Variant in items:
+		var key_id := str((it_v as Dictionary).get("item", ""))
+		if is_key_item(key_id):
+			var door := door_for_key(key_id)
+			var prop := floor_data.get_prop(str(result.get("prop_id", ""))) if floor_data != null and source == Messages.LOOT_SOURCE_PROP else null
+			_log("You find the %s%s! %s" % [item_name(key_id), (" in the %s" % prop.kind) if prop != null else "",
+				"It fits a locked door on this floor." if not door.is_empty() else "It opens a lock on this floor."])
 	if parts.is_empty():
 		_log("Nothing of value %s." % (where if not where.is_empty() else "here"))
 	else:
@@ -631,13 +645,15 @@ func _apply_floor_loaded(result: Dictionary) -> void:
 	_map_cache = null
 	for d in floor_data.doors:
 		door_states[d.id] = d.state
-		door_info[d.id] = {"dc": d.dc, "keyed": not d.key_item.is_empty()}
+		door_info[d.id] = {"dc": d.dc, "keyed": not d.key_item.is_empty(), "key_item": d.key_item}
 	if typeof(result.get("doors")) == TYPE_ARRAY:
 		for d_v: Variant in (result["doors"] as Array):
 			if typeof(d_v) == TYPE_DICTIONARY:
 				var dd: Dictionary = d_v
 				door_states[str(dd.get("id", ""))] = str(dd.get("state", "closed"))
-				door_info[str(dd.get("id", ""))] = {"dc": DictUtil.to_int(dd.get("dc", 0), 0), "keyed": dd.get("keyed", false) == true}
+				var key_item := str(dd.get("key_item", "")) if typeof(dd.get("key_item")) == TYPE_STRING else ""
+				door_info[str(dd.get("id", ""))] = {"dc": DictUtil.to_int(dd.get("dc", 0), 0),
+					"keyed": dd.get("keyed", false) == true or not key_item.is_empty(), "key_item": key_item}
 	if typeof(result.get("props")) == TYPE_ARRAY:
 		for p_v: Variant in (result["props"] as Array):
 			if typeof(p_v) == TYPE_DICTIONARY and (p_v as Dictionary).get("destroyed", false) == true:
@@ -2846,7 +2862,8 @@ func feature_target_error(feature: String, target: String) -> String:
 
 ## Inventory rows (gold excluded, see gold()): {"item", "name", "kind", "qty",
 ## "weight" (total), "equipped": Array[String] slots holding it,
-## "equip_slots": Array[String] slots it fits, "usable": bool}.
+## "equip_slots": Array[String] slots it fits, "usable": bool, "key": bool
+## (a door key; "door": the door on this floor it opens, or "")}.
 func inventory_rows() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if sheet == null:
@@ -2867,7 +2884,27 @@ func inventory_rows() -> Array[Dictionary]:
 			"weight": (def.weight * qty) if def != null else 0.0, "equipped": slots_held,
 			"equip_slots": equip_slots_for(id), "usable": def != null and def.has_implemented_use(),
 			"properties": weapon_properties(id),
+			"key": def != null and def.kind == ItemDefinition.KIND_KEY, "door": door_for_key(id),
 		})
+	return out
+
+
+## The inventory under headings for the HUD: [{"heading": "Items", "rows":
+## [...]}, {"heading": "Keys", "rows": [...]}] (a heading only when it has rows;
+## rows as in inventory_rows()).
+func inventory_sections() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	var keys: Array[Dictionary] = []
+	for r in inventory_rows():
+		if r.get("key", false) == true:
+			keys.append(r)
+		else:
+			items.append(r)
+	var out: Array[Dictionary] = []
+	if not items.is_empty():
+		out.append({"heading": INVENTORY_ITEMS_HEADING, "rows": items})
+	if not keys.is_empty():
+		out.append({"heading": INVENTORY_KEYS_HEADING, "rows": keys})
 	return out
 
 
@@ -3492,6 +3529,8 @@ func _apply_door_changed(result: Dictionary) -> void:
 	var how := ""
 	if method == Messages.UNLOCK_SPELL and result.has("spell"):
 		how = " with %s" % spell_name(str(result["spell"]))
+	elif method == Messages.UNLOCK_KEY and typeof(result.get("consumed")) == TYPE_STRING:
+		how = " with the %s" % item_name(str(result["consumed"]))
 	_log("%s %s the door%s." % [who, verb, how])
 
 
@@ -3578,9 +3617,9 @@ func floor_hud_text() -> String:
 	return floor_label() + (", arrived at %s" % where if not where.is_empty() else "")
 
 
-## What a click on a door within reach does now: open / close it, or try
-## thieves' tools, then its key, then Knock on a locked one (hint says why
-## not). Farther away: walk next to it.
+## What a click on a door within reach does now: open / close it, or on a
+## locked one use its key (when carried), then thieves' tools, then Knock
+## (hint says why not). Farther away: walk next to it.
 func door_intent(door_id: String) -> Dictionary:
 	var d := floor_data.get_door(door_id) if floor_data != null else null
 	if d == null or not has_player_entity():
@@ -3599,25 +3638,72 @@ func door_intent(door_id: String) -> Dictionary:
 			if method.is_empty():
 				var info: Dictionary = door_info.get(door_id, {})
 				var dc := DictUtil.to_int(info.get("dc", 0), 0)
-				hint = "The door is locked%s: thieves' tools, its key or Knock open it." % (" (DC %d)" % dc if dc > 0 else "")
+				var key_item := door_key_item(door_id)
+				if not key_item.is_empty():
+					hint = "Locked: needs the %s%s." % [item_name(key_item),
+						(" (or thieves' tools, DC %d, or Knock)" % dc) if dc > 0 else " (or Knock)"]
+				else:
+					hint = "The door is locked%s: thieves' tools, its key or Knock open it." % (" (DC %d)" % dc if dc > 0 else "")
 				return {}
 			return Messages.make_intent(Messages.UNLOCK_DOOR, {"actor": player_id, "door_id": door_id, "method": method})
 	return Messages.make_intent(Messages.OPEN_DOOR, {"actor": player_id, "door_id": door_id})
 
 
-## How the player would try a locked door: "tools" (thieves' tools, the lock
-## has a DC), "key" (a keyed door), "spell" (Knock castable), or "".
+## How the player would try a locked door, in this order: "key" (its
+## key_item is carried), "tools" (thieves' tools, the lock has a DC), "spell"
+## (Knock castable), "key" again for a keyed door whose key is not named, or "".
 func unlock_method(door_id: String) -> String:
 	if sheet == null:
 		return ""
 	var info: Dictionary = door_info.get(door_id, {})
+	var key_item := door_key_item(door_id)
+	if not key_item.is_empty() and sheet.has_item(key_item):
+		return Messages.UNLOCK_KEY
 	if sheet.has_item(THIEVES_TOOLS) and DictUtil.to_int(info.get("dc", 0), 0) > 0:
 		return Messages.UNLOCK_TOOLS
-	if info.get("keyed", false) == true:
-		return Messages.UNLOCK_KEY
 	if sheet.is_spell_prepared("knock") and cast_error("knock").is_empty():
 		return Messages.UNLOCK_SPELL
+	if key_item.is_empty() and info.get("keyed", false) == true:
+		return Messages.UNLOCK_KEY
 	return ""
+
+
+## The item id of the key a door wants ("" when it takes none).
+func door_key_item(door_id: String) -> String:
+	var info: Dictionary = door_info.get(door_id, {})
+	return str(info.get("key_item", ""))
+
+
+## The id of the door on this floor that wants key_item ("" when none).
+func door_for_key(key_item: String) -> String:
+	for door_id: Variant in door_info.keys():
+		if door_key_item(str(door_id)) == key_item and not key_item.is_empty():
+			return str(door_id)
+	return ""
+
+
+## True for items of kind "key".
+func is_key_item(item_id: String) -> bool:
+	var def := item_def(item_id)
+	return def != null and def.kind == ItemDefinition.KIND_KEY
+
+
+## What the HUD says about a locked door within reach: the key it needs and
+## whether the player carries it, else how a click tries it.
+func locked_door_hint(door_id: String) -> String:
+	var how := unlock_method(door_id)
+	var key_item := door_key_item(door_id)
+	if not key_item.is_empty():
+		var key_name := item_name(key_item)
+		if how == Messages.UNLOCK_KEY:
+			return "Locked: needs the %s. You have the %s: click the door to unlock it." % [key_name, key_name]
+		if how == Messages.UNLOCK_TOOLS:
+			return "Locked: needs the %s. Click it to pick the lock instead." % key_name
+		if how == Messages.UNLOCK_SPELL:
+			return "Locked: needs the %s. Click it to cast Knock instead." % key_name
+		return "Locked: needs the %s. Barrels and crates hide such things." % key_name
+	return "A locked door: click it to %s." % ("pick the lock" if how == Messages.UNLOCK_TOOLS else
+		("use the key" if how == Messages.UNLOCK_KEY else ("cast Knock" if how == Messages.UNLOCK_SPELL else "try it")))
 
 
 ## A click on a prop: break it when within reach, else walk next to it.
@@ -3682,9 +3768,7 @@ func nearby_object_hint() -> String:
 				DoorData.STATE_OPEN:
 					return "An open door: click it to close it."
 				DoorData.STATE_LOCKED:
-					var how := unlock_method(d.id)
-					return "A locked door: click it to %s." % ("pick the lock" if how == Messages.UNLOCK_TOOLS else
-						("use the key" if how == Messages.UNLOCK_KEY else ("cast Knock" if how == Messages.UNLOCK_SPELL else "try it")))
+					return locked_door_hint(d.id)
 				_:
 					return "A closed door: click it to open it."
 	for p in floor_data.props:

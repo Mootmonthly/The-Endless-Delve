@@ -95,8 +95,9 @@ extends RefCounted
 ##                    "chests": [{"id", "position": [x, y], "hidden": bool, "opened": bool}]
 ##                    (hidden chests are listed only once revealed or opened),
 ##                    "landings": [{"id", "position", "facing"?}], "landing_id" (where this
-##                    player arrived), "doors": [{"id", "position", "state", "dc"?, "keyed"?}],
-##                    "props": [{"id", "kind", "position", "hp", "blocks", "destroyed"}],
+##                    player arrived), "doors": [{"id", "position", "state", "dc"?, "keyed"?,
+##                    "key_item"?}], "props": [{"id", "kind", "position", "hp", "blocks",
+##                    "destroyed"}] (never a prop's loot_table or drops),
 ##                    "light" (the floor's light level: "bright"|"dim"|"dark")
 ##   character_state  {"sheet": CharacterSheet.to_dict()}
 ##                    extras: "entity_id", "healed", "xp_gained", "floor_clear_xp",
@@ -106,7 +107,8 @@ extends RefCounted
 ##                    "reaction_policy", "spell_cast" (out-of-combat cast),
 ##                    "companion_dismissed" {"id", "monster"}, "light_level" (the
 ##                    player's own light after a light spell), "door_unlocked" {door_id,
-##                    method}, "unlock_failed" {door_id, total, dc}
+##                    method, consumed? (the key used up)}, "unlock_failed" {door_id,
+##                    total, dc}, "keys_lost" ([key item ids] gone on leaving their floor)
 ##                    sheet "companions" entries carry a server-given "id"
 ##   out_of_combat_events {"entity_id": id, "spell": id, "events": [event dicts, each
 ##                    with "kind"]}  an out-of-combat cast; extras "slot_level" and
@@ -126,7 +128,8 @@ extends RefCounted
 ##   chest_opened     {"chest_id": id}                  extras: "entity_id" (the opener)
 ##   chest_revealed   {"chest": {"id", "position", "hidden", "opened", "locked"?}}
 ##   door_changed     {"door_id", "state": "open"|"closed"|"locked", "by": entity id}
-##                    extras: "method" ("hand"|"key"|"tools"|"spell"), "spell"
+##                    extras: "method" ("hand"|"key"|"tools"|"spell"), "spell",
+##                    "consumed" (the key item used up by a "key" unlock)
 ##   prop_destroyed   {"prop_id", "by": entity id}
 ##   zone_respawned   {"zone_id"}                       a cleared pack came back (its timer
 ##                                                      ran out with no player in its rect)
@@ -550,6 +553,8 @@ static func validate_result(d: Dictionary) -> String:
 				return "door_changed: missing or empty 'door_id'"
 			if typeof(d.get("state")) != TYPE_STRING or not ["open", "closed", "locked"].has(str(d.get("state"))):
 				return "door_changed: 'state' must be open, closed or locked"
+			if d.has("consumed") and not Messages._is_non_empty_string(d.get("consumed")):
+				return "door_changed: 'consumed' must be an item id"
 		PROP_DESTROYED:
 			if not Messages._is_non_empty_string(d.get("prop_id")):
 				return "prop_destroyed: missing or empty 'prop_id'"

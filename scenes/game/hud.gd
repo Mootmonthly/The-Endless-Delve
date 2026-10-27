@@ -32,7 +32,8 @@ extends CanvasLayer
 ##   governs (opportunity attack, Shield, Uncanny Dodge, Counterspell, ...),
 ##   and one check box per reaction when a trigger governs several, sent as
 ##   the reaction_policy intent;
-## - InventoryPanel (Tab): equipment slots, items with icon / qty / weight,
+## - InventoryPanel (Tab): equipment slots, items with icon / qty / weight
+##   (door keys under their own "Keys" heading),
 ##   weapon properties (two-handed, light, versatile...) and Use / Equip /
 ##   Unequip / Drop, gold, carried weight and the AC breakdown;
 ## - combat log and the end-of-run panel.
@@ -1162,11 +1163,23 @@ func _refresh_inventory(state: ClientState) -> void:
 			b.disabled = not manage
 			row.add_child(b)
 	_clear(_inv_items_box)
-	var rows := state.inventory_rows()
-	if rows.is_empty():
+	var sections := state.inventory_sections()
+	if sections.is_empty():
 		_inv_items_box.add_child(_note("Nothing carried."))
-	for r in rows:
-		_inv_items_box.add_child(_item_row(state, r, manage))
+	for section in sections:
+		var heading := str(section["heading"])
+		if heading == ClientState.INVENTORY_KEYS_HEADING:
+			# Keys get their own heading with a key glyph (the misc icon until
+			# the atlas has a key column).
+			var head := HBoxContainer.new()
+			head.add_child(_icon(_icons.column_for_item(state.item_def(str((section["rows"] as Array)[0]["item"])))))
+			var l := Label.new()
+			l.text = "%s (each opens one locked door on this floor, then is used up)" % heading
+			l.modulate = GREY
+			head.add_child(l)
+			_inv_items_box.add_child(head)
+		for r: Dictionary in (section["rows"] as Array):
+			_inv_items_box.add_child(_item_row(state, r, manage))
 
 
 func _item_row(state: ClientState, r: Dictionary, manage: bool) -> HBoxContainer:
@@ -1186,6 +1199,8 @@ func _item_row(state: ClientState, r: Dictionary, manage: bool) -> HBoxContainer
 	props.assign(r.get("properties", []))
 	if not props.is_empty():
 		text += " [%s]" % ", ".join(props)
+	if r.get("key", false) == true:
+		text += " — fits a locked door here" if not str(r.get("door", "")).is_empty() else " — no lock here takes it"
 	name_label.text = text
 	name_label.tooltip_text = text
 	name_label.mouse_filter = Control.MOUSE_FILTER_PASS

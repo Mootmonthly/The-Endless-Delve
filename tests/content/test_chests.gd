@@ -1,14 +1,21 @@
 extends TestCase
-## Treasure chests on the first set's floors: one "starter_gear" chest within
-## STAIR_CHEST_RANGE tiles of each staircase and one hidden chest inside the
-## floor's optional side area. Positions are walkable floor (not a wall or
+## Treasure chests on the first set's floors: one stairs chest within
+## STAIR_CHEST_RANGE tiles of each staircase (chest_stairs_t1 on floors 1-2,
+## chest_stairs_t2 on 3-5) and one hidden cache (cache_t1 / cache_t2) inside
+## the floor's optional side area; neither table can roll only supplies. Positions are walkable floor (not a wall or
 ## pillar), unique, off the spawn points, the stairs and the arrival tile, and
 ## every table exists in data/loot. See docs/gdd.md "Items and inventory".
 
 const SET_PATH := "res://floors/set_01.json"
 const LOOT_DIR := "res://data/loot"
 const STAIR_CHEST_RANGE := 3
-const STAIR_TABLE := "starter_gear"
+## Floor number -> [stairs chest table, hidden cache table].
+const TABLES_BY_FLOOR: Dictionary = {
+	1: ["chest_stairs_t1", "cache_t1"], 2: ["chest_stairs_t1", "cache_t1"],
+	3: ["chest_stairs_t2", "cache_t2"], 4: ["chest_stairs_t2", "cache_t2"], 5: ["chest_stairs_t2", "cache_t2"],
+}
+## Items that count as "supplies": a chest must never give only these.
+const SUPPLIES: Array[String] = ["torch", "rations", "arrows", "bolts", "sling_bullets"]
 
 var _floor_ids: Array[String] = []
 var _loot: Dictionary = {}
@@ -88,24 +95,25 @@ func test_chest_tables_exist() -> void:
 			assert_true(_loot.has(table), "%s chest %s: loot table '%s' loads" % [floor_id, str(c.get("id")), table])
 
 
-func test_a_starter_gear_chest_sits_by_each_staircase() -> void:
+func test_a_tiered_chest_sits_by_each_staircase() -> void:
 	for floor_id in _floor_ids:
 		var f := FloorFile.load(FloorFile.floor_path(floor_id))
 		if f == null:
 			fail("%s did not load" % floor_id)
 			continue
+		var stair_table := str((TABLES_BY_FLOOR[f.floor_number] as Array)[0])
 		var near := 0
 		for c in _raw_chests(floor_id):
 			if DictUtil.to_bool(c.get("hidden", false), false):
 				continue
-			if str(c.get("table", "")) != STAIR_TABLE:
+			if str(c.get("table", "")) != stair_table:
 				continue
 			if GridMath.distance_tiles(_pos(c), f.stairs) <= STAIR_CHEST_RANGE:
 				near += 1
 				# reachable from the stairs without leaving the room
 				assert_false(f.walk_map.path_to(f.stairs, _pos(c), {}).is_empty(),
 						"%s: the stair chest is reachable" % floor_id)
-		assert_eq(near, 1, "%s: one visible starter_gear chest within %d tiles of the stairs" % [floor_id, STAIR_CHEST_RANGE])
+		assert_eq(near, 1, "%s: one visible %s chest within %d tiles of the stairs" % [floor_id, stair_table, STAIR_CHEST_RANGE])
 
 
 func test_one_hidden_chest_in_the_optional_side_area() -> void:
@@ -125,6 +133,7 @@ func test_one_hidden_chest_in_the_optional_side_area() -> void:
 			if not DictUtil.to_bool(c.get("hidden", false), false):
 				continue
 			hidden += 1
+			assert_eq(str(c.get("table", "")), str((TABLES_BY_FLOOR[f.floor_number] as Array)[1]), "%s hidden cache table" % floor_id)
 			var inside := false
 			for r in optional_rects:
 				if r.has_point(_pos(c)):
@@ -149,3 +158,24 @@ func test_floor_data_parses_the_chests() -> void:
 				assert_eq(chest.table_id, str(c.get("table", "")))
 				assert_eq(chest.hidden, DictUtil.to_bool(c.get("hidden", false), false))
 		assert_eq(f.validate(_loot), [] as Array[String], "%s validates against the loot tables" % floor_id)
+
+
+func test_stairs_and_cache_tables_never_roll_only_supplies() -> void:
+	for tid in ["chest_stairs_t1", "chest_stairs_t2", "cache_t1", "cache_t2"]:
+		assert_true(_loot.has(tid), "loot table %s" % tid)
+		if not _loot.has(tid):
+			continue
+		var table: LootTable = _loot[tid]
+		assert_true(table.is_grouped(), "%s uses category rolls" % tid)
+		var gear_rolls := 0
+		for name in table.group_names():
+			if name.begins_with("gear"):
+				gear_rolls += 1
+		assert_eq(gear_rolls, 2 if tid.begins_with("cache") else 1, "%s gear rolls" % tid)
+		for s in range(1, 201):
+			var drops := table.roll(Rng.new(s))
+			var other := 0
+			for d in drops:
+				if not SUPPLIES.has(str(d["item"])):
+					other += 1
+			assert_true(other >= 3, "%s seed %d: gear, healing and gold, not just supplies (%s)" % [tid, s, str(drops)])

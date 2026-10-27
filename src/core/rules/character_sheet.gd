@@ -987,10 +987,10 @@ func equip(item_id: String, slot: String, content: Dictionary = {}) -> String:
 	_clear_slot(slot)
 	equipped[slot] = item_id
 	if slot == SLOT_ARMOR:
-		armor_base = item.armor_base
+		armor_base = item.armor_base + item.bonus  # +N armor: +N AC
 		armor_max_dex = item.armor_max_dex
 	elif slot == SLOT_OFF_HAND and kind == ItemDefinition.KIND_SHIELD:
-		shield_bonus = item.shield_bonus
+		shield_bonus = item.shield_bonus + item.bonus  # +N shield: +N AC
 	rebuild_attacks(c)
 	return ""
 
@@ -1036,7 +1036,8 @@ func _has_attack_using(item_id: String) -> bool:
 ## modifier to damage without the Two-Weapon Fighting style).
 ## Fighting styles: Dueling (+2 damage, main-hand melee weapon not two-handed,
 ## no off-hand weapon), Great Weapon Fighting ("reroll_max": 2 on a two-handed
-## melee weapon), Archery (see CharacterBuilder.weapon_attack).
+## melee weapon), Archery (see CharacterBuilder.weapon_attack). A +N weapon
+## item adds N to hit and damage (see _item_attack).
 func rebuild_attacks(content: Dictionary = {}) -> void:
 	var c := ContentLoader.resolve(content)
 	attacks.clear()
@@ -1049,17 +1050,17 @@ func rebuild_attacks(content: Dictionary = {}) -> void:
 		main_weapon = w
 		if w != null:
 			if w.ranged and not w.is_thrown():
-				attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "ranged", main, CharacterSheet.ammo_for_item(main, c)))
+				attacks.append(_item_attack(c, w, _proficient(w, c), "ranged", main, CharacterSheet.ammo_for_item(main, c)))
 			elif w.ranged:
-				attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "thrown", main, main))
+				attacks.append(_item_attack(c, w, _proficient(w, c), "thrown", main, main))
 			else:
 				var dueling := 2 if has_fighting_style("dueling") and not w.is_two_handed() and off_weapon == null else 0
-				var melee := CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "melee", main, "", dueling)
+				var melee := _item_attack(c, w, _proficient(w, c), "melee", main, "", dueling)
 				if has_fighting_style("great_weapon_fighting") and w.is_two_handed():
 					melee["reroll_max"] = 2
 				attacks.append(melee)
 				if w.is_thrown():
-					attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "thrown", main, main))
+					attacks.append(_item_attack(c, w, _proficient(w, c), "thrown", main, main))
 	for entry in inventory:
 		var item_id := str(entry["item"])
 		if item_id == main or DictUtil.to_int(entry["qty"]) <= 0:
@@ -1068,15 +1069,29 @@ func rebuild_attacks(content: Dictionary = {}) -> void:
 		if w == null:
 			continue
 		if w.is_thrown():
-			attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "thrown", item_id, item_id))
+			attacks.append(_item_attack(c, w, _proficient(w, c), "thrown", item_id, item_id))
 		elif w.ranged:
-			attacks.append(CharacterBuilder.weapon_attack(self, w, _proficient(w, c), "ranged", item_id, CharacterSheet.ammo_for_item(item_id, c)))
+			attacks.append(_item_attack(c, w, _proficient(w, c), "ranged", item_id, CharacterSheet.ammo_for_item(item_id, c)))
 	if off_weapon != null and main_weapon != null and not off_weapon.ranged and not main_weapon.ranged \
 			and off_weapon.has_property("light") and main_weapon.has_property("light"):
-		var off_attack := CharacterBuilder.weapon_attack(self, off_weapon, _proficient(off_weapon, c), "melee", off, "", 0, has_fighting_style("two_weapon_fighting"))
-		off_attack["name"] = "%s (off hand)" % off_weapon.display_name
+		var off_attack := _item_attack(c, off_weapon, _proficient(off_weapon, c), "melee", off, "", 0, has_fighting_style("two_weapon_fighting"))
+		off_attack["name"] = "%s (off hand)" % str(off_attack["name"])
 		off_attack["off_hand"] = true
 		attacks.append(off_attack)
+
+
+## CharacterBuilder.weapon_attack plus the item's magic bonus (+N to hit and
+## damage, and the attack counts as magical) for a +N weapon item.
+func _item_attack(c: Dictionary, w: WeaponDefinition, proficient: bool, kind: String, item_id: String, consumes: String, damage_bonus: int = 0, add_mod: bool = true) -> Dictionary:
+	var item := CharacterSheet.item_def(item_id, c)
+	var magic := item.bonus if item != null else 0
+	var attack := CharacterBuilder.weapon_attack(self, w, proficient, kind, item_id, consumes, damage_bonus + magic, add_mod)
+	if magic > 0:
+		attack["to_hit"] = DictUtil.to_int(attack["to_hit"]) + magic
+		attack["name"] = "%s +%d" % [str(attack["name"]), magic]
+		attack["magic_bonus"] = magic
+		attack["magical"] = true
+	return attack
 
 
 func _proficient(weapon: WeaponDefinition, content: Dictionary) -> bool:

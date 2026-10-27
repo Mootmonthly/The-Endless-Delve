@@ -160,7 +160,7 @@ func test_clicking_doors_opens_closes_and_unlocks() -> void:
 	assert_eq(str(pick["method"]), "tools")
 	assert_eq(locked.nearby_object_hint(), "A locked door: click it to pick the lock.")
 	var keyed := _loaded("locked", null, [5, 2], {"doors": [{"id": "d1", "position": [6, 2], "state": "locked", "keyed": true}]})
-	assert_eq(str(keyed.intent_for_click(Vector2i(6, 2))["method"]), "key")
+	assert_eq(str(keyed.intent_for_click(Vector2i(6, 2))["method"]), "key", "a keyed door whose key is not named")
 	var mage := _loaded("locked", _wizard(["knock"]))
 	assert_eq(str(mage.intent_for_click(Vector2i(6, 2))["method"]), "spell")
 	# Too far: walk next to the door first.
@@ -472,3 +472,90 @@ func test_pact_of_the_chain_familiar_attacks() -> void:
 	assert_eq(int(intent["attack_index"]), 0)
 	assert_eq(Messages.validate_intent(intent), "")
 	assert_eq(st.attack_error("g2"), "not in your familiar's reach")
+
+
+
+# --- door keys ----------------------------------------------------------------------------
+
+func _key_door(st_sheet: CharacterSheet = null) -> ClientState:
+	return _loaded("locked", st_sheet, [5, 2], {"doors": [{"id": "d1", "position": [6, 2], "state": "locked", "dc": 12,
+		"keyed": true, "key_item": "key_bronze"}]})
+
+
+func test_floor_loaded_reads_the_key_a_door_wants() -> void:
+	var st := _key_door()
+	assert_eq(st.door_key_item("d1"), "key_bronze")
+	assert_eq(st.door_for_key("key_bronze"), "d1")
+	assert_eq(st.door_for_key("key_iron"), "")
+	assert_true(st.is_key_item("key_bronze"))
+	assert_false(st.is_key_item("longsword"))
+
+
+func test_the_door_hint_names_the_key() -> void:
+	var st := _key_door()
+	assert_eq(st.nearby_object_hint(), "Locked: needs the Bronze Key. Barrels and crates hide such things.")
+	assert_eq(st.intent_for_click(Vector2i(6, 2)), {}, "no key, tools or Knock: nothing to send")
+	assert_true(st.hint.begins_with("Locked: needs the Bronze Key"), st.hint)
+	assert_true(st.hint.contains("DC 12"), st.hint)
+	st.sheet.add_item("key_bronze", 1)
+	assert_eq(st.nearby_object_hint(), "Locked: needs the Bronze Key. You have the Bronze Key: click the door to unlock it.")
+	var wrong := _key_door()
+	wrong.sheet.add_item("key_iron", 1)
+	assert_true(wrong.nearby_object_hint().begins_with("Locked: needs the Bronze Key. Barrels"), "the wrong key does not count")
+
+
+func test_click_order_is_key_then_tools_then_knock() -> void:
+	var st := _key_door()
+	st.sheet.add_item("thieves_tools", 1)
+	assert_eq(str(st.intent_for_click(Vector2i(6, 2))["method"]), "tools", "no key yet: pick the lock")
+	assert_eq(st.nearby_object_hint(), "Locked: needs the Bronze Key. Click it to pick the lock instead.")
+	st.sheet.add_item("key_bronze", 1)
+	var click := st.intent_for_click(Vector2i(6, 2))
+	assert_eq(str(click["method"]), "key", "the key first when carried")
+	assert_eq(Messages.validate_intent(click), "")
+	var mage := _key_door(_wizard(["knock"]))
+	assert_eq(str(mage.intent_for_click(Vector2i(6, 2))["method"]), "spell")
+	assert_eq(mage.nearby_object_hint(), "Locked: needs the Bronze Key. Click it to cast Knock instead.")
+	mage.sheet.add_item("thieves_tools", 1)
+	assert_eq(str(mage.intent_for_click(Vector2i(6, 2))["method"]), "tools", "tools before Knock")
+	mage.sheet.add_item("key_bronze", 1)
+	assert_eq(str(mage.intent_for_click(Vector2i(6, 2))["method"]), "key", "and the key before both")
+
+
+func test_finding_and_using_a_key_is_logged() -> void:
+	var st := _key_door(null)
+	st.apply(Messages.make_result(Messages.PROP_DESTROYED, {"prop_id": "p2", "by": PID, "kind": "crate"}))
+	st.apply(Messages.make_result(Messages.LOOT_GAINED, {"entity_id": PID, "source": "prop", "prop_id": "p2",
+		"items": [{"item": "key_bronze", "qty": 1}, {"item": "gold", "qty": 4}]}))
+	assert_has(st.log_lines, "You find the Bronze Key in the crate! It fits a locked door on this floor.")
+	assert_has(st.log_lines, "Loot from the wreckage: Bronze Key, 4 gold.")
+	st.apply(Messages.make_result(Messages.DOOR_CHANGED, {"door_id": "d1", "state": "closed", "by": PID, "method": "key", "consumed": "key_bronze"}))
+	assert_has(st.log_lines, "You unlock the door with the Bronze Key.")
+	var s := st.sheet.to_dict()
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": s, "door_unlocked": {"door_id": "d1", "method": "key", "consumed": "key_bronze"}}))
+	assert_has(st.log_lines, "The Bronze Key turns in the lock and stays there: it is used up.")
+	st.apply(Messages.make_result(Messages.CHARACTER_STATE, {"sheet": s, "keys_lost": ["key_iron"]}))
+	assert_has(st.log_lines, "The Iron Key crumbles to dust: its lock was on the floor above.")
+
+
+func test_inventory_lists_keys_under_their_own_heading() -> void:
+	var st := _key_door()
+	var plain := st.inventory_sections()
+	assert_eq(plain.size(), 1, "no keys: one section")
+	assert_eq(str(plain[0]["heading"]), ClientState.INVENTORY_ITEMS_HEADING)
+	st.sheet.add_item("key_bronze", 1)
+	st.sheet.add_item("key_iron", 1)
+	var sections := st.inventory_sections()
+	assert_eq(sections.size(), 2)
+	assert_eq(str(sections[1]["heading"]), "Keys")
+	var keys: Array = sections[1]["rows"]
+	assert_eq(keys.size(), 2)
+	assert_eq(str(keys[0]["name"]), "Bronze Key")
+	assert_eq(str(keys[0]["kind"]), "key")
+	assert_true(keys[0]["key"] == true)
+	assert_eq(str(keys[0]["door"]), "d1", "the bronze key fits d1")
+	assert_eq(str(keys[1]["door"]), "", "no lock here takes the iron key")
+	for r: Variant in (sections[0]["rows"] as Array):
+		assert_false((r as Dictionary)["key"] == true, "keys are not listed with the items")
+	var icons := EntityIcons.shared()
+	assert_eq(icons.column_for_item(st.item_def("key_bronze")), icons.column_for("misc"), "keys reuse the misc glyph")

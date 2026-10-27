@@ -156,18 +156,25 @@ load, as one landing called `arrival`). A version 2 file adds:
 | `schema_version` | `2` | |
 | `landings` | `[{"id", "position": [x, y], "facing": "north"\|"east"\|"south"\|"west"}]` | Arrival landings, at least one. `arrival` may be omitted; when present it must equal `landings[0]`, which servers still use as the default arrival. Each landing is walkable, outside every zone and on the outer third of the map. |
 | `doors` | `[{"id", "position", "state": "open"\|"closed"\|"locked", "dc": int, "key_item": item id}]` | A door tile is floor in the rows; it is walkable only while open, and a closed or locked door blocks line of sight. A locked door opens with `key_item`, a thieves' tools check against `dc`, or Knock (a locked door needs a `dc` or a `key_item`). Doors sit in 1-wide corridor cells (walls on two opposite sides, floor on the other two). |
-| `props` | `[{"id", "kind": "barrel"\|"crate"\|"brazier"\|"bones"\|"rubble", "position", "hp": int, "blocks": bool, "loot_table": id}]` | Breakable objects: attacking one to 0 hit points, or an `interact` out of combat, destroys it and rolls its loot table. A blocking prop is an obstacle (it does not block sight) until destroyed. |
+| `props` | `[{"id", "kind": "barrel"\|"crate"\|"brazier"\|"bones"\|"rubble", "position", "hp": int, "blocks": bool, "loot_table": id, "drops": [{"item": id, "qty": int}]}]` | Breakable objects: attacking one to 0 hit points, or an `interact` out of combat, destroys it; the breaker gets its guaranteed `drops` (a door's key) and then a roll of its loot table. A blocking prop is an obstacle (it does not block sight) until destroyed. Servers never send `drops` or `loot_table` to clients. |
 | `respawn` | `{"pack_seconds": 600, "boss_seconds": 1800}` | Respawn timers (defaults shown). |
 | zone keys | `"name"`, `"guards_stairs"`, `"respawns"` (default true), `"optional"` | The zone that holds the stairs is marked `guards_stairs`. |
 | `theme_style` | `{"darkness": "#rrggbb", "torch_color", "torch_density", "decor_density", "floor_variant_weights": {"plain", "cracked", "mossy", "rubble", "puddle"}, ...}` | Presentation only (FloorView; the rules never read it). Missing keys fall back to the theme's defaults, then FloorView's. |
-| `generated_by` | string | The generator command line that produced the first pass (`tools/gen_floor.py --preset floor_001 --seed 101`). Hand-edited files add `"hand_edited": true`. |
+| `generated_by` | string | The generator command line that produced the first pass (`tools/gen_floor.py --preset floor_001 --key-doors 0.5 --seed 101`). Hand-edited files add `"hand_edited": true`. |
 
 Row legend v2: `#` wall, `.` floor, `A` landings[0], `S` stairs, `L` another landing, `D` a door
 (markers are optional; each one must sit on its object). Validation (`FloorData.validate`, mirrored by
 `tools/gen_floor.py --check`): every landing reaches the stairs without passing a locked door or a
 blocking prop; the stairs stand inside a `guards_stairs` zone that also holds a chest; doors and props
 stand on walkable tiles; no two objects (stairs, landings, chests, doors, props) share a tile; spawn
-points avoid doors and blocking props. Servers build their movement and sight blockers from
+points avoid doors and blocking props; drops name an item and a quantity of at least 1. **Keys:** no two
+doors on a floor share a `key_item`; exactly one prop drops each door's key; and every landing reaches
+that prop (its tile, or a tile next to a blocking one) without passing a locked door or a blocking prop
+(a locked door is never a landing's only route, so a key door never is either). A door may have both a
+`key_item` and a `dc` (thieves' tools still work), or only one. Keys are items of kind `"key"`
+(`key_bronze`, `key_iron`, `key_silver`, `key_brass`, `key_copper`, `key_bone`): a key is used up when
+it opens its door, and any key still carried is lost when the party descends (each key belongs to its
+floor). Clients see each door's `key_item` (the colour it wants), never where the key is. Servers build their movement and sight blockers from
 `FloorData.static_blockers()` (closed or locked doors and blocking props), `sight_blockers()` (doors),
 `blocked_walk_map()` (doors walled off) and `prop_blockers()` (an `occupied`-style set).
 
@@ -235,16 +242,18 @@ counts never drop; every landing reaches the stairs on a route within 20% of the
 first zone on it belongs to that landing alone; every route from a landing to the stairs crosses a
 required zone; the optional zone is a dead end that never blocks the stairs; the stairs stand inside the
 `guards_stairs` zone with a chest; each floor has every prop kind, closed and locked doors and respawn
-timers; on floor 5 the stairs lie inside the boss zone; and the committed files are the generator's
+timers; about half the locked doors per floor (`--key-doors`, at most six, one per key colour) take a
+key held by a barrel or crate on the landings' side, 6-14 tiles' walk from the door when one fits
+(else up to 20), outside the encounter zones when possible; on floor 5 the stairs lie inside the boss zone; and the committed files are the generator's
 output until a file is marked `"hand_edited": true`.
 
-Chests (`"chests"` in the floor file, checked by `tests/content/test_chests.gd`): a visible
-`starter_gear` chest two tiles east of the stairs, a hidden `hidden_cache` chest in the optional side
-area (8.5), one `monster_medium` chest in each locked vault (the inner vault east of the stairs hall,
+Chests (`"chests"` in the floor file, checked by `tests/content/test_chests.gd`): a visible stairs
+chest two tiles east of the stairs (`chest_stairs_t1` on floors 1-2, `chest_stairs_t2` on floors 3-5),
+a hidden cache in the optional side area (`cache_t1` / `cache_t2`, 8.5), one `monster_medium` chest in each locked vault (the inner vault east of the stairs hall,
 plus more vaults behind locked doors on floors 3-5), and two or three `monster_small` caches in filler
 rooms. Barrels, crates and some bones carry the `monster_small` loot table.
 
-| Floor | Stairs | Stair chest (`starter_gear`) | Hidden chest (`hidden_cache`, side area) |
+| Floor | Stairs | Stair chest (`chest_stairs_tN`) | Hidden chest (`cache_tN`, side area) |
 |---|---|---|---|
 | 1 | (56, 40) | f1_stairs (58, 40) | f1_hidden (30, 49), crypt |
 | 2 | (56, 40) | f2_stairs (58, 40) | f2_hidden (30, 49), goblin cache |
@@ -874,11 +883,21 @@ point at `data/weapons/`), loot tables in `data/loot/`.
   and tools are carried flavour for now.
 - **Thrown and ranged weapons:** thrown weapons are used up when thrown and ammunition is used up per shot
   (7.6); keep a stack. Each attack in the HUD shows its kind (melee, ranged, thrown) and range.
-- **Chests by the stairs:** every floor has a visible treasure chest within 3 tiles of its staircase,
-  rolling the `starter_gear` table twice: low-level weapons, light and medium armor, a shield,
-  ammunition, potions, gold, or nothing. It is the safety net for a character who arrives under-equipped.
-- **Hidden chests:** every floor's optional side area hides a chest (`"hidden": true`) rolling the
-  better `hidden_cache` table (two rolls: healing, medium armor, martial weapons, more gold). A hidden
+- **Chests by the stairs:** every floor has a visible treasure chest within 3 tiles of its staircase.
+  Its table uses category rolls (one guaranteed draw per category, `LootTable` "rolls" groups):
+  `chest_stairs_t1` (floors 1-2) gives one piece of gear a level 1-2 character wants (longsword,
+  shortsword, battleaxe, rapier, longbow, chain shirt, scale mail, shield...), 1-2 Potions of Healing,
+  25-60 gp, and half the time supplies (torches, rations or ammunition, never alone);
+  `chest_stairs_t2` (floors 3-5) adds +1 weapons, armor and shields to the gear (about a quarter of the
+  draws), a Potion of Greater Healing 40% of the time (else two Potions of Healing) and 60-150 gp.
+  `starter_gear` (the old two-roll bag) remains for landing-area chests.
+- **Hidden chests:** every floor's optional side area hides a chest (`"hidden": true`) one tier above
+  its stairs chest with a second gear roll (`cache_t1` on floors 1-2: the t2 gear list twice, t2
+  healing and gold; `cache_t2` on floors 3-5: +1 gear about half the time, Greater Healing 60%,
+  120-250 gp).
+- **+N gear:** weapons, armor and shields with `"bonus": N` (e.g. `longsword_plus_1`,
+  `chain_shirt_plus_1`, `shield_plus_1`) add N to attack and damage rolls (and count as magical), or N
+  to AC, while equipped. A hidden
   chest is drawn only once a player is adjacent to it. **Proposal (needs owner sign-off):** later a
   passive Wisdom (Perception) or an active Intelligence (Investigation) check reveals it from further away.
 - **Monster drops:** every monster names a loot table. Vermin and weak foes (giant rats, centipedes,

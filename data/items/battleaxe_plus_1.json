@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"hand_edited": true,
+	"id": "battleaxe_plus_1",
+	"display_name": "Battleaxe, +1",
+	"kind": "weapon",
+	"description": "You have a +1 bonus to attack and damage rolls made with this magic battleaxe.",
+	"weight": 4,
+	"value_gp": 111,
+	"stackable": false,
+	"weapon_id": "battleaxe",
+	"magic": true,
+	"magic_category": "weapon",
+	"item_line": "Weapon (battleaxe), uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"bonus": 1,
+	"bonus_applies_to": "weapon",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

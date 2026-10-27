@@ -1,7 +1,8 @@
 class_name ItemDefinition
 extends RefCounted
 ## An item from data/items/*.json: weapon, armor, shield, consumable, ammo,
-## gold or misc. Weapon items point at a WeaponDefinition by `weapon_id`.
+## gold, key or misc. Weapon items point at a WeaponDefinition by `weapon_id`.
+## A key opens the floor door whose `key_item` names it (and is used up).
 ##
 ## {"schema_version": 1, "id", "display_name", "kind", "description",
 ##  "weight": float, "value_gp": float, "stackable": bool,
@@ -9,7 +10,9 @@ extends RefCounted
 ##  "armor": {"base", "max_dex", "category", "stealth_disadvantage"} (armor),
 ##  "shield": {"bonus"} (shield),
 ##  "use": {"action": "action"|"bonus_action", "effect": "heal"|"temp_hp"|"cure",
-##          "dice": "2d4+2", "target": "self"|"touch", "conditions": [...]} (consumable)}
+##          "dice": "2d4+2", "target": "self"|"touch", "conditions": [...]} (consumable),
+##  "bonus": int (magic +N weapon / armor / shield: attack and damage rolls,
+##            or AC, while equipped; 0 = mundane)}
 
 const SCHEMA_VERSION := 1
 const REQUIRED_FIELDS: Array[String] = ["id", "display_name", "kind"]
@@ -20,7 +23,8 @@ const KIND_CONSUMABLE := "consumable"
 const KIND_AMMO := "ammo"
 const KIND_GOLD := "gold"
 const KIND_MISC := "misc"
-const KINDS: Array[String] = [KIND_WEAPON, KIND_ARMOR, KIND_SHIELD, KIND_CONSUMABLE, KIND_AMMO, KIND_GOLD, KIND_MISC]
+const KIND_KEY := "key"
+const KINDS: Array[String] = [KIND_WEAPON, KIND_ARMOR, KIND_SHIELD, KIND_CONSUMABLE, KIND_AMMO, KIND_GOLD, KIND_MISC, KIND_KEY]
 const USE_ACTIONS: Array[String] = ["action", "bonus_action"]
 const EFFECT_HEAL := "heal"
 const EFFECT_TEMP_HP := "temp_hp"
@@ -43,6 +47,8 @@ var armor_max_dex: int = -1  # -1 = no cap, 0 = heavy
 var armor_category: String = ""
 var stealth_disadvantage: bool = false
 var shield_bonus: int = 0
+## Magic enhancement (+1..+3) of a weapon, armor or shield item; 0 otherwise.
+var bonus: int = 0
 var use_action: String = ""  # "" = not usable
 var use_effect: String = ""
 var use_dice: String = ""
@@ -75,6 +81,8 @@ static func from_dict(d: Dictionary) -> ItemDefinition:
 	it.stackable = DictUtil.to_bool(d.get("stackable", default_stack), default_stack)
 	it.weapon_id = _opt_str(d.get("weapon_id", ""))
 	it.ammo_id = _opt_str(d.get("ammo_id", ""))
+	if it.kind in [KIND_WEAPON, KIND_ARMOR, KIND_SHIELD]:
+		it.bonus = maxi(0, DictUtil.to_int(d.get("bonus", 0), 0))
 	match it.kind:
 		KIND_WEAPON:
 			if it.weapon_id.is_empty():
@@ -165,6 +173,8 @@ func to_dict() -> Dictionary:
 		d["armor"] = {"base": armor_base, "max_dex": armor_max_dex, "category": armor_category, "stealth_disadvantage": stealth_disadvantage}
 	if kind == KIND_SHIELD:
 		d["shield"] = {"bonus": shield_bonus}
+	if bonus > 0:
+		d["bonus"] = bonus
 	if is_usable():
 		d["use"] = {"action": use_action, "effect": use_effect, "dice": use_dice, "target": use_target, "conditions": use_conditions.duplicate()}
 	return d

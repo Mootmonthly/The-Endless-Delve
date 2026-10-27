@@ -264,3 +264,99 @@ func test_unsupported_schema_is_a_problem() -> void:
 	var f := _floor()
 	f.schema_version = 3
 	_assert_problem(f, "schema_version 3 is not supported")
+
+
+# --- keys (a locked door's key_item, dropped by one prop) ------------------------------
+
+## 9x5, schema 1: arrival (1, 1), stairs (3, 3); a vault (x 5..7) behind the
+## locked door d1 (4, 2), which takes the Bronze Key; crate p1 (1, 3) drops it.
+const KEY_ROWS: Array[String] = [
+	"#########",
+	"#A..#...#",
+	"#...D...#",
+	"#..S#...#",
+	"#########",
+]
+
+
+func _key_dict() -> Dictionary:
+	return {
+		"id": "keys", "rows": KEY_ROWS.duplicate(), "arrival": [1, 1], "stairs": [3, 3],
+		"doors": [{"id": "d1", "position": [4, 2], "state": "locked", "key_item": "key_bronze"}],
+		"props": [
+			{"id": "p1", "kind": "crate", "position": [1, 3], "hp": 5, "blocks": true, "drops": [{"item": "key_bronze", "qty": 1}]},
+			{"id": "p2", "kind": "barrel", "position": [6, 1], "hp": 4, "blocks": true},
+		],
+	}
+
+
+func _key_floor() -> FloorData:
+	return FloorData.from_dict(_key_dict())
+
+
+func test_prop_drops_parse_and_round_trip() -> void:
+	var f := _key_floor()
+	assert_eq(f.validate(), [] as Array[String], "a key-only door (no dc) is fine")
+	var p := f.get_prop("p1")
+	assert_eq(p.drops, [{"item": "key_bronze", "qty": 1}] as Array[Dictionary])
+	assert_true(p.drops_item("key_bronze"))
+	assert_false(p.drops_item("key_iron"))
+	assert_eq(p.to_dict()["drops"], [{"item": "key_bronze", "qty": 1}])
+	assert_false(f.get_prop("p2").to_dict().has("drops"), "no drops, no key")
+	assert_eq(f.get_door("d1").key_item, "key_bronze")
+	var again := FloorData.from_dict(JSON.parse_string(JSON.stringify(f.to_dict())))
+	assert_eq(again.get_prop("p1").drops.size(), 1)
+	assert_eq(str(again.get_prop("p1").drops[0]["item"]), "key_bronze")
+	assert_eq(DictUtil.to_int(again.get_prop("p1").drops[0]["qty"]), 1)
+	var both := _key_floor()
+	both.doors[0].dc = 14
+	assert_eq(both.validate(), [] as Array[String], "a door may take a key and a dc")
+
+
+func test_drops_need_an_item_and_a_quantity() -> void:
+	var f := _key_floor()
+	f.props[1].drops = [{"item": "gold", "qty": 0}] as Array[Dictionary]
+	_assert_problem(f, "prop 'p2' drop 'gold' qty must be at least 1")
+	f = _key_floor()
+	f.props[1].drops = [{"item": "", "qty": 1}] as Array[Dictionary]
+	_assert_problem(f, "prop 'p2' has a drop without an item")
+
+
+func test_a_key_door_needs_exactly_one_key_prop() -> void:
+	var f := _key_floor()
+	f.props[0].drops.clear()
+	_assert_problem(f, "door 'd1' key_item 'key_bronze' is dropped by 0 props")
+	f = _key_floor()
+	f.props[1].drops = [{"item": "key_bronze", "qty": 1}] as Array[Dictionary]
+	_assert_problem(f, "door 'd1' key_item 'key_bronze' is dropped by 2 props")
+
+
+func test_no_two_doors_share_a_key() -> void:
+	var d := _key_dict()
+	(d["doors"] as Array).append({"id": "d2", "position": [6, 2], "state": "locked", "key_item": "key_bronze"})
+	_assert_problem(FloorData.from_dict(d), "doors 'd1' and 'd2' share key_item 'key_bronze'")
+
+
+func test_the_key_prop_is_reachable_from_every_landing() -> void:
+	var f := _key_floor()
+	f.props[0].drops.clear()
+	f.props[1].drops = [{"item": "key_bronze", "qty": 1}] as Array[Dictionary]
+	_assert_problem(f, "key prop 'p2' (key_bronze for door 'd1') is not reachable from landing 'arrival'")
+	# Walled in by blocking props: out of reach until they are broken.
+	f = _key_floor()
+	for i in range(3):
+		var cell: Array = [[1, 2], [2, 2], [2, 3]][i]
+		f.props.append(PropData.from_dict({"id": "w%d" % i, "kind": "barrel", "position": cell, "hp": 4, "blocks": true}))
+	_assert_problem(f, "key prop 'p1' (key_bronze for door 'd1') is not reachable from landing 'arrival'")
+	# A non-blocking key prop is reached on its own tile.
+	f = _key_floor()
+	f.props[0].kind = PropData.KIND_BONES
+	f.props[0].blocks = false
+	assert_eq(f.validate(), [] as Array[String])
+	# Every landing counts: a v2 floor's second landing walled off from the key.
+	var v2 := _dict()
+	(v2["doors"] as Array)[0]["state"] = "closed"
+	(v2["doors"] as Array).append({"id": "d9", "position": [8, 3], "state": "locked", "dc": 10, "key_item": "key_iron"})
+	(v2["props"] as Array).append({"id": "p9", "kind": "crate", "position": [8, 5], "hp": 5, "blocks": true,
+		"drops": [{"item": "key_iron", "qty": 1}]})
+	_assert_problem(FloorData.from_dict(v2), "key prop 'p9' (key_iron for door 'd9') is not reachable from landing 'nw'")

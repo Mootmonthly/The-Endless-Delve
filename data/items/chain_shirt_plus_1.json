@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"hand_edited": true,
+	"id": "chain_shirt_plus_1",
+	"display_name": "Chain Shirt, +1",
+	"kind": "armor",
+	"description": "You have a +1 bonus to AC while wearing this magic chain shirt.",
+	"weight": 20,
+	"value_gp": 551,
+	"stackable": false,
+	"armor": { "base": 13, "max_dex": 2, "category": "medium", "stealth_disadvantage": false },
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (chain shirt), rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"bonus": 1,
+	"bonus_applies_to": "armor",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

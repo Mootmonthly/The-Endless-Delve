@@ -1,0 +1,23 @@
+{
+	"schema_version": 1,
+	"hand_edited": true,
+	"id": "longbow_plus_1",
+	"display_name": "Longbow, +1",
+	"kind": "weapon",
+	"description": "You have a +1 bonus to attack and damage rolls made with this magic longbow.",
+	"weight": 2,
+	"value_gp": 151,
+	"stackable": false,
+	"weapon_id": "longbow",
+	"ammo_id": "arrows",
+	"magic": true,
+	"magic_category": "weapon",
+	"item_line": "Weapon (longbow), uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"bonus": 1,
+	"bonus_applies_to": "weapon",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

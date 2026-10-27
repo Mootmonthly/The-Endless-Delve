@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"hand_edited": true,
+	"id": "longsword_plus_1",
+	"display_name": "Longsword, +1",
+	"kind": "weapon",
+	"description": "You have a +1 bonus to attack and damage rolls made with this magic longsword.",
+	"weight": 3,
+	"value_gp": 116,
+	"stackable": false,
+	"weapon_id": "longsword",
+	"magic": true,
+	"magic_category": "weapon",
+	"item_line": "Weapon (longsword), uncommon",
+	"rarity": "uncommon",
+	"requires_attunement": false,
+	"bonus": 1,
+	"bonus_applies_to": "weapon",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

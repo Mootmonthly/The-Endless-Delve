@@ -45,7 +45,8 @@ func after_each() -> void:
 
 # --- helpers --------------------------------------------------------------------
 
-func _floor_dict(door: Dictionary = {}, two_rats: bool = false, light: String = "") -> Dictionary:
+## props_extra: prop id -> fields merged into that prop (e.g. "drops").
+func _floor_dict(door: Dictionary = {}, two_rats: bool = false, light: String = "", props_extra: Dictionary = {}) -> Dictionary:
 	var d1 := {"id": "d1", "position": [6, 2], "state": "closed"}
 	d1.merge(door, true)
 	var z1_monsters: Array = ["giant_rat", "giant_rat"] if two_rats else ["giant_rat"]
@@ -68,17 +69,32 @@ func _floor_dict(door: Dictionary = {}, two_rats: bool = false, light: String = 
 			{"id": "c_hidden", "position": [5, 5], "table": "hidden_cache", "hidden": true},
 		],
 		"doors": [d1],
-		"props": [
-			{"id": "p1", "kind": "barrel", "position": [2, 4], "hp": 4, "blocks": true, "loot_table": "starter_gear"},
-			{"id": "p2", "kind": "crate", "position": [5, 1], "hp": 6, "blocks": true},
-		],
+		"props": _props(props_extra),
 		"respawn": {"pack_seconds": 1, "boss_seconds": 3},
 		"theme_style": style,
 	}
 
 
-func _floor(door: Dictionary = {}, two_rats: bool = false, light: String = "") -> FloorData:
-	return FloorData.from_dict(_floor_dict(door, two_rats, light))
+func _props(extra: Dictionary) -> Array:
+	var props: Array = [
+		{"id": "p1", "kind": "barrel", "position": [2, 4], "hp": 4, "blocks": true, "loot_table": "starter_gear"},
+		{"id": "p2", "kind": "crate", "position": [5, 1], "hp": 6, "blocks": true},
+	]
+	for p: Variant in props:
+		var pd: Dictionary = p
+		if extra.has(pd["id"]):
+			pd.merge(extra[pd["id"]], true)
+	return props
+
+
+func _floor(door: Dictionary = {}, two_rats: bool = false, light: String = "", props_extra: Dictionary = {}) -> FloorData:
+	return FloorData.from_dict(_floor_dict(door, two_rats, light, props_extra))
+
+
+## The fixture with d1 locked (DC 12) behind the Bronze Key, which crate p2 drops.
+func _key_floor() -> FloorData:
+	return _floor({"state": "locked", "dc": 12, "key_item": "key_bronze"}, false, "",
+		{"p2": {"drops": [{"item": "key_bronze", "qty": 1}]}})
 
 
 func _sheet(class_id: String = "fighter") -> CharacterSheet:
@@ -211,8 +227,8 @@ func test_landing_assignment_is_deterministic_by_seed() -> void:
 
 
 func test_floor_loaded_carries_landings_doors_props_and_light_without_secrets() -> void:
-	var door := {"state": "locked", "dc": 12, "key_item": "crypt_key"}
-	var me := _setup(_floor(door, false, "dim"))
+	var door := {"state": "locked", "dc": 12, "key_item": "key_bronze"}
+	var me := _setup(_floor(door, false, "dim", {"p2": {"drops": [{"item": "key_bronze", "qty": 1}]}}))
 	var loaded := _of_kind(Messages.FLOOR_LOADED)
 	assert_eq(loaded.size(), 1)
 	var r := loaded[0]
@@ -225,7 +241,12 @@ func test_floor_loaded_carries_landings_doors_props_and_light_without_secrets() 
 	assert_eq(str(doors[0]["state"]), "locked")
 	assert_eq(int(doors[0]["dc"]), 12)
 	assert_true(doors[0].get("keyed", false) == true, "a keyed door says so")
-	assert_false(JSON.stringify(r).contains("crypt_key"), "the key item never leaks")
+	assert_eq(str(doors[0].get("key_item", "")), "key_bronze", "players see which key a door wants")
+	assert_false(JSON.stringify(r).contains("drops"), "where the key hides never leaks")
+	for p: Variant in (r["props"] as Array):
+		assert_false((p as Dictionary).has("drops"), "props carry no drops")
+	for p: Variant in ((r["floor"] as Dictionary)["props"] as Array):
+		assert_false((p as Dictionary).has("drops"), "the floor copy's props carry no drops")
 	assert_false(JSON.stringify(r).contains("loot_table"), "prop loot tables never leak")
 	assert_false(JSON.stringify(r).contains("c_hidden"), "hidden chests never leak")
 	var props: Array = r["props"]
@@ -309,10 +330,10 @@ func test_an_encounter_map_copy_walls_closed_doors_and_blocking_props() -> void:
 	assert_true(server.get_floor().walk_map.is_walkable(Vector2i(6, 2)), "the floor itself is never rewritten")
 
 
-func test_unlock_door_with_a_key_keeps_the_key() -> void:
+func test_unlock_door_with_its_key_uses_the_key_up() -> void:
 	var sheet := _sheet()
-	sheet.add_item("crypt_key", 1)
-	var me := _setup(_floor({"state": "locked", "key_item": "crypt_key"}), sheet)
+	sheet.add_item("key_bronze", 1)
+	var me := _setup(_key_floor(), sheet)
 	_place(me, Vector2i(5, 2))
 	_send(Messages.OPEN_DOOR, {"door_id": "d1"})
 	assert_true(_errors()[0].contains("locked"))
@@ -320,10 +341,98 @@ func test_unlock_door_with_a_key_keeps_the_key() -> void:
 	_send(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "key"})
 	assert_eq(_errors(), [] as Array[String])
 	assert_eq(server.door_state("d1"), "closed", "unlocked, still closed")
-	assert_eq(str(_of_kind(Messages.DOOR_CHANGED)[0]["method"]), "key")
-	assert_true(me.sheet.has_item("crypt_key"), "the key is kept")
+	var changed := _of_kind(Messages.DOOR_CHANGED)[0]
+	assert_eq(str(changed["method"]), "key")
+	assert_eq(str(changed["consumed"]), "key_bronze", "DOOR_CHANGED names the key used up")
+	assert_eq(Messages.validate_result(changed), "")
+	assert_false(me.sheet.has_item("key_bronze"), "the key is used up")
+	var state := _of_kind(Messages.CHARACTER_STATE).back() as Dictionary
+	assert_eq(str((state["door_unlocked"] as Dictionary)["consumed"]), "key_bronze")
+	assert_false(CharacterSheet.from_dict(state["sheet"]).has_item("key_bronze"), "the sheet sent lacks the key")
 	_send(Messages.OPEN_DOOR, {"door_id": "d1"})
 	assert_eq(server.door_state("d1"), "open")
+
+
+func test_the_wrong_key_does_nothing() -> void:
+	var sheet := _sheet()
+	sheet.add_item("key_iron", 1)
+	var me := _setup(_key_floor(), sheet)
+	_place(me, Vector2i(5, 2))
+	results.clear()
+	_send(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "key"})
+	assert_eq(_errors().size(), 1)
+	assert_true(_errors()[0].contains("no key"), str(_errors()))
+	assert_eq(server.door_state("d1"), "locked")
+	assert_eq(_of_kind(Messages.DOOR_CHANGED).size(), 0)
+	assert_true(me.sheet.has_item("key_iron"), "the wrong key is kept")
+	# A keyless door ignores keys altogether.
+	var plain := _sheet()
+	plain.add_item("key_bronze", 1)
+	server.free()
+	server = InstanceServer.new()
+	var me2 := _setup(_floor({"state": "locked", "dc": 12}), plain)
+	_place(me2, Vector2i(5, 2))
+	results.clear()
+	_send(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "key"})
+	assert_true(_errors()[0].contains("no key"), str(_errors()))
+	assert_true(me2.sheet.has_item("key_bronze"))
+
+
+func test_breaking_the_key_prop_gives_the_key_then_its_loot() -> void:
+	var f := _floor({"state": "locked", "dc": 12, "key_item": "key_bronze"}, false, "",
+		{"p1": {"drops": [{"item": "key_bronze", "qty": 1}]}})
+	var me := _setup(f)
+	_place(me, Vector2i(1, 4))
+	results.clear()
+	_send(Messages.INTERACT, {"prop_id": "p1"})
+	assert_eq(_errors(), [] as Array[String])
+	var loot := _of_kind(Messages.LOOT_GAINED)
+	assert_eq(loot.size(), 1)
+	assert_eq(Messages.validate_result(loot[0]), "")
+	assert_eq(str(loot[0]["source"]), Messages.LOOT_SOURCE_PROP)
+	var items: Array = loot[0]["items"]
+	assert_eq(items[0], {"item": "key_bronze", "qty": 1}, "the drop comes first")
+	var table: LootTable = ContentLoader.cache()["loot_tables"]["starter_gear"]
+	var rolled: Array[Dictionary] = table.roll(Rng.new(SEED).fork(InstanceServer.LOOT_STREAM))
+	var expected: Array[Dictionary] = [{"item": "key_bronze", "qty": 1}]
+	for entry in rolled:
+		LootTable.merge_into(expected, str(entry["item"]), DictUtil.to_int(entry["qty"]))
+	assert_eq(items, expected, "then the loot table still rolls")
+	assert_true(me.sheet.has_item("key_bronze"))
+	# A prop with drops and no loot table still pays out.
+	server.free()
+	server = InstanceServer.new()
+	var me2 := _setup(_key_floor())
+	_place(me2, Vector2i(4, 2))
+	results.clear()
+	_send(Messages.INTERACT, {"prop_id": "p2"})
+	var loot2 := _of_kind(Messages.LOOT_GAINED)
+	assert_eq(loot2.size(), 1)
+	assert_eq(loot2[0]["items"], [{"item": "key_bronze", "qty": 1}])
+	assert_true(me2.sheet.has_item("key_bronze"))
+	_place(me2, Vector2i(5, 2))
+	_send(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "key"})
+	assert_eq(server.door_state("d1"), "closed")
+	assert_false(me2.sheet.has_item("key_bronze"))
+
+
+func test_keys_are_lost_when_the_party_descends() -> void:
+	var manifest := {"schema_version": 1, "id": "s", "display_name": "S", "floors": ["d2_floor", "d2_floor_b"]}
+	var b := _floor_dict()
+	b["id"] = "d2_floor_b"
+	assert_true(server.configure_set(transport, manifest, SEED, {"d2_floor": _floor(), "d2_floor_b": FloorData.from_dict(b)}))
+	var sheet := _sheet()
+	sheet.add_item("key_silver", 1)
+	server.add_player(LocalTransport.PEER_ID, sheet)
+	var me := server.get_entity("p1")
+	server._mark_cleared("z1")
+	_place(me, Vector2i(11, 2))
+	results.clear()
+	_send(Messages.USE_STAIRS)
+	assert_eq(server.get_floor().id, "d2_floor_b")
+	assert_false(me.sheet.has_item("key_silver"), "a key belongs to its floor")
+	var state := _of_kind(Messages.CHARACTER_STATE).back() as Dictionary
+	assert_eq(DictUtil.to_string_array(state.get("keys_lost")), ["key_silver"] as Array[String])
 
 
 func test_unlock_door_with_thieves_tools_rolls_against_the_dc() -> void:

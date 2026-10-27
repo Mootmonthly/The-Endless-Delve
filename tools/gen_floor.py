@@ -17,6 +17,14 @@ Layout (docs/gdd.md 5.2.1): a square-ish map of concentric corridor loops.
   * Inside the innermost loop: the stairs hall in the centre (the stairs-guard
     zone, a chest by the stairs), an optional deadly side area (dead end with a
     hidden cache) to the west, a vault and a shrine to the east.
+  * Keys: a share of the locked doors (--key-doors, default half, at most one
+    per key colour) also take a key; a barrel or crate on the landings' side
+    drops it ("drops"): 6-14 tiles' walk from the door when one fits, else up
+    to 20 tiles, outside the encounter zones when possible. The DC stays, so
+    thieves' tools still work. Chosen with a separate random stream, so the rest of the
+    floor does not move when the share changes.
+  * Chests: the stairs chest rolls chest_stairs_t1 (floors 1-2) or
+    chest_stairs_t2 (floors 3-5); the hidden cache cache_t1 / cache_t2.
 Spoke and landing placements are chosen from a few templates by search so the
 route from every landing to the stairs has (nearly) the same length.
 
@@ -28,7 +36,7 @@ Usage (from the repo root):
   python3 tools/gen_floor.py --all                           # every preset
   python3 tools/gen_floor.py --check floors/floor_00*.json   # validate files (exit 1 on problems)
 Overrides (any preset): --seed N --width W --height H --landings N --rings R
-  --room-len N --props F --doors F --locked F --out PATH.
+  --room-len N --props F --doors F --locked F --key-doors F --out PATH.
 """
 
 import argparse
@@ -50,6 +58,12 @@ ZONE_KINDS = ["pack", "boss", "ambush"]
 PROP_HP = {"barrel": 4, "crate": 5, "brazier": 10, "bones": 2, "rubble": 6}
 PROP_BLOCKS = {"barrel": True, "crate": True, "brazier": True, "bones": False, "rubble": False}
 LANDING_MIN_EDGE_RATIO = 2.0 / 3.0
+KEY_COLOURS = ["bronze", "iron", "silver", "brass", "copper", "bone"]
+KEY_ITEMS = ["key_%s" % c for c in KEY_COLOURS]
+KEY_DOORS_DEFAULT = 0.5  # share of locked doors that take a key
+KEY_RANGE = (6, 14)  # preferred walk distance from the door to its key prop
+KEY_MAX_WALK = 20  # a crate or barrel outside the zones may stretch to this
+KEY_PROP_KINDS = ["crate", "barrel"]  # preferred key holders
 ROUTE_SPREAD_MAX = 1.2  # longest landing route <= 1.2 x the shortest
 
 BARROW_STYLE = {
@@ -549,6 +563,11 @@ def walk_grid(rows):
     return [[c != WALL for c in row] for row in rows]
 
 
+def chest_tier(floor_number):
+    """Loot tier of a floor's stairs chest and hidden cache: 1 on floors 1-2, else 2."""
+    return 1 if floor_number <= 2 else 2
+
+
 # ---------------------------------------------------------------------------
 # Content
 # ---------------------------------------------------------------------------
@@ -670,12 +689,13 @@ class Builder:
         chest_cell = (sx + 2, sy)
         self.take(chest_cell, "chest")
         fn = p["floor_number"]
-        self.chests.append({"id": "f%d_stairs" % fn, "position": list(chest_cell), "table": "starter_gear", "hidden": False})
+        tier = chest_tier(fn)
+        self.chests.append({"id": "f%d_stairs" % fn, "position": list(chest_cell), "table": "chest_stairs_t%d" % tier, "hidden": False})
         # optional room: hidden cache in the far corner from its door
         opt = L.optional_room
         hid = self.far_cell(opt, opt.door_cells[0])
         self.take(hid, "chest")
-        self.chests.append({"id": "f%d_hidden" % fn, "position": list(hid), "table": "hidden_cache", "hidden": True})
+        self.chests.append({"id": "f%d_hidden" % fn, "position": list(hid), "table": "cache_t%d" % tier, "hidden": True})
         # zones: landing packs, gates per band, stairs guard, optional
         lp = roster["landing_pack"]
         for i, (_room, pack, _c) in enumerate(L.landing_rooms):
@@ -729,6 +749,7 @@ class Builder:
             self.take(cell, "chest")
             self.chests.append({"id": "f%d_cache_%d" % (fn, i + 1), "position": list(cell), "table": "monster_small", "hidden": False})
         self.place_props()
+        self.place_keys()
 
     def landing_cell(self, room, pack):
         cx, cy = room.centre()
@@ -836,6 +857,62 @@ class Builder:
             if self.free(c, None) and not self.next_to_door(c):
                 self.add_prop(c, "rubble" if rng.random() < 0.6 else "bones")
 
+    def place_keys(self):
+        """Turns a share of the locked doors into key doors, each with a key
+        prop on the landings' side (own random stream: nothing else moves)."""
+        share = float(self.p.get("key_doors", KEY_DOORS_DEFAULT))
+        krng = random.Random(self.seed * 7919 + 17)
+        locked = [d for d in self.doors if d["state"] == "locked"]
+        n = min(len(KEY_ITEMS), int(len(locked) * share + 0.5))
+        if n <= 0:
+            return
+        chosen = sorted(krng.sample(locked, n), key=lambda d: int(d["id"][1:]))
+        rows = self.rows()
+        walk = walk_grid(rows)
+        w, h = self.W, self.H
+        prop_block = set(tuple(pr["position"]) for pr in self.props if pr["blocks"])
+        locked_cells = set(tuple(d["position"]) for d in locked)
+        stairs = tuple(self.layout.stairs)
+        # tiles every landing reaches without passing a locked door or a blocking prop
+        safe = bfs(walk, w, h, stairs, frozenset((locked_cells | prop_block) - {stairs}))
+        used = set()
+        for i, door in enumerate(chosen):
+            key = KEY_ITEMS[i]
+            dpos = tuple(door["position"])
+            dist = bfs(walk, w, h, dpos, frozenset((locked_cells - {dpos}) | prop_block))
+            best = None
+            for pr in self.props:
+                if pr["id"] in used or pr.get("drops"):
+                    continue
+                pp = tuple(pr["position"])
+                if pr["blocks"]:
+                    near = [dist[(pp[0] + dx, pp[1] + dy)] + 1 for dx, dy in DIRS8
+                            if (pp[0] + dx, pp[1] + dy) in dist and (pp[0] + dx, pp[1] + dy) in safe]
+                    if not near:
+                        continue
+                    dd = min(near)
+                else:
+                    if pp not in dist or pp not in safe:
+                        continue
+                    dd = dist[pp]
+                lo, hi = KEY_RANGE
+                out_of_range = 0 if lo <= dd <= hi else 1 + min(abs(dd - lo), abs(dd - hi))
+                in_zone = any(z["rect"][0] <= pp[0] < z["rect"][0] + z["rect"][2] and
+                              z["rect"][1] <= pp[1] < z["rect"][1] + z["rect"][3] for z in self.zones)
+                # a crate or barrel, then no farther than KEY_MAX_WALK, outside
+                # every zone, then as close to KEY_RANGE as possible
+                key_tuple = (0 if pr["kind"] in KEY_PROP_KINDS else 1, 1 if dd > KEY_MAX_WALK else 0,
+                             1 if in_zone else 0, out_of_range,
+                             krng.random(), int(pr["id"][1:]))
+                if best is None or key_tuple < best[0]:
+                    best = (key_tuple, pr)
+            if best is None:
+                continue  # no reachable prop: the door stays DC-only
+            pr = best[1]
+            used.add(pr["id"])
+            door["key_item"] = key
+            pr["drops"] = [{"item": key, "qty": 1}]
+
     def next_to_door(self, c):
         return any((c[0] + dx, c[1] + dy) in self.occupied and self.occupied[(c[0] + dx, c[1] + dy)] == "door"
                    for dx, dy in DIRS8)
@@ -927,7 +1004,7 @@ def is_pair(v):
     return isinstance(v, list) and len(v) == 2 and all(isinstance(n, (int, float)) and not isinstance(n, bool) for n in v)
 
 
-def check_floor(d, loot=None, monsters=None):
+def check_floor(d, loot=None, monsters=None, items=None):
     """Problems with a floor dictionary (schema 2 rules); [] when valid."""
     probs = []
     if d.get("schema_version") != 2:
@@ -1076,6 +1153,17 @@ def check_floor(d, loot=None, monsters=None):
         lt = pr.get("loot_table")
         if lt and loot is not None and lt not in loot:
             probs.append("%s unknown table '%s'" % (ctx, lt))
+        drops = pr.get("drops", [])
+        if not isinstance(drops, list):
+            probs.append("%s drops must be an array" % ctx)
+            continue
+        for dr in drops:
+            if not isinstance(dr, dict) or not isinstance(dr.get("item"), str) or not dr["item"]:
+                probs.append("%s has a malformed drop %r" % (ctx, dr))
+            elif not isinstance(dr.get("qty", 1), int) or dr.get("qty", 1) < 1:
+                probs.append("%s drop '%s' qty must be at least 1" % (ctx, dr["item"]))
+            elif items is not None and dr["item"] not in items:
+                probs.append("%s drops unknown item '%s'" % (ctx, dr["item"]))
     sz = zone_at(stairs)
     if sz is None:
         probs.append("the stairs are not inside a zone")
@@ -1088,6 +1176,7 @@ def check_floor(d, loot=None, monsters=None):
     blocked = set(p for p, pr in prop_at.items() if pr.get("blocks", True))
     blocked |= set(p for p, dr in door_at.items() if dr.get("state") == "locked")
     blocked.discard(stairs)
+    blocked = frozenset(blocked)
     dist = bfs(walk, w, h, stairs, frozenset(blocked))
     lens = []
     for l in landings:
@@ -1103,6 +1192,51 @@ def check_floor(d, loot=None, monsters=None):
     pockets = sum(1 for y in range(h) for x in range(w) if walk[y][x] and (x, y) not in open_dist and (x, y) not in blocked)
     if pockets:
         probs.append("%d walkable tiles cannot be reached from the stairs" % pockets)
+    probs += check_keys(d, walk, w, h, blocked)
+    return probs
+
+
+def key_doors(d):
+    """[(door, key prop or None)] for every door with a key_item."""
+    out = []
+    for door in d.get("doors", []):
+        key = door.get("key_item")
+        if key:
+            holders = [pr for pr in d.get("props", []) if any(isinstance(x, dict) and x.get("item") == key
+                                                                for x in pr.get("drops", []))]
+            out.append((door, holders))
+    return out
+
+
+def check_keys(d, walk, w, h, blocked):
+    """Key doors: unique key per floor, exactly one prop drops it, and every
+    landing reaches that prop (its tile or a neighbour) past no locked door or
+    blocking prop."""
+    probs = []
+    seen = {}
+    floods = {}
+    for door, holders in key_doors(d):
+        key = door["key_item"]
+        ctx = "door '%s' key_item '%s'" % (door.get("id"), key)
+        if key in seen:
+            probs.append("doors '%s' and '%s' share key_item '%s'" % (seen[key], door.get("id"), key))
+            continue
+        seen[key] = door.get("id")
+        if len(holders) != 1:
+            probs.append("%s is dropped by %d props (needs exactly 1)" % (ctx, len(holders)))
+            continue
+        pr = holders[0]
+        pp = tuple(pr["position"])
+        targets = [(pp[0] + dx, pp[1] + dy) for dx, dy in DIRS8]
+        if not pr.get("blocks", True):
+            targets.append(pp)
+        for l in d["landings"]:
+            lp = tuple(l["position"])
+            if lp not in floods:
+                floods[lp] = bfs(walk, w, h, lp, frozenset(blocked - {lp}))
+            if not any(t in floods[lp] for t in targets):
+                probs.append("key prop '%s' (%s for door '%s') is not reachable from landing '%s'" % (
+                    pr.get("id"), key, door.get("id"), l["id"]))
     return probs
 
 
@@ -1130,6 +1264,16 @@ def stats(d, monsters=None):
         len(doors), sum(1 for x in doors if x["state"] == "open"), sum(1 for x in doors if x["state"] == "closed"),
         sum(1 for x in doors if x["state"] == "locked"), len(props),
         ", ".join("%s %d" % (k, sum(1 for p in props if p["kind"] == k)) for k in PROP_KINDS), len(d.get("chests", []))))
+    kd = key_doors(d)
+    if kd:
+        dist_parts = []
+        for door, holders in kd:
+            where = "-"
+            if len(holders) == 1:
+                pr = holders[0]
+                where = "%s %s" % (pr["kind"], pr["id"])
+            dist_parts.append("%s->%s (%s)" % (door["id"], door["key_item"], where))
+        lines.append("  key doors %d: %s" % (len(kd), ", ".join(dist_parts)))
     if monsters:
         for z in zones:
             xp = sum(int(monsters.get(m, {}).get("xp", 0)) for m in z["monster_ids"])
@@ -1144,9 +1288,10 @@ def params_for(args):
     if args.preset not in PRESETS:
         raise SystemExit("unknown preset %r (see --list)" % args.preset)
     p = json.loads(json.dumps(PRESETS[args.preset]))
+    p.setdefault("key_doors", KEY_DOORS_DEFAULT)
     for key, attr in (("seed", "seed"), ("width", "width"), ("height", "height"), ("landings", "landings"),
                       ("rings", "rings"), ("room_len", "room_len"), ("props", "props"), ("doors", "doors"),
-                      ("locked", "locked")):
+                      ("locked", "locked"), ("key_doors", "key_doors")):
         v = getattr(args, attr)
         if v is not None:
             p[key] = v
@@ -1160,6 +1305,7 @@ def generated_by(args, p):
         v = getattr(args, attr)
         if v is not None:
             parts += ["--" + attr.replace("_", "-"), str(v)]
+    parts += ["--key-doors", str(p["key_doors"])]
     parts += ["--seed", str(p["seed"])]
     return " ".join(parts)
 
@@ -1189,9 +1335,11 @@ def main(argv=None):
     ap.add_argument("--props", type=float)
     ap.add_argument("--doors", type=float)
     ap.add_argument("--locked", type=float)
+    ap.add_argument("--key-doors", dest="key_doors", type=float)
     args = ap.parse_args(argv)
     monsters = load_ids("monsters")
     loot = load_ids("loot")
+    items = load_ids("items")
     if args.list:
         for name, p in sorted(PRESETS.items()):
             print("%s  %dx%d  landings %d  rings %d  seed %d  %s" % (name, p["width"], p["height"], p["landings"],
@@ -1202,7 +1350,7 @@ def main(argv=None):
         for path in args.check:
             with open(path, encoding="utf-8") as f:
                 d = json.load(f)
-            probs = check_floor(d, loot or None, monsters or None)
+            probs = check_floor(d, loot or None, monsters or None, items or None)
             if probs:
                 bad += 1
                 print("%s: %d problem(s)" % (path, len(probs)))
@@ -1221,7 +1369,7 @@ def main(argv=None):
     for name in presets:
         args.preset = name
         d = generate(args)
-        probs = check_floor(d, loot or None, monsters or None)
+        probs = check_floor(d, loot or None, monsters or None, items or None)
         text = dump_floor(d)
         if args.stdout:
             sys.stdout.write(text)

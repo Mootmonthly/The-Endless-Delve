@@ -1,0 +1,22 @@
+{
+	"schema_version": 1,
+	"hand_edited": true,
+	"id": "leather_armor_plus_1",
+	"display_name": "Leather Armor, +1",
+	"kind": "armor",
+	"description": "You have a +1 bonus to AC while wearing this magic leather armor.",
+	"weight": 10,
+	"value_gp": 511,
+	"stackable": false,
+	"armor": { "base": 11, "max_dex": -1, "category": "light", "stealth_disadvantage": false },
+	"magic": true,
+	"magic_category": "armor",
+	"item_line": "Armor (leather armor), rare",
+	"rarity": "rare",
+	"requires_attunement": false,
+	"bonus": 1,
+	"bonus_applies_to": "armor",
+	"mechanic": "bonus",
+	"value_basis": "rarity",
+	"source": "SRD 5.1"
+}

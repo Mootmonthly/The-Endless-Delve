@@ -10,7 +10,8 @@ extends RefCounted
 ##  "stairs": [x, y], "encounter_zones": [EncounterZoneData...],
 ##  "floor_number": int (optional, default 0 = unnumbered), "theme": String (optional, default ""),
 ##  "chests": [ChestData...] (optional: {"id", "position": [x, y], "table", "hidden"}),
-##  "doors": [DoorData...], "props": [PropData...] (optional, v2),
+##  "doors": [DoorData...], "props": [PropData...] (optional, v2; a door's
+##  key_item is dropped by exactly one prop's "drops"),
 ##  "respawn": {"pack_seconds": int, "boss_seconds": int} (optional, v2),
 ##  "theme_style": {...} (optional, v2: presentation hints, never read by the rules)}
 ## Schema 1 files have "arrival" and no landings / doors / props; they load as
@@ -225,6 +226,7 @@ func validate(loot_tables: Dictionary = {}) -> Array[String]:
 	if v2:
 		_validate_stairs_guard(problems)
 	_validate_routes(problems)
+	_validate_keys(problems)
 	return problems
 
 
@@ -431,6 +433,11 @@ func _validate_props(problems: Array[String], loot_tables: Dictionary) -> void:
 			problems.append("%s position %s is not walkable" % [ctx, str(p.position)])
 		if not p.loot_table.is_empty() and not loot_tables.is_empty() and not loot_tables.has(p.loot_table):
 			problems.append("%s uses unknown loot table '%s'" % [ctx, p.loot_table])
+		for drop in p.drops:
+			if str(drop.get("item", "")).is_empty():
+				problems.append("%s has a drop without an item" % ctx)
+			elif DictUtil.to_int(drop.get("qty", 0), 0) < 1:
+				problems.append("%s drop '%s' qty must be at least 1" % [ctx, str(drop.get("item", ""))])
 
 
 ## A walkable tile with walls on two opposite sides and open ground on the
@@ -478,6 +485,66 @@ func _validate_stairs_guard(problems: Array[String]) -> void:
 			has_chest = true
 	if not has_chest:
 		problems.append("stairs zone '%s' has no chest" % zone.id)
+
+
+## Keyed doors: each key_item is wanted by one door only and dropped by
+## exactly one prop, and every landing reaches that prop (its tile, or a tile
+## next to a blocking one) without passing a locked door or a blocking prop.
+## (A locked door is never a landing's only route: see _validate_routes.)
+func _validate_keys(problems: Array[String]) -> void:
+	var key_doors := {}  # key item -> door id
+	for d in doors:
+		if d.key_item.is_empty():
+			continue
+		if key_doors.has(d.key_item):
+			problems.append("doors '%s' and '%s' share key_item '%s'" % [key_doors[d.key_item], d.id, d.key_item])
+			continue
+		key_doors[d.key_item] = d.id
+	if key_doors.is_empty():
+		return
+	var blocked := prop_blockers()
+	for d in doors:
+		if d.is_locked():
+			blocked[d.position] = true
+	# One flood from the stairs serves every landing in its component (all of
+	# them on a floor whose routes are valid); others get their own flood.
+	var budget := walk_map.width * walk_map.height
+	var from_stairs := {}
+	if walk_map.is_walkable(stairs):
+		var stairs_blocked := blocked.duplicate()
+		stairs_blocked.erase(stairs)
+		from_stairs = walk_map.reachable(stairs, budget, stairs_blocked)
+	var reach: Array[Dictionary] = []
+	var reach_ids: Array[String] = []
+	for l in get_landings():
+		if not walk_map.is_walkable(l.position):
+			continue
+		reach.append(from_stairs if from_stairs.has(l.position) else walk_map.reachable(l.position, budget, blocked))
+		reach_ids.append(l.id)
+	for key: String in key_doors.keys():
+		var door_id: String = key_doors[key]
+		var holders: Array[PropData] = []
+		for p in props:
+			if p.drops_item(key):
+				holders.append(p)
+		if holders.size() != 1:
+			problems.append("door '%s' key_item '%s' is dropped by %d props (needs exactly 1)" % [door_id, key, holders.size()])
+			continue
+		var holder := holders[0]
+		for i in range(reach.size()):
+			if not _prop_in_reach(holder, reach[i]):
+				problems.append("key prop '%s' (%s for door '%s') is not reachable from landing '%s'" % [holder.id, key, door_id, reach_ids[i]])
+
+
+## True when a prop can be broken from the reachable set: its own tile (not
+## blocking) or a tile next to it is reachable.
+func _prop_in_reach(p: PropData, reach: Dictionary) -> bool:
+	if not p.blocks and reach.has(p.position):
+		return true
+	for n in GridMath.neighbors8(p.position):
+		if reach.has(n):
+			return true
+	return false
 
 
 ## Every landing reaches the stairs without passing a locked door or a
