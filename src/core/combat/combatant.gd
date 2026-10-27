@@ -98,6 +98,33 @@ var defended_against: Dictionary = {}
 var form: Dictionary = {}
 var elemental_resistance: String = ""  # Elemental Affinity: resisted type this encounter
 var haste_action_turn: int = -1  # encounter turn counter when the hasted action was used
+## Round C: inside an Antimagic Field (set by the encounter): spell buffs and
+## spell conditions on it are suppressed, its spell summons lose their turns.
+var antimagic: bool = false
+## Round C control: the controller's id while dominated ("" = itself), its own
+## team meanwhile, and orders queued by `control` intents for its next turn.
+var controlled_by: String = ""
+var original_team: int = -1
+var orders: Array[Dictionary] = []
+var was_auto_controlled: bool = false
+## Round C absence: reasons it is out of reach ("banished", "ethereal",
+## "possessed"); while any is set it is untargetable and occupies no tile.
+var absent: Array[String] = []
+var absent_saved_untargetable: bool = false
+## Banishment / Maze / Imprisonment / Plane Shift: {"source", "spell",
+## "turns_left" (-1 = until the source's concentration ends), "permanent",
+## "position": [x, y], "native_permanent"?, "escape"? {ability, dc},
+## "return_damage"? {dice, type, immune_types}} ({} = here).
+var banished: Dictionary = {}
+## Round C illusions (Silent / Major Image, Project Image, Mislead, ...): {"spell",
+## "dc", "source"} ({} = a real creature). Hostiles treat it as real until an
+## Investigation check against dc succeeds when they interact with it.
+var illusion: Dictionary = {}
+## Round C extra turns in a row (Time Stop, Thief's Reflexes): taken right
+## after its turn ends; time_stopped forbids affecting other creatures.
+var extra_turns: int = 0
+var extra_turn_source: String = ""
+var time_stopped: bool = false
 
 
 ## Player character: the sheet's weapon attacks, then an unarmed strike fallback.
@@ -188,17 +215,29 @@ func is_summon() -> bool:
 	return not owner_id.is_empty()
 
 
+## Its buffs that currently work: all of them, or inside an Antimagic Field
+## only those not from a spell.
+func live_buffs() -> Array[Dictionary]:
+	if not antimagic:
+		return buffs
+	var out: Array[Dictionary] = []
+	for b in buffs:
+		if str(b.get("spell", "")).is_empty():
+			out.append(b)
+	return out
+
+
 ## Sum of an integer buff modifier across its active buffs ("ac", ...).
 func buff_int(key: String) -> int:
 	var total := 0
-	for b in buffs:
+	for b in live_buffs():
 		total += DictUtil.to_int(b.get(key, 0), 0)
 	return total
 
 
 ## True when any active buff sets the flag.
 func buff_flag(key: String) -> bool:
-	for b in buffs:
+	for b in live_buffs():
 		if b.get(key, false) == true:
 			return true
 	return false
@@ -207,7 +246,7 @@ func buff_flag(key: String) -> bool:
 ## Dice strings of a buff modifier ("attack_dice", "save_dice", ...).
 func buff_dice(key: String) -> Array[String]:
 	var out: Array[String] = []
-	for b in buffs:
+	for b in live_buffs():
 		var v := str(b.get(key, ""))
 		if not v.is_empty():
 			out.append(v)
@@ -217,7 +256,7 @@ func buff_dice(key: String) -> Array[String]:
 ## String-array buff modifier values merged ("resist", "immune_conditions", ...).
 func buff_list(key: String) -> Array[String]:
 	var out: Array[String] = []
-	for b in buffs:
+	for b in live_buffs():
 		for v in DictUtil.to_string_array(b.get(key, [])):
 			if not out.has(v):
 				out.append(v)
@@ -225,7 +264,7 @@ func buff_list(key: String) -> Array[String]:
 
 
 func has_buff(effect: String) -> bool:
-	for b in buffs:
+	for b in live_buffs():
 		if str(b.get("effect", "")) == effect:
 			return true
 	return false
@@ -234,7 +273,7 @@ func has_buff(effect: String) -> bool:
 ## Armor class with buffs (Shield, Shield of Faith, Haste, Slow, Barkskin).
 func armor_class() -> int:
 	var ac := sheet.armor_class() + buff_int("ac")
-	for b in buffs:
+	for b in live_buffs():
 		var floor_ac := DictUtil.to_int(b.get("ac_min", 0), 0)
 		if floor_ac > ac:
 			ac = floor_ac
@@ -244,7 +283,7 @@ func armor_class() -> int:
 ## Fly speed in tiles (stat block, Fly, Dragon Wings; 0 = none).
 func fly_tiles() -> int:
 	var feet := sheet.fly_speed if sheet != null else 0
-	for b in buffs:
+	for b in live_buffs():
 		var ft := DictUtil.to_int(b.get("fly_ft", 0), 0)
 		if ft < 0:
 			ft = sheet.effective_speed()
@@ -252,9 +291,15 @@ func fly_tiles() -> int:
 	return GridMath.feet_to_tiles(feet)
 
 
-## Flying or levitating creatures ignore ground effects (grease, spike growth).
+## Flying, levitating or climbing (Spider Climb) creatures, and leapers (Jump),
+## ignore ground effects (grease, spike growth).
 func ignores_ground() -> bool:
-	return fly_tiles() > 0 or buff_flag("levitating")
+	return fly_tiles() > 0 or buff_flag("levitating") or buff_flag("climbing") or buff_flag("ignores_ground")
+
+
+## Resilient Sphere: sealed in a globe of force (nothing passes either way).
+func is_sealed() -> bool:
+	return buff_flag("sealed")
 
 
 ## Invisible (the condition, or Empty Body / Greater Invisibility buffs).
@@ -278,8 +323,11 @@ func is_dying() -> bool:
 
 
 ## Keeps its team "in the fight": conscious, or still dying (death saves
-## pending). Stable and dead combatants do not.
+## pending). Stable and dead combatants do not, nor creatures banished for
+## good (Imprisonment, Plane Shift).
 func is_in_fight() -> bool:
+	if banished.get("permanent", false) == true:
+		return false
 	return is_conscious() or is_dying()
 
 
@@ -314,7 +362,27 @@ func speed_tiles() -> int:
 		tiles *= 2
 	if buff_flag("speed_half"):
 		tiles = floori(tiles / 2.0)
-	return maxi(tiles, fly_tiles() if not buff_flag("speed_half") else floori(fly_tiles() / 2.0))
+	tiles = maxi(tiles, fly_tiles() if not buff_flag("speed_half") else floori(fly_tiles() / 2.0))
+	for b in live_buffs():
+		var cap := DictUtil.to_int(b.get("speed_cap_ft", -1), -1)
+		if cap >= 0:
+			tiles = mini(tiles, GridMath.feet_to_tiles(cap))
+	return tiles
+
+
+## Teams whose creatures it may not act against (Suggestion, Calm Emotions).
+func suggested_teams() -> Array[int]:
+	var out: Array[int] = []
+	for entry in conditions:
+		if str(entry.get("condition", "")) == Conditions.SUGGESTED:
+			var t := DictUtil.to_int(entry.get("source_team", -1), -1)
+			if t >= 0 and not out.has(t):
+				out.append(t)
+	return out
+
+
+func is_ethereal() -> bool:
+	return absent.has("ethereal")
 
 
 ## Start-of-turn reset: full movement (minus any slow), fresh action/bonus
@@ -357,6 +425,8 @@ func _has_own_condition(condition: String) -> bool:
 		return true
 	for entry in conditions:
 		if str(entry.get("condition", "")) == condition:
+			if antimagic and not str(entry.get("spell", "")).is_empty():
+				continue
 			return true
 	return false
 
@@ -389,6 +459,10 @@ func is_immobilized() -> bool:
 ## Stunned, paralyzed, unconscious (Sleep) or its turn is lost (Command,
 ## confusion): the turn passes without it acting or moving.
 func loses_turn() -> bool:
+	if antimagic and is_summon() and not summon_spell.is_empty():
+		return true
+	if absent.has("banished") or absent.has("possessed"):
+		return true
 	for c in Conditions.TURN_SKIPPING:
 		if has_condition(c):
 			return true
@@ -424,6 +498,8 @@ func is_immune_to_condition(condition: String) -> bool:
 		return false
 	if sheet.condition_immunities.has(condition) or buff_list("immune_conditions").has(condition):
 		return true
+	if Conditions.CHARM_EFFECTS.has(condition) and condition != Conditions.CHARMED and is_immune_to_condition(Conditions.CHARMED):
+		return true
 	if raging and sheet.has_feature("mindless_rage") and condition in [Conditions.CHARMED, Conditions.FRIGHTENED]:
 		return true
 	return false
@@ -436,6 +512,8 @@ func is_immune_to_condition(condition: String) -> bool:
 func adjust_damage(amount: int, damage_type: String, magical: bool = false) -> int:
 	if sheet == null:
 		return amount
+	if is_sealed():
+		return 0
 	var extra: Array[String] = buff_list("resist")
 	if raging:
 		for t: String in ["bludgeoning", "piercing", "slashing"]:
@@ -449,7 +527,10 @@ func adjust_damage(amount: int, damage_type: String, magical: bool = false) -> i
 				extra.append(t)
 	if (buff_flag("resist_all") or has_condition(Conditions.PETRIFIED)) and not extra.has(damage_type.to_lower()):
 		extra.append(damage_type.to_lower())
-	return sheet.adjust_damage_for_type(amount, damage_type, extra, magical, buff_list("immune_damage"))
+	var out := sheet.adjust_damage_for_type(amount, damage_type, extra, magical, buff_list("immune_damage"))
+	if buff_flag("vulnerable_all"):
+		out *= 2
+	return out
 
 
 ## Index of the first melee attack (opportunity attacks), or -1.

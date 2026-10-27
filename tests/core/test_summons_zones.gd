@@ -100,7 +100,7 @@ func test_companions_join_at_start_and_persist() -> void:
 	var s := _caster(["find_familiar"])
 	var r := OutOfCombat.cast(s, "find_familiar", content, Rng.new(1), [], {"form": "owl"})
 	assert_true(r["ok"] == true, str(r["error"]))
-	assert_eq(s.companions, [{"monster": "owl", "spell": "find_familiar", "hp": 1}])
+	assert_eq(s.companions, [{"id": "c1", "monster": "owl", "spell": "find_familiar", "hp": 1}])
 	assert_eq(s.slots_left(1), 3)
 	assert_false(OutOfCombat.cast(s, "find_familiar", content, Rng.new(1), [], {"form": "wolf"})["ok"] == true, "not a familiar form")
 	var e := _fight(s, Vector2i(8, 3))

@@ -29,6 +29,8 @@ extends RefCounted
 ## never targets; warded ones (Sanctuary) only when nothing else is left.
 ## With only hidden hostiles left it Searches. A familiar (Find Familiar)
 ## never attacks: it moves next to the hostile nearest its owner and Helps.
+## Round C: a suggested creature (Suggestion, Calm Emotions) leaves the
+## source's side alone; a dominated one fights for its controller's team.
 ## Summons and companions are run by the encounter with this same plan.
 
 
@@ -161,8 +163,9 @@ static func _targets(enc: Encounter, me: Combatant) -> Array[Combatant]:
 	var warded: Array[Combatant] = []
 	var dying: Array[Combatant] = []
 	var charmed_by := me.condition_sources(Conditions.CHARMED)
+	var pacified := me.suggested_teams()
 	for h in enc.hostiles_of(me):
-		if charmed_by.has(h.id) or h.untargetable or (h.hidden and not enc.can_see(me, h)):
+		if charmed_by.has(h.id) or h.untargetable or (h.hidden and not enc.can_see(me, h)) or pacified.has(h.team):
 			continue
 		if h.is_conscious():
 			if h.has_buff("sanctuary") or h.sheet.active_buffs.has("tranquility"):

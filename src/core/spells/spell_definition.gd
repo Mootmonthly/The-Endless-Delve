@@ -94,11 +94,39 @@ const EFFECT_THRESHOLD := "threshold"
 const EFFECT_TRANSFORM := "transform"
 const EFFECT_REACTION := "reaction"
 const EFFECT_UNSUPPORTED := "unsupported"
+## Round C: a spell with no rules hook in the delve yet ("reason" says why):
+## castable, free unless the caster asks to spend the slot, emits no_effect.
+const EFFECT_NO_EFFECT := "no_effect"
+## Round C: exploration utilities with a concrete dungeon hook ("exploration":
+## "unlock" | "reveal" | "light" | ...): emit exploration_effect for the server.
+const EFFECT_EXPLORATION := "exploration"
+## Round C: Telekinesis: move a creature ("move_ft") to the cast's "point"
+## (a hostile contests with Strength), then restrain it until the caster's
+## next turn ends.
+const EFFECT_FORCED_MOVE := "forced_move"
+## Round C: Banishment, Maze, Imprisonment, Plane Shift: the target leaves
+## the fight ("rounds", "permanent", "native_permanent", "escape", "attack":
+## "melee" first, "self_rounds" for the caster itself).
+const EFFECT_BANISH := "banish"
+## Round C: an effect cast out of combat that holds for the next encounters
+## ("lingering" {"kind": "buff" | "zone" | "feature" | "stealth", ...}; see
+## CharacterSheet.lingering): Foresight, Magic Jar, ...
+const EFFECT_LINGERING := "lingering"
+## Round C: a temporary weapon attack added to the caster ("attack" {name,
+## damage, damage_type, ability ("CASTING" or an ability), per_two_slots
+## dice}, "requires_items"): Flame Blade, Shillelagh.
+const EFFECT_WEAPON_ATTACK := "weapon_attack"
+## Round C: Wish (cast "mode": a spell id of 8th level or lower to duplicate,
+## or "restore_slots").
+const EFFECT_WISH := "wish"
+## Round C: Time Stop (1d4 + 1 turns in a row).
+const EFFECT_TIME_STOP := "time_stop"
 const EFFECT_TYPES: Array[String] = [
 	EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_HEAL, EFFECT_BUFF, EFFECT_MARK, EFFECT_AREA_SAVE,
 	EFFECT_AREA_ATTACK, EFFECT_TEMP_HP, EFFECT_AREA_HEAL, EFFECT_HEAL_POOL, EFFECT_SUMMON, EFFECT_TELEPORT,
 	EFFECT_ZONE, EFFECT_SLEEP, EFFECT_REVIVE, EFFECT_DISPEL, EFFECT_THRESHOLD, EFFECT_TRANSFORM, EFFECT_REACTION,
-	EFFECT_UNSUPPORTED,
+	EFFECT_UNSUPPORTED, EFFECT_NO_EFFECT, EFFECT_EXPLORATION, EFFECT_FORCED_MOVE, EFFECT_BANISH, EFFECT_LINGERING,
+	EFFECT_WEAPON_ATTACK, EFFECT_WISH, EFFECT_TIME_STOP,
 ]
 ## Effects whose cast names a point (areas; teleports; summons may).
 const POINT_EFFECTS: Array[String] = [EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK, EFFECT_ZONE, EFFECT_AREA_HEAL, EFFECT_SLEEP]
@@ -181,6 +209,8 @@ var dot: Dictionary = {}  # damage over time applied on a hit / failed save
 var sustain: String = ""  # "action" / "bonus_action": recast without a slot while concentrating
 var modes: Dictionary = {}  # mode -> {modifiers...} (cast "mode")
 var overridden: bool = false  # the effect came from SpellEffects.OVERRIDES
+var ritual: bool = false  # SRD ritual tag: castable out of combat without a slot (OutOfCombat, "ritual": true)
+var duration_text: String = ""  # SRD duration ("1 hour", "until dispelled", ...)
 
 
 ## Returns null (and push_error) when a field is missing or invalid.
@@ -214,6 +244,8 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 		push_error("%s: casting_time must not be empty" % ctx)
 		return null
 	s.concentration = DictUtil.to_bool(d.get("concentration", false), false)
+	s.ritual = DictUtil.to_bool(d.get("ritual", false), false)
+	s.duration_text = str(d.get("duration", "")).to_lower()
 	var area_v: Variant = d.get("area", null)
 	if typeof(area_v) == TYPE_DICTIONARY:
 		var area: Dictionary = area_v
@@ -306,7 +338,7 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 					for key: Variant in beams_d.keys():
 						s.beams[DictUtil.to_int(key, 1)] = maxi(1, DictUtil.to_int(beams_d[key], 1))
 			var damage_optional := s.damage.is_empty() and (not s.condition.is_empty() or not s.modifiers.is_empty() or not s.dot.is_empty() \
-					or s.push_tiles > 0 or e.has("curse_mark")) \
+					or s.push_tiles > 0 or e.has("curse_mark") or e.has("prismatic")) \
 					and s.effect_type in [EFFECT_SAVE, EFFECT_AREA_SAVE]
 			if not damage_optional and not DiceFormula.parse(s.damage).valid:
 				push_error("%s: invalid damage '%s'" % [ctx, s.damage])
@@ -513,8 +545,8 @@ func is_cantrip() -> bool:
 func is_harmful() -> bool:
 	if target == TARGET_ANY:
 		return false
-	return effect_type in [EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_MARK, EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK, EFFECT_THRESHOLD, EFFECT_SLEEP] \
-			or (effect_type == EFFECT_BUFF and rider == RIDER_GUIDING) or (effect_type == EFFECT_TRANSFORM and target != TARGET_ALLY)
+	return effect_type in [EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_MARK, EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK, EFFECT_THRESHOLD, EFFECT_SLEEP, EFFECT_BANISH] \
+			or (effect_type == EFFECT_BUFF and rider == RIDER_GUIDING) or (effect_type == EFFECT_TRANSFORM and not target in [TARGET_ALLY, TARGET_SELF])
 
 
 ## Area spells pick a point (or a direction) instead of a target.
@@ -524,11 +556,39 @@ func is_area() -> bool:
 
 ## Whether the rules engine can resolve this spell (unsupported buffs are data only).
 func is_supported() -> bool:
-	if effect_type == EFFECT_UNSUPPORTED:
+	if effect_type == EFFECT_UNSUPPORTED or effect_type == EFFECT_NO_EFFECT:
 		return false
 	if effect_type == EFFECT_BUFF:
 		return SUPPORTED_BUFFS.has(buff) or rider == RIDER_GUIDING or not condition.is_empty() or not modifiers.is_empty() or not modes.is_empty()
 	return true
+
+
+## Castable at all: a rules effect, or a declared no_effect (castable, says
+## plainly that it does nothing in the delve yet). is_supported() stays false
+## for no_effect spells (no mechanic).
+func is_castable() -> bool:
+	return is_supported() or effect_type == EFFECT_NO_EFFECT
+
+
+## The declared reason of a no_effect spell ("" otherwise).
+func no_effect_reason() -> String:
+	return str(raw_effect.get("reason", "no effect in the delve yet")) if effect_type == EFFECT_NO_EFFECT else ""
+
+
+## Encounters an out-of-combat effect with this SRD duration lasts: up to 10
+## minutes 1, 1 hour 2, 8 hours 4; 24 hours, days, "until dispelled" and
+## "special" -1 (until the next long rest). Instantaneous: 0.
+static func encounters_for_duration(text: String) -> int:
+	var t := text.to_lower()
+	if t.is_empty() or t.contains("instantaneous"):
+		return 0
+	if t.contains("day") or t.contains("dispelled") or t.contains("special") or t.contains("24 hour") or t.contains("12 hour"):
+		return -1
+	if t.contains("8 hour"):
+		return 4
+	if t.contains("2 hour") or t.contains("1 hour"):
+		return 2
+	return 1
 
 
 ## Castable as an action or bonus action (not a reaction or a ritual-length cast).

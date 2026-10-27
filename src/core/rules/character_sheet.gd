@@ -161,6 +161,16 @@ var chosen_resistance: String = ""
 var relentless_rage_uses: int = 0
 ## Raise Dead: penalty to attack rolls, saves and ability checks (drops by 1 per long rest).
 var resurrection_penalty: int = 0
+## Last number used for a companion id "c<n>" (core-owned: mint_companion_id).
+var companion_serial: int = 0
+## Round C: out-of-combat spell effects that last a number of encounters
+## (OutOfCombat lingering spells: Foresight, Antipathy/Sympathy, Magic Jar,
+## Disguise Self, ...): [{"spell", "slot_level", "kind" ("buff" | "zone" |
+## "feature" | "stealth"), "encounters_left" (-1 = until the next long rest),
+## "mode"?, "creature_type"?, "effect"?, "modifiers"?, "feature"?}]. The
+## Encounter applies them when a fight starts and counts them down when it
+## ends; a long rest clears them.
+var lingering: Array[Dictionary] = []
 
 
 func proficiency_bonus() -> int:
@@ -580,6 +590,34 @@ func class_definition(content: Dictionary = {}) -> ClassDefinition:
 		return null
 	var def: ClassDefinition = classes[class_id]
 	return def
+
+
+# --- companions ----------------------------------------------------------------
+
+## The next companion id "c<n>" (never reused: companion_serial only grows,
+## and ids already on the sheet are skipped).
+func mint_companion_id() -> String:
+	for entry in companions:
+		var cid := str(entry.get("id", ""))
+		if cid.begins_with("c") and cid.substr(1).is_valid_int():
+			companion_serial = maxi(companion_serial, cid.substr(1).to_int())
+	companion_serial += 1
+	return "c%d" % companion_serial
+
+
+## Gives every companion without an "id" the next "c<n>" (in list order).
+func stamp_companion_ids() -> void:
+	for entry in companions:
+		if str(entry.get("id", "")).is_empty():
+			entry["id"] = mint_companion_id()
+
+
+## The companion entry with this id ({} when none).
+func companion_by_id(companion_id: String) -> Dictionary:
+	for entry in companions:
+		if str(entry.get("id", "")) == companion_id:
+			return entry
+	return {}
 
 
 # --- class resources ---------------------------------------------------------
@@ -1115,6 +1153,8 @@ func to_dict() -> Dictionary:
 		"chosen_resistance": chosen_resistance,
 		"relentless_rage_uses": relentless_rage_uses,
 		"resurrection_penalty": resurrection_penalty,
+		"companion_serial": companion_serial,
+		"lingering": lingering.duplicate(true),
 	}
 
 
@@ -1232,6 +1272,8 @@ static func from_dict(d: Dictionary) -> CharacterSheet:
 	s.chosen_resistance = str(d.get("chosen_resistance", ""))
 	s.relentless_rage_uses = DictUtil.to_int(d.get("relentless_rage_uses", 0), 0)
 	s.resurrection_penalty = DictUtil.to_int(d.get("resurrection_penalty", 0), 0)
+	s.companion_serial = DictUtil.to_int(d.get("companion_serial", 0), 0)
+	s.lingering = DictUtil.to_dict_array(d.get("lingering", []))
 	return s
 
 

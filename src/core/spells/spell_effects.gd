@@ -74,9 +74,9 @@ const OVERRIDES: Dictionary = {
 		"modes": {"asleep": {"condition": "unconscious"}, "panicked": {"condition": "frightened"}, "sickened": {"condition": "poisoned"}}},
 	"feeblemind": {"type": "save", "save": "INT", "damage": "4d6", "damage_type": "psychic", "on_save": "none", "apply_effect": {"no_spellcasting": true}, "rounds": 0, "damage_on_save": true},
 	"flesh_to_stone": {"type": "save", "save": "CON", "apply_condition": {"condition": "restrained", "duration": "save_ends"}},  # lite: no petrification after three failures
-	"dominate_beast": {"type": "save", "save": "WIS", "apply_condition": {"condition": "charmed", "duration": "save_ends"}, "extra_conditions": ["incapacitated"], "creature_types": ["beast"]},  # lite: charmed and held, not controlled
-	"dominate_person": {"type": "save", "save": "WIS", "apply_condition": {"condition": "charmed", "duration": "save_ends"}, "extra_conditions": ["incapacitated"], "creature_types": ["humanoid"]},
-	"dominate_monster": {"type": "save", "save": "WIS", "apply_condition": {"condition": "charmed", "duration": "save_ends"}, "extra_conditions": ["incapacitated"]},
+	"dominate_beast": {"type": "save", "save": "WIS", "apply_condition": {"condition": "dominated", "duration": {"type": "rounds", "rounds": 10}}, "condition_save_on_damage": true, "creature_types": ["beast"]},
+	"dominate_person": {"type": "save", "save": "WIS", "apply_condition": {"condition": "dominated", "duration": {"type": "rounds", "rounds": 10}}, "condition_save_on_damage": true, "creature_types": ["humanoid"]},
+	"dominate_monster": {"type": "save", "save": "WIS", "apply_condition": {"condition": "dominated", "duration": "encounter"}, "condition_save_on_damage": true},
 	"heat_metal": {"type": "save", "auto_fail": true, "save": "CON", "damage": "2d8", "damage_type": "fire", "per_slot_level_above": "1d8", "sustain": "bonus_action"},  # lite: no dropped objects
 	"vampiric_touch": {"type": "spell_attack", "attack": "melee", "damage": "3d6", "damage_type": "necrotic", "per_slot_level_above": "1d6", "heal_caster": "half", "sustain": "action", "_range_ft": 5},
 	"power_word_kill": {"type": "threshold", "levels": [[100, "kill"]]},
@@ -146,6 +146,98 @@ const OVERRIDES: Dictionary = {
 	"resurrection": {"type": "revive", "max_rounds": -1, "hp": -1, "penalty": 4, "_target": "ally"},
 	"true_resurrection": {"type": "revive", "max_rounds": -1, "hp": -1, "_target": "ally"},
 	"prayer_of_healing": {"type": "heal", "dice": "2d8", "add_casting_mod": true, "per_slot_level_above": "1d8", "max_targets": 6, "_target": "ally"},
+	# --- round C: walls, terrain and wards (the encounter owns its map copy) ----------------------
+	"wall_of_force": {"type": "zone", "zone": {"wall": true, "terrain": "solid"}, "_area": {"shape": "line", "size_ft": 100}},  # lite: a straight wall of ten panels
+	"wall_of_ice": {"type": "zone", "zone": {"wall": true, "terrain": "solid", "save": "DEX", "damage": "10d6", "damage_type": "cold", "on_save": "half", "per_slot_level_above": "2d6", "triggers": ["create"]},
+		"_area": {"shape": "line", "size_ft": 100}},  # lite: no breakable panels
+	"wall_of_stone": {"type": "zone", "zone": {"wall": true, "terrain": "solid"}, "_area": {"shape": "line", "size_ft": 100}},
+	"forcecage": {"type": "zone", "zone": {"cells": "ring", "terrain": "solid"}},  # the cage's bars: the ring of tiles 10 ft from the point
+	"resilient_sphere": {"type": "buff", "save": "DEX", "modifiers": {"sealed": true, "speed_zero": true}, "_target": "any"},  # a single-tile cage
+	"prismatic_wall": {"type": "zone", "zone": {"wall": true, "opaque": true, "triggers": ["enter"], "layers": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]}},
+	"wind_wall": {"type": "zone", "zone": {"wall": true, "wind": true, "save": "STR", "damage": "3d8", "damage_type": "bludgeoning", "on_save": "half", "triggers": ["create"]}},
+	"antilife_shell": {"type": "zone", "zone": {"anchor": "caster", "barrier": "living"}},  # lite: hostiles inside are pushed out
+	"globe_of_invulnerability": {"type": "zone", "zone": {"anchor": "caster", "globe": 5}},
+	"antimagic_field": {"type": "zone", "zone": {"anchor": "caster", "antimagic": true}},
+	"reverse_gravity": {"type": "zone", "zone": {"save": "DEX", "fall": "4d6", "condition": "prone", "condition_duration": "encounter", "triggers": ["create", "enter"]}},  # lite: one fall to a 40-ft ceiling
+	"earthquake": {"type": "zone", "zone": {"difficult": true, "ground": true, "phases": [{"save": "DEX", "condition": "prone", "condition_duration": "encounter", "breaks_concentration": true}]}},  # lite: no fissures
+	"fire_storm": {"type": "area_save", "save": "DEX", "damage": "7d10", "damage_type": "fire", "on_save": "half", "_area": {"shape": "cube", "size_ft": 30}},  # lite: one block instead of ten cubes
+	"storm_of_vengeance": {"type": "zone", "zone": {"phases": [
+		{"save": "CON", "damage": "2d6", "damage_type": "thunder", "on_save": "none", "condition": "deafened", "condition_duration": {"type": "rounds", "rounds": 50}},
+		{"damage": "1d6", "damage_type": "acid"},
+		{"save": "DEX", "damage": "10d6", "damage_type": "lightning", "on_save": "half", "max_targets": 6},
+		{"damage": "2d6", "damage_type": "bludgeoning"},
+		{"damage": "1d6", "damage_type": "cold", "set": {"difficult": true, "wind": true, "obscured": true}}]}},
+	"control_water": {"type": "zone", "zone": {"difficult": true, "ground": true}},  # lite: Flood: the water is difficult terrain
+	"telekinesis": {"type": "forced_move", "move_ft": 30, "condition": "restrained", "sustain": "action", "_target": "any"},
+	"arcane_hand": {"type": "summon", "custom": "arcane_hand", "targetable": true, "rounds": 0},  # lite: Clenched Fist every turn
+	"move_earth": {"type": "zone", "zone": {"cells": "raw", "terrain": "open", "terrain_modes": {"lower": "open", "raise": "solid"}}, "_area": {"shape": "cube", "size_ft": 20}},  # lite: one 20-ft section, reshaped at once
+	"stone_shape": {"type": "zone", "zone": {"cells": "raw", "terrain": "open", "terrain_modes": {"open": "open", "wall": "solid"}, "point_on": "wall", "point_on_modes": {"open": "wall", "wall": "floor"}},
+		"_area": {"shape": "cube", "size_ft": 5}},
+	"passwall": {"type": "zone", "zone": {"cells": "raw", "terrain": "open", "point_on": "wall"}, "_area": {"shape": "line", "size_ft": 20}},
+	"plant_growth": {"type": "zone", "zone": {"difficult": true, "difficult_cost": 4, "ground": true, "plant": true, "affects": "hostiles"}, "_area": {"shape": "sphere", "size_ft": 100}},  # lite: the caster's allies are spared
+	"spider_climb": {"type": "buff", "modifiers": {"climbing": true, "ignore_difficult": true}, "rounds": 0, "_target": "ally"},
+	"jump": {"type": "buff", "modifiers": {"ignores_ground": true, "ignore_difficult": true}, "_target": "ally"},  # lite: leaps clear ground effects and rough terrain
+	"feather_fall": {"type": "reaction", "trigger": "falling", "_target": "ally"},
+	# --- round C: compulsion, charm and planar effects -------------------------------------------
+	"suggestion": {"type": "save", "save": "WIS", "apply_condition": {"condition": "suggested", "duration": "encounter"}, "condition_ends_on_damage": true},  # lite: "leave us be"
+	"mass_suggestion": {"type": "save", "save": "WIS", "apply_condition": {"condition": "suggested", "duration": "encounter"}, "condition_ends_on_damage": true, "max_targets": 12},
+	"compulsion": {"type": "area_save", "save": "WIS", "affects": "hostiles", "apply_condition": {"condition": "compelled", "duration": "save_ends"}, "sustain": "bonus_action", "sustain_mode": "redirect",
+		"_area": {"shape": "sphere", "size_ft": 30}, "_range_ft": 0},
+	"enthrall": {"type": "save", "save": "WIS", "apply_effect": {"disadv_checks": ["WIS"]}, "max_targets": 6},  # disadvantage on Perception: WIS checks
+	"calm_emotions": {"type": "area_save", "save": "CHA", "affects": "hostiles", "allies_cure": ["charmed", "frightened"], "apply_condition": {"condition": "suggested", "duration": {"type": "rounds", "rounds": 10}}, "condition_ends_on_damage": true},
+	"geas": {"type": "no_effect", "reason": "commands a creature for 30 days; outside a fight there is no creature to command in the delve yet"},
+	"modify_memory": {"type": "save", "save": "WIS", "apply_condition": {"condition": "charmed", "duration": {"type": "rounds", "rounds": 10}}, "creature_types": ["humanoid"]},  # lite: the charm, no memories rewritten
+	"animal_friendship": {"type": "save", "save": "WIS", "apply_condition": {"condition": "charmed", "duration": "encounter"}, "creature_types": ["beast"], "targets_per_slot": 1},
+	"antipathy_sympathy": {"type": "zone", "zone": {"affects": "hostiles", "save": "WIS", "triggers": ["enter", "start_turn"], "condition": "frightened", "condition_duration": "until_target_turn_end",
+		"modes": {"antipathy": {"condition": "frightened"}, "sympathy": {"condition": "charmed"}}}, "lingering": {"kind": "zone"}, "_area": {"shape": "sphere", "size_ft": 30}},  # the warded spot is where you stand when the next fight starts
+	"banishment": {"type": "banish", "save": "CHA", "rounds": 10, "native_permanent": true},
+	"maze": {"type": "banish", "rounds": 10, "escape": {"ability": "INT", "dc": 20}},
+	"imprisonment": {"type": "banish", "save": "WIS", "permanent": true},
+	"plane_shift": {"type": "banish", "attack": "melee", "save": "CHA", "permanent": true, "self_rounds": 10, "_target": "any"},  # lite: travellers come back after 10 rounds
+	"magic_jar": {"type": "lingering", "lingering": {"kind": "feature", "feature": "magic_jar"}},  # use_feature magic_jar in a fight: possess a humanoid
+	"true_polymorph": {"type": "transform", "save": "WIS", "any_type": true, "kind": "true_polymorph", "form": "rat", "ally_form": "brown_bear", "_target": "any"},
+	"shapechange": {"type": "transform", "any_type": true, "excluded_form_types": ["construct", "undead"], "cr_limit": "caster", "kind": "shapechange", "form": "brown_bear", "_target": "self"},
+	"animal_shapes": {"type": "transform", "kind": "animal_shapes", "max_cr": 4, "cr_limit": "none", "form": "brown_bear", "ally_form": "brown_bear", "max_targets": 10, "_target": "ally"},
+	"gaseous_form": {"type": "buff", "modifiers": {"fly_ft": 10, "speed_cap_ft": 10, "resist_nonmagical": true, "adv_saves": ["STR", "DEX", "CON"], "no_attacks": true, "no_spellcasting": true}, "rounds": 0, "_target": "ally"},
+	"blink": {"type": "buff", "modifiers": {"blink": true}, "rounds": 10},
+	"etherealness": {"type": "buff", "apply_condition": {"condition": "ethereal", "duration": "encounter"}, "modifiers": {"fly_ft": -1}, "rounds": 0},  # use_feature end_spell returns
+	# --- round C: summons and companions (1-minute+ conjurations are out-of-combat companions lasting encounters) ---
+	"conjure_celestial": {"type": "summon", "monster": "couatl", "forms": "celestial", "max_cr": 4.0, "cr_by_slot": {"9": 5.0}, "count_base": 1, "companion": true, "encounters": 0},
+	"conjure_elemental": {"type": "summon", "monster": "air_elemental", "forms": "elemental", "max_cr": 5.0, "cr_per_slot": 1.0, "count_base": 1, "companion": true, "encounters": 0},  # lite: it vanishes when concentration ends
+	"conjure_fey": {"type": "summon", "monster": "dryad", "forms": "fey", "max_cr": 6.0, "cr_per_slot": 1.0, "count_base": 1, "companion": true, "encounters": 0},
+	"conjure_minor_elementals": {"type": "summon", "monster": "magma_mephit", "forms": "elemental", "max_cr": 2.0, "count": {"2": 1, "1": 2, "0.5": 4, "0.25": 8}, "slot_multiplier": {"6": 2, "8": 3},
+		"companion": true, "encounters": 0},
+	"animate_objects": {"type": "summon", "custom": "animated_object", "targetable": true, "count_base": 10, "count_per_slot": 2, "rounds": 0},  # lite: ten Tiny objects
+	"giant_insect": {"type": "summon", "monster": "giant_spider", "forms": ["giant_centipede", "giant_spider", "giant_wasp", "giant_scorpion"],
+		"count_by_form": {"giant_centipede": 10, "giant_spider": 3, "giant_wasp": 5, "giant_scorpion": 1}, "rounds": 0},  # lite: the insects appear rather than grow
+	"faithful_hound": {"type": "summon", "custom": "faithful_hound", "rounds": 0},
+	"planar_ally": {"type": "summon", "monster": "couatl", "form_types": ["celestial", "elemental", "fiend"], "max_cr": 6.0, "count_base": 1, "companion": true, "until_long_rest": true},  # lite: no payment
+	"planar_binding": {"type": "summon", "monster": "couatl", "form_types": ["celestial", "elemental", "fey", "fiend"], "max_cr": 5.0, "cr_per_slot": 1.0, "count_base": 1, "companion": true, "until_long_rest": true},  # lite: the bound creature is called with the spell
+	"unseen_servant": {"type": "summon", "custom": "unseen_servant", "targetable": true, "familiar": true, "companion": true, "count_base": 1, "encounters": 0, "rounds": 0},  # it helps
+	"phantom_steed": {"type": "lingering", "lingering": {"kind": "buff", "effect": "phantom_steed", "modifiers": {"speed_bonus_ft": 30}}},  # lite: a mount as +30 ft of speed
+	"simulacrum": {"type": "summon", "custom": "simulacrum", "targetable": true, "single": true, "companion": true, "count_base": 1},
+	"awaken": {"type": "summon", "monster": "awakened_tree", "forms": "beast", "also_forms": ["awakened_shrub", "awakened_tree"], "max_cr": 2.0, "count_base": 1, "companion": true},  # lite: the awakened creature joins you
+	"reincarnate": {"type": "revive", "max_rounds": -1, "hp": -1, "reincarnate": true, "_target": "ally"},
+	# --- round C: illusions (images fool hostiles until an Investigation check succeeds) ---------------
+	"silent_image": {"type": "summon", "custom": "illusion", "targetable": true, "rounds": 0, "_range_ft": 60},
+	"major_image": {"type": "summon", "custom": "illusion", "targetable": true, "rounds": 0},
+	"programmed_illusion": {"type": "summon", "custom": "illusion", "targetable": true, "rounds": 0},  # lite: it plays at once
+	"project_image": {"type": "summon", "custom": "illusion", "targetable": true, "copy_caster": true, "rounds": 0, "_range_ft": 120},  # lite: a decoy of you
+	"mislead": {"type": "summon", "custom": "illusion", "targetable": true, "copy_caster": true, "self_invisible": true, "rounds": 0},
+	"phantasmal_force": {"type": "save", "save": "INT", "dot": {"dice": "1d6", "type": "psychic", "trigger": "end_turn", "save": "INT"}},  # lite: an end-of-turn INT save ends it
+	"weird": {"type": "area_save", "save": "WIS", "affects": "hostiles", "apply_condition": {"condition": "frightened", "duration": "encounter"},
+		"dot": {"dice": "4d10", "type": "psychic", "trigger": "end_turn", "save": "WIS"}},
+	"disguise_self": {"type": "buff", "modifiers": {"stealth_advantage": true, "label": "advantage on your first Stealth check this fight"}, "rounds": 0,
+		"lingering": {"kind": "stealth", "effect": "disguise_self", "modifiers": {"stealth_advantage": true, "label": "advantage on your first Stealth check this fight"}, "encounters": 1}},
+	"alter_self": {"type": "buff", "modifiers": {"unarmed_die": 6, "stealth_advantage": true, "label": "natural weapons (1d6, magical); advantage on your first Stealth check"}, "rounds": 0,
+		"lingering": {"kind": "stealth", "effect": "alter_self", "modifiers": {"stealth_advantage": true, "label": "advantage on your first Stealth check this fight"}, "encounters": 1}},
+	"seeming": {"type": "buff", "modifiers": {"stealth_advantage": true, "label": "advantage on your first Stealth check this fight"}, "rounds": 0, "max_targets": 8, "_target": "ally",
+		"lingering": {"kind": "stealth", "effect": "seeming", "modifiers": {"stealth_advantage": true, "label": "advantage on your first Stealth check this fight"}, "encounters": 1}},
+	"minor_illusion": {"type": "zone", "zone": {"obscured": true, "rounds": 10}, "_area": {"shape": "cube", "size_ft": 5},
+		"lingering": {"kind": "stealth", "effect": "minor_illusion", "modifiers": {"stealth_advantage": true, "label": "advantage on your first Stealth check this fight"}, "encounters": 1}},  # in a fight: a 5-ft image to hide behind
+	"hallucinatory_terrain": {"type": "lingering", "lingering": {"kind": "stealth", "effect": "hallucinatory_terrain", "modifiers": {"stealth_advantage": true, "label": "advantage on your first Stealth check this fight"}, "encounters": 1}},
+	"mirage_arcane": {"type": "lingering", "lingering": {"kind": "stealth", "effect": "mirage_arcane", "modifiers": {"stealth_advantage": true, "label": "advantage on your first Stealth check this fight"}, "encounters": 1}},
+	"gate": {"type": "summon", "monster": "couatl", "form_types": ["celestial", "elemental", "fiend"], "max_cr": 12.0, "count_base": 1, "companion": true, "encounters": 1, "rounds": 0},  # lite: the portal brings a planar ally
 }
 
 

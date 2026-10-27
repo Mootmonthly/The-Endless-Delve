@@ -38,6 +38,19 @@ extends RefCounted
 ##   turn_lost (not SRD; Command "grovel", confusion): its next turn is skipped.
 ## Durations also include {"type": "until_target_turn_start"} (ends when the
 ## target's next turn starts; buffs such as Shield).
+## Round C tracked conditions (not SRD conditions; charm effects, so a
+## creature immune to charmed is immune to them):
+##   dominated (Dominate Person / Beast / Monster, Magic Jar): the source's team
+##          controls it: its team switches until it ends, the encounter runs
+##          its turns (MonsterBrain, or the controller's `control` orders);
+##          each time it takes damage it repeats the save ("save_on_damage").
+##   suggested (Suggestion, Mass Suggestion, Calm Emotions): it takes no hostile
+##          action against the source's side; ends when that side damages it.
+##   compelled (Compulsion): at the start of its turns it moves as far as it can
+##          toward the entry's "toward" point.
+## ethereal (Blink, Etherealness) is tracked too: the creature is out of reach
+## (untargetable, not occupying its tile) and cannot affect creatures that are
+## not ethereal.
 
 const PRONE := "prone"
 const STUNNED := "stunned"
@@ -59,6 +72,14 @@ const TURN_LOST := "turn_lost"
 ## Not an SRD condition but tracked the same way: cannot take reactions
 ## (Open Hand Technique).
 const NO_REACTIONS := "no_reactions"
+const DOMINATED := "dominated"
+const SUGGESTED := "suggested"
+const COMPELLED := "compelled"
+const ETHEREAL := "ethereal"
+## Round C tracked conditions (see the class doc).
+const TRACKED: Array[String] = [TURN_LOST, DOMINATED, SUGGESTED, COMPELLED, ETHEREAL]
+## Charm effects: immunity to charmed covers them.
+const CHARM_EFFECTS: Array[String] = [CHARMED, DOMINATED, SUGGESTED, COMPELLED]
 ## Conditions that include "incapacitated".
 const INCAPACITATING: Array[String] = [INCAPACITATED, STUNNED, PARALYZED, UNCONSCIOUS, PETRIFIED]
 ## Conditions whose creature cannot move (speed 0).
@@ -79,11 +100,16 @@ const DURATION_SAVE_ENDS := "save_ends"
 const DURATION_ROUNDS := "rounds"
 const DURATION_ENCOUNTER := "encounter"
 const DURATION_TARGET_TURN_START := "until_target_turn_start"
-const DURATION_TYPES: Array[String] = [DURATION_SOURCE_NEXT_TURN, DURATION_TARGET_TURN_END, DURATION_SAVE_ENDS, DURATION_ROUNDS, DURATION_ENCOUNTER, DURATION_TARGET_TURN_START]
+## Round C: {"type": "save_track", "ability", "dc", "successes", "failures"}:
+## a save at the end of each of the target's turns; three successes end it,
+## three failures make it last (and the entry's "track_effect" takes hold:
+## Contagion's disease, Prismatic indigo's petrification).
+const DURATION_SAVE_TRACK := "save_track"
+const DURATION_TYPES: Array[String] = [DURATION_SOURCE_NEXT_TURN, DURATION_TARGET_TURN_END, DURATION_SAVE_ENDS, DURATION_ROUNDS, DURATION_ENCOUNTER, DURATION_TARGET_TURN_START, DURATION_SAVE_TRACK]
 
 
 static func is_condition(condition: String) -> bool:
-	return ALL.has(condition) or condition == TURN_LOST
+	return ALL.has(condition) or TRACKED.has(condition)
 
 
 ## A normalised, JSON-safe duration object, or {} when `d` is invalid.
@@ -107,6 +133,14 @@ static func normalize_duration(d: Variant) -> Dictionary:
 			return {"type": t, "ability": Ability.abbreviation(ability), "dc": DictUtil.to_int(src.get("dc", 10), 10)}
 		DURATION_ROUNDS:
 			return {"type": t, "rounds": maxi(1, DictUtil.to_int(src.get("rounds", 1), 1))}
+		DURATION_SAVE_TRACK:
+			var ability := Ability.from_string(str(src.get("ability", "CON")))
+			if ability < 0:
+				return {}
+			var out := {"type": t, "ability": Ability.abbreviation(ability), "successes": DictUtil.to_int(src.get("successes", 0), 0), "failures": DictUtil.to_int(src.get("failures", 0), 0)}
+			if src.has("dc"):
+				out["dc"] = DictUtil.to_int(src["dc"], 10)
+			return out
 	return {}
 
 

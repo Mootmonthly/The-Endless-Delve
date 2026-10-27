@@ -134,5 +134,6 @@ static func long_rest(sheet: CharacterSheet) -> void:
 	sheet.restore_spell_slots()
 	sheet.restore_class_resources()
 	sheet.active_buffs.clear()
+	sheet.lingering.clear()
 	if sheet.has_feature("tranquility"):
 		sheet.active_buffs.append("tranquility")

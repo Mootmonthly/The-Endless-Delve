@@ -11,6 +11,9 @@ const FLOOR_CHAR := "."
 var width: int = 0
 var height: int = 0
 var _cells: PackedByteArray = PackedByteArray()  # 1 = walkable, row-major
+## Opaque tiles (walkable but blocking line of sight: Prismatic Wall); empty
+## until set_opaque is first called.
+var _opaque: PackedByteArray = PackedByteArray()
 
 
 func _init(map_width: int = 0, map_height: int = 0, walkable: bool = false) -> void:
@@ -33,6 +36,22 @@ func set_walkable(p: Vector2i, walkable: bool) -> void:
 		push_error("WalkMap.set_walkable: %s is out of bounds" % str(p))
 		return
 	_cells[p.y * width + p.x] = 1 if walkable else 0
+
+
+## Marks a tile as blocking line of sight without blocking movement.
+func set_opaque(p: Vector2i, opaque: bool) -> void:
+	if not in_bounds(p):
+		return
+	if _opaque.is_empty():
+		if not opaque:
+			return
+		_opaque.resize(width * height)
+		_opaque.fill(0)
+	_opaque[p.y * width + p.x] = 1 if opaque else 0
+
+
+func is_opaque(p: Vector2i) -> bool:
+	return not _opaque.is_empty() and in_bounds(p) and _opaque[p.y * width + p.x] == 1
 
 
 func bounds() -> Rect2i:
@@ -77,6 +96,7 @@ func copy() -> WalkMap:
 	m.width = width
 	m.height = height
 	m._cells = _cells.duplicate()
+	m._opaque = _opaque.duplicate()
 	return m
 
 
@@ -177,8 +197,8 @@ static func _unwind(parent: Dictionary, start: Vector2i, end: Vector2i) -> Array
 
 
 ## True when the straight line between the centres of a and b crosses only
-## walkable tiles (Bresenham; the end tiles themselves are not checked, and
-## creatures never block sight). Symmetric: the line is always drawn from the
+## walkable, non-opaque tiles (Bresenham; the end tiles themselves are not
+## checked, and creatures never block sight). Symmetric: the line is always drawn from the
 ## smaller tile (by x, then y), so has_line_of_sight(a, b) == (b, a).
 func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
 	if not in_bounds(a) or not in_bounds(b):
@@ -189,7 +209,7 @@ func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
 		from = b
 		to = a
 	for cell in WalkMap.line_cells(from, to):
-		if cell != from and cell != to and not is_walkable(cell):
+		if cell != from and cell != to and (not is_walkable(cell) or is_opaque(cell)):
 			return false
 	return true
 

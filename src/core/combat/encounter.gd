@@ -74,6 +74,11 @@ const GRAPPLE := "grapple"
 const ESCAPE_GRAPPLE := "escape_grapple"
 const HELP := "help"
 const MOVE_EFFECT := "move_effect"
+## Round C: {"type": "control", "target": dominated id, "orders": [intents]}
+## (free): orders for the dominated creature's next turn.
+const CONTROL := "control"
+## Creature types native to other planes (Banishment sends them home for good).
+const OTHERWORLDLY_TYPES: Array[String] = ["aberration", "celestial", "elemental", "fey", "fiend"]
 const MOVE_MODES: Array[String] = ["walk", "fly", "teleport"]
 const CUTTING_WORDS_RANGE_TILES := 12  # 60 ft
 const COUNTERSPELL_RANGE_TILES := 12  # 60 ft
@@ -118,6 +123,7 @@ const USABLE_FEATURES: Array[String] = [
 	"pact_weapon", "intimidating_presence", "countercharm", "wholeness_of_body", "stillness_of_mind",
 	"divine_intervention", "cleansing_touch", "volley", "whirlwind_attack", "elemental_affinity",
 	"dragon_wings", "wild_shape", "revert_form", "empty_body", "draconic_presence",
+	"magic_jar", "end_spell",
 ]
 ## Resource cost of a feature use when it is not 1.
 const FEATURE_SPEND: Dictionary[String, int] = {"empty_body": 4, "draconic_presence": 5}
@@ -155,6 +161,7 @@ var _one_roll_bonus: int = 0  # Elemental Affinity / Empowered Evocation: added 
 var _one_roll_source: String = ""
 var _cast_intent: Dictionary = {}  # the cast intent being resolved (mode, heightened_target, form)
 var _blessed_healer_done: bool = false
+var _base_map: WalkMap = null  # walk_map before terrain effects (walls, passwall, ...)
 var _combatants: Dictionary = {}  # id -> Combatant, in join order
 var _setup: Array[Dictionary] = []
 var _pending: Array[Dictionary] = []  # events of the operation in progress
@@ -168,6 +175,7 @@ func _init(encounter_id: String, encounter_rng: Rng, source_map: WalkMap, battle
 		replay_safe = Rng.new(rng_seed).state() == encounter_rng.state()
 	region = battle_region
 	walk_map = source_map.cropped_to(battle_region) if source_map != null else WalkMap.new()
+	_base_map = walk_map.copy()
 
 
 ## Adds a combatant (rolling initiative). Its position must be inside the
@@ -203,6 +211,7 @@ func add_combatant(c: Combatant) -> bool:
 	})
 	if state == State.ACTIVE:
 		_spawn_companions(c)
+		_apply_lingering(c)
 	_pending.clear()
 	return true
 
@@ -246,6 +255,7 @@ func start() -> bool:
 		var owner: Combatant = value
 		if not owner.is_summon():
 			_spawn_companions(owner)
+			_apply_lingering(owner)
 	for value: Variant in _combatants.values():
 		_on_initiative(value as Combatant)
 	tracker.begin()
@@ -330,6 +340,8 @@ func _validate(actor: Combatant, intent: Dictionary) -> String:
 			return _check_help(actor, intent)
 		MOVE_EFFECT:
 			return _check_move_effect(actor, intent)
+		CONTROL:
+			return _check_control(actor, intent)
 		END_TURN:
 			return ""
 	return "unknown intent type '%s'" % intent_type
@@ -386,6 +398,8 @@ func _resolve(actor: Combatant, intent: Dictionary) -> void:
 		MOVE_EFFECT:
 			_do_move_effect(actor, intent)
 			check_end()
+		CONTROL:
+			_do_control(actor, intent)
 		END_TURN:
 			_end_current_turn()
 
@@ -588,6 +602,9 @@ func _check_move(actor: Combatant, intent: Dictionary) -> String:
 				return "a flight must end on open ground"
 		elif not walk_map.can_step(cursor, step, occupied):
 			return "cannot step from %s to %s" % [str(cursor), str(step)]
+		var barrier := _barrier_at(actor, step)
+		if not barrier.is_empty() and not _effect_covers(barrier, cursor):
+			return "the %s holds %s back" % [str(barrier["spell"]).replace("_", " "), actor.display_name]
 		for source in fears:
 			if GridMath.distance_tiles(step, source.position) < GridMath.distance_tiles(cursor, source.position):
 				return "%s is frightened and cannot move closer to %s" % [actor.display_name, source.display_name]
@@ -617,6 +634,7 @@ func _teleport_error(actor: Combatant, dest: Vector2i, tiles: int, need_sight: b
 func _step_cost(actor: Combatant, step: Vector2i, mode: String) -> int:
 	if actor.buff_flag("ignore_difficult"):
 		return 1
+	var cost := 1
 	for fx in tile_effects:
 		if fx.get("difficult", false) != true or not _effect_covers(fx, step):
 			continue
@@ -624,8 +642,8 @@ func _step_cost(actor: Combatant, step: Vector2i, mode: String) -> int:
 			continue
 		if not _effect_affects(fx, actor):
 			continue
-		return 2
-	return 1
+		cost = maxi(cost, maxi(2, DictUtil.to_int(fx.get("difficult_cost", 2), 2)))
+	return cost
 
 
 ## Living creatures actor is frightened of (it may not move closer to them).
@@ -703,10 +721,24 @@ func _check_attack(actor: Combatant, intent: Dictionary) -> String:
 		return "%s cannot be attacked" % target.display_name
 	if attack.is_empty():
 		return "invalid attack_index"
+	var sealed := _sealed_error(actor, target)
+	if not sealed.is_empty():
+		return sealed
+	if actor.buff_flag("no_attacks"):
+		return "%s cannot attack in this form" % actor.display_name
+	if actor.is_ethereal() and not target.is_ethereal():
+		return "%s is on the Ethereal Plane" % actor.display_name
+	if not Encounter.is_ranged_attack(attack):
+		var barrier := _barrier_at(actor, target.position)
+		if not barrier.is_empty() and not _effect_covers(barrier, actor.position):
+			return "%s cannot reach through the %s" % [actor.display_name, str(barrier["spell"]).replace("_", " ")]
 	if not bonus and attack.get("off_hand", false) == true:
 		return "the off-hand weapon attacks as a bonus action (two-weapon fighting)"
 	if actor.condition_sources(Conditions.CHARMED).has(target.id):
 		return "%s is charmed by %s" % [actor.display_name, target.display_name]
+	var pacified := _pacified_error(actor, target)
+	if not pacified.is_empty():
+		return pacified
 	var item := str(attack.get("item", ""))
 	if not item.is_empty() and not actor.sheet.has_item(item):
 		return "%s no longer carries %s" % [actor.display_name, item]
@@ -974,8 +1006,11 @@ func _check_cast(actor: Combatant, intent: Dictionary) -> String:
 	if actor.raging:
 		return "%s cannot cast spells while raging" % actor.display_name
 	var form_kind := str(actor.form.get("kind", ""))
-	if actor.buff_flag("no_spellcasting") or form_kind == "polymorph" or (form_kind == "wild_shape" and not actor.sheet.has_feature("beast_spells")):
+	if actor.buff_flag("no_spellcasting") or form_kind in ["polymorph", "true_polymorph", "animal_shapes", "shapechange"] \
+			or (form_kind == "wild_shape" and not actor.sheet.has_feature("beast_spells")):
 		return "%s cannot cast spells now" % actor.display_name
+	if actor.antimagic:
+		return "%s stands in an antimagic field" % actor.display_name
 	var meta := Encounter._metamagic_of(intent)
 	_cast_meta = meta
 	for m in meta:
@@ -1075,6 +1110,8 @@ func _check_cast(actor: Combatant, intent: Dictionary) -> String:
 		return "twin_target needs Twinned Spell"
 	if spell.effect_type == SpellDefinition.EFFECT_TRANSFORM:
 		return _check_transform(actor, spell, targets[0], intent)
+	if spell.effect_type == SpellDefinition.EFFECT_FORCED_MOVE:
+		return _check_forced_move(actor, spell, targets[0], intent)
 	return ""
 
 
@@ -1086,6 +1123,10 @@ func _check_spell_target(actor: Combatant, spell: SpellDefinition, target: Comba
 		return "unknown target"
 	if spell.target == SpellDefinition.TARGET_SELF and target != actor:
 		return "%s can only target its caster" % spell.display_name
+	if actor.is_sealed() and target != actor:
+		return "%s is sealed inside a sphere of force" % actor.display_name
+	if actor.is_ethereal() and target != actor:
+		return "%s is on the Ethereal Plane" % actor.display_name
 	if target.untargetable:
 		return "%s cannot be targeted" % target.display_name
 	if spell.effect_type == SpellDefinition.EFFECT_REVIVE:
@@ -1109,6 +1150,9 @@ func _check_spell_target(actor: Combatant, spell: SpellDefinition, target: Comba
 			return "%s is on the same team" % target.display_name
 		if actor.condition_sources(Conditions.CHARMED).has(target.id):
 			return "%s is charmed by %s" % [actor.display_name, target.display_name]
+		var pacified := _pacified_error(actor, target)
+		if not pacified.is_empty():
+			return pacified
 	elif spell.target != SpellDefinition.TARGET_ANY:
 		if target.team != actor.team:
 			return "%s is not an ally" % target.display_name
@@ -1126,6 +1170,9 @@ func _check_spell_target(actor: Combatant, spell: SpellDefinition, target: Comba
 			return "%s is out of range (%d tiles, range %d)" % [target.display_name, dist, reach]
 		if not walk_map.has_line_of_sight(actor.position, target.position):
 			return "no line of sight to %s" % target.display_name
+	var warded := _spell_warded(actor, target, spell)
+	if not warded.is_empty():
+		return "%s is protected: %s" % [target.display_name, warded.replace("_", " ")]
 	return ""
 
 
@@ -1163,6 +1210,18 @@ func _check_area(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -
 		var end := GridMath.arr_to_vec(intent["wall_end"])
 		if GridMath.distance_tiles(point, end) > spell.area_size_tiles():
 			return "the wall is at most %d tiles long" % spell.area_size_tiles()
+	var on := str(spell.zone.get("point_on", ""))
+	var on_modes_v: Variant = spell.zone.get("point_on_modes", null)
+	if typeof(on_modes_v) == TYPE_DICTIONARY:
+		var on_modes: Dictionary = on_modes_v
+		var mode := str(intent.get("mode", ""))
+		if not mode.is_empty() and not on_modes.has(mode):
+			return "%s mode must be one of %s" % [spell.display_name, ", ".join(DictUtil.to_string_array(on_modes.keys()))]
+		on = str(on_modes.get(mode, on))
+	if on == "wall" and walk_map.is_walkable(point):
+		return "%s needs a wall tile" % spell.display_name
+	if on == "floor" and (not walk_map.is_walkable(point) or occupied_cells().has(point)):
+		return "%s needs a free floor tile" % spell.display_name
 	return ""
 
 
@@ -1183,36 +1242,69 @@ func _check_summon(actor: Combatant, spell: SpellDefinition, intent: Dictionary)
 	if not str(spell.raw_effect.get("custom", "")).is_empty():
 		return ""
 	var form := str(intent.get("form", spell.raw_effect.get("monster", "")))
-	if _summon_def(spell, form) == null:
+	if _summon_def(spell, form, _cast_slot(actor, spell, intent)) == null:
 		return "%s cannot summon '%s'" % [spell.display_name, form]
 	return ""
 
 
 ## The monster a summon spell may bring for `form` (null when not allowed).
-func _summon_def(spell: SpellDefinition, form: String) -> MonsterDefinition:
-	var monsters: Dictionary = _content().get("monsters", {})
+func _summon_def(spell: SpellDefinition, form: String, slot: int = 0) -> MonsterDefinition:
+	return Encounter.summon_def_for(spell, form, slot, _content().get("monsters", {}))
+
+
+## The monster a summon spell cast at `slot` may bring as `form`: a listed id
+## ("forms" array, or "also_forms"), else a creature of the "forms" type (or
+## one of "form_types") whose challenge rating is at most "max_cr" (+
+## "cr_per_slot" per slot level above the spell's, or "cr_by_slot" {slot:
+## cr}). null when not allowed.
+static func summon_def_for(spell: SpellDefinition, form: String, slot: int, monsters: Dictionary) -> MonsterDefinition:
 	if not monsters.has(form):
 		return null
+	var e := spell.raw_effect
 	var def: MonsterDefinition = monsters[form]
-	var forms_v: Variant = spell.raw_effect.get("forms", null)
+	if DictUtil.to_string_array(e.get("also_forms", [])).has(form):
+		return def
+	var forms_v: Variant = e.get("forms", null)
 	if typeof(forms_v) == TYPE_ARRAY:
 		return def if DictUtil.to_string_array(forms_v).has(form) else null
-	if typeof(forms_v) == TYPE_STRING and def.creature_type != str(forms_v):
+	var types := DictUtil.to_string_array(e.get("form_types", []))
+	if typeof(forms_v) == TYPE_STRING:
+		types.append(str(forms_v))
+	if not types.is_empty() and not types.has(def.creature_type):
 		return null
-	if def.challenge_rating > DictUtil.to_float(spell.raw_effect.get("max_cr", 99.0), 99.0):
+	var max_cr := DictUtil.to_float(e.get("max_cr", 99.0), 99.0)
+	var above := maxi(0, slot - spell.level)
+	max_cr += DictUtil.to_float(e.get("cr_per_slot", 0.0), 0.0) * above
+	var by_slot_v: Variant = e.get("cr_by_slot", {})
+	if typeof(by_slot_v) == TYPE_DICTIONARY:
+		var by_slot: Dictionary = by_slot_v
+		for key: Variant in by_slot.keys():
+			if DictUtil.to_int(key, 99) <= slot:
+				max_cr = maxf(max_cr, DictUtil.to_float(by_slot[key], 0.0))
+	if def.challenge_rating > max_cr:
 		return null
 	return def
 
 
 ## Polymorph: "form" (default: the spell's "form" for a hostile, "ally_form"
 ## for an ally) must be a beast of CR <= the target's CR (or level).
-func _check_transform(_actor: Combatant, spell: SpellDefinition, target: Combatant, intent: Dictionary) -> String:
+func _check_transform(actor: Combatant, spell: SpellDefinition, target: Combatant, intent: Dictionary) -> String:
 	var def := _transform_def(spell, target, intent)
+	var e := spell.raw_effect
 	if def == null:
-		return "no such beast form"
-	if def.creature_type != "beast":
+		return "no such form"
+	if e.get("any_type", false) != true and def.creature_type != "beast":
 		return "%s turns creatures into beasts" % spell.display_name
+	if DictUtil.to_string_array(e.get("excluded_form_types", [])).has(def.creature_type):
+		return "%s cannot take the form of a %s" % [spell.display_name, def.creature_type]
 	var limit := target.challenge_rating if target.is_monster() else float(target.sheet.level)
+	match str(e.get("cr_limit", "target")):
+		"caster":
+			limit = float(actor.sheet.level)
+		"none":
+			limit = 99.0
+	if e.has("max_cr"):
+		limit = minf(limit, DictUtil.to_float(e["max_cr"], 99.0))
 	if def.challenge_rating > limit:
 		return "%s is too powerful a form for %s" % [def.display_name, target.display_name]
 	return ""
@@ -1270,9 +1362,13 @@ func _has_usable_feature(actor: Combatant, feature: String) -> bool:
 	if feature == "font_of_magic":
 		return actor.sheet.has_feature("font_of_magic")
 	if feature == "revert_form":
-		return str(actor.form.get("kind", "")) == "wild_shape"
+		return str(actor.form.get("kind", "")) in ["wild_shape", "shapechange", "magic_jar"]
 	if feature in ["elemental_affinity", "draconic_presence"]:
 		return actor.sheet.has_feature(feature)
+	if feature == "magic_jar":
+		return _lingering_feature(actor, "magic_jar")
+	if feature == "end_spell":
+		return true
 	return false
 
 
@@ -1294,9 +1390,9 @@ static func _feature_cost(feature: String) -> String:
 	match feature:
 		"lay_on_hands", "turn_undead", "turn_the_unholy", "preserve_life", "sacred_weapon", "pact_weapon", \
 				"intimidating_presence", "countercharm", "wholeness_of_body", "stillness_of_mind", "divine_intervention", \
-				"cleansing_touch", "volley", "whirlwind_attack", "wild_shape", "empty_body", "draconic_presence":
+				"cleansing_touch", "volley", "whirlwind_attack", "wild_shape", "empty_body", "draconic_presence", "magic_jar":
 			return "action"
-		"action_surge", "elemental_affinity":
+		"action_surge", "elemental_affinity", "end_spell":
 			return "free"
 	return "bonus"
 
@@ -1494,6 +1590,7 @@ func _teleport(actor: Combatant, dest: Vector2i, spell_id: String) -> void:
 func _after_position_change(c: Combatant, from: Vector2i, walked: bool) -> void:
 	_check_grapples(c)
 	_refresh_anchored(c)
+	_refresh_antimagic()
 	if c.is_alive():
 		_tile_effects_on_enter(c, from, walked)
 
@@ -1777,7 +1874,13 @@ func _roll_attack(attacker: Combatant, target: Combatant, attack: Dictionary, bo
 	var kind := str(attack.get("kind", "melee"))
 	var weapon := spell == null
 	var ranged := Encounter.is_ranged_attack(attack)
-	if _sanctuary_blocks(attacker, target):
+	if not target.illusion.is_empty() and attacker.team != target.team:
+		_illusion_interaction(attacker, target)
+		var wasted := AttackResult.new()
+		wasted.attacker_name = attacker.display_name
+		wasted.target_name = target.display_name
+		return wasted
+	if _sanctuary_blocks(attacker, target) or (weapon and ranged and _wind_blocks(attacker, target)):
 		var lost := AttackResult.new()
 		lost.attacker_name = attacker.display_name
 		lost.target_name = target.display_name
@@ -1871,6 +1974,12 @@ func _roll_attack(attacker: Combatant, target: Combatant, attack: Dictionary, bo
 		rolled_attack["target_ac_bonus"] = MULTIATTACK_DEFENSE_AC
 	if weapon and (attacker.buff_flag("weapon_magical") or attacker.sheet.has_feature("ki_empowered_strikes") and attack.get("unarmed", false) == true):
 		rolled_attack["magical"] = true
+	if weapon and attack.get("unarmed", false) == true and attacker.buff_int("unarmed_die") > Encounter._first_die(str(attack.get("damage", ""))):
+		var ability := Ability.from_string(str(attack.get("ability", "STR")))
+		rolled_attack["damage"] = "1d%d" % attacker.buff_int("unarmed_die") + CharacterBuilder.signed(attacker.sheet.ability_modifier(maxi(0, ability)))
+		rolled_attack["magical"] = true
+	if attacker.antimagic:
+		rolled_attack["magical"] = false
 	if _mirror_image_absorbs(attacker, target, mode):
 		var fooled := AttackResult.new()
 		fooled.attacker_name = attacker.display_name
@@ -2065,6 +2174,10 @@ func _after_damage(source: Combatant, target: Combatant, amount: int, dropped: b
 	for entry: Dictionary in target.conditions.duplicate():
 		if entry.get("ends_on_damage", false) == true:
 			_remove_condition(target, entry)
+		elif typeof(entry.get("save_on_damage", null)) == TYPE_DICTIONARY and target.is_conscious() and target.conditions.has(entry):
+			var sod: Dictionary = entry["save_on_damage"]
+			if _saving_throw(str(entry.get("source", "")), target, Ability.from_string(str(sod.get("ability", "WIS"))), DictUtil.to_int(sod.get("dc", 10), 10), {"vs_condition": str(entry.get("condition", ""))}):
+				_remove_condition(target, entry)
 	if not target.concentration.is_empty():
 		if not target.is_conscious():
 			_end_concentration(target, "unconscious")
@@ -2145,6 +2258,10 @@ func _end_concentration(c: Combatant, reason: String) -> void:
 	for s in _summons_of(c.id):
 		if s.summon_concentration and s.summon_spell == spell_id:
 			_dismiss(s, "concentration")
+	for other in tracker.order():
+		if str(other.banished.get("source", "")) == c.id and str(other.banished.get("spell", "")) == spell_id \
+				and other.banished.get("permanent", false) != true:
+			_return(other, "concentration")
 
 
 ## Applies a condition (Conditions) with a duration; extra fields (spell, flee,
@@ -2172,6 +2289,7 @@ func _apply_condition(target: Combatant, condition: String, source_id: String, d
 	entry.merge(extra)
 	target.conditions.append(entry)
 	_emit("condition_applied", {"target": target.id, "condition": condition, "source": source_id, "duration": duration.duplicate(), "turns_left": turns})
+	_on_condition_added(target, entry)
 	if Conditions.INCAPACITATING.has(condition):
 		target.dodging = false
 		_end_concentration(target, "incapacitated")
@@ -2207,6 +2325,7 @@ func _remove_entry(target: Combatant, entry: Dictionary) -> bool:
 	for i in range(target.conditions.size()):
 		if is_same(target.conditions[i], entry):
 			target.conditions.remove_at(i)
+			_on_condition_removed(target, entry)
 			return true
 	return false
 
@@ -2267,6 +2386,9 @@ func _do_cast(actor: Combatant, intent: Dictionary) -> void:
 		cast_ev["sustain"] = true
 	_emit("cast", cast_ev)
 	_after_own_cast(actor, spell.is_harmful() or spell.is_area())
+	if sustain and str(spell.raw_effect.get("sustain_mode", "")) == "redirect":
+		_redirect(actor, spell, intent)
+		return
 	if not sustain and not meta.has("subtle_spell") and spell.level > 0 and _counterspelled(actor, spell, slot):
 		return
 	if spell.concentration and not sustain:
@@ -2381,6 +2503,9 @@ static func dragon_damage_type(sheet: CharacterSheet) -> String:
 
 ## Resolves a single-target spell on target.
 func _cast_single(actor: Combatant, target: Combatant, spell: SpellDefinition, slot: int, empower: int) -> void:
+	if not target.illusion.is_empty() and target.team != actor.team:
+		_illusion_interaction(actor, target)
+		return
 	var above := maxi(0, slot - spell.level)
 	var mode := str(_cast_intent.get("mode", ""))
 	match spell.effect_type:
@@ -2475,13 +2600,17 @@ func _cast_single(actor: Combatant, target: Combatant, spell: SpellDefinition, s
 			_dispel(actor, target, spell, slot)
 		SpellDefinition.EFFECT_THRESHOLD:
 			_threshold(actor, target, spell)
+		SpellDefinition.EFFECT_FORCED_MOVE:
+			_forced_move(actor, target, spell, _cast_intent)
+		SpellDefinition.EFFECT_BANISH:
+			_banish_spell(actor, target, spell, slot)
 		SpellDefinition.EFFECT_TRANSFORM:
 			var def := _transform_def(spell, target, _cast_intent)
 			if def == null:
 				return
 			if target.team != actor.team and _saving_throw(actor.id, target, Ability.Type.WIS, actor.sheet.spell_save_dc(), _save_opts(spell, target, mode)):
 				return
-			_transform(target, def, "polymorph", actor.id, spell.id if spell.concentration else "")
+			_transform(target, def, str(spell.raw_effect.get("kind", "polymorph")), actor.id, spell.id if spell.concentration else "")
 
 
 ## Saving throw options for a spell's save: the condition it imposes (for
@@ -2687,9 +2816,14 @@ func _spell_condition(actor: Combatant, target: Combatant, spell: SpellDefinitio
 	if str(duration.get("type", "")) == Conditions.DURATION_ROUNDS and _cast_meta.has("extended_spell"):
 		duration["rounds"] = DictUtil.to_int(duration.get("rounds", 1), 1) * 2
 	var extra := {"spell": spell.id} if spell.concentration else {}
+	extra["cast_spell"] = spell.id
 	for flag: String in ["ends_on_damage", "ends_on_attack", "flee"]:
 		if spell.raw_effect.get("condition_" + flag, false) == true:
 			extra[flag] = true
+	if spell.raw_effect.get("condition_save_on_damage", false) == true and spell.save_ability >= 0:
+		extra["save_on_damage"] = {"ability": Ability.abbreviation(spell.save_ability), "dc": actor.sheet.spell_save_dc()}
+	if condition == Conditions.COMPELLED:
+		extra["toward"] = _cast_intent["point"] if GridMath.is_vec_arr(_cast_intent.get("point", null)) else GridMath.vec_to_arr(actor.position)
 	_apply_condition(target, condition, actor.id, duration, extra)
 	var extras := spell.extra_conditions
 	if not mode.is_empty() and spell.modes.has(mode) and (spell.modes[mode] as Dictionary).has("extra_conditions"):
@@ -2717,20 +2851,33 @@ func _cast_area(actor: Combatant, spell: SpellDefinition, slot: int, intent: Dic
 	var affected: Array[Combatant] = []
 	var affected_ids: Array = []
 	var sculpted: Array = []
+	var warded: Array = []
 	for c in tracker.order():
 		if not c.is_alive() or c.untargetable or not covered.has(c.position):
+			continue
+		if not c.illusion.is_empty():
 			continue
 		if c == actor and Encounter._self_centred(spell):
 			continue
 		if sculpt.has(c.id):
 			sculpted.append(c.id)
 			continue
+		if not _spell_warded(actor, c, spell).is_empty():
+			warded.append(c.id)
+			continue
+		if c.team == actor.team and str(spell.raw_effect.get("affects", "all")) == "hostiles":
+			for cond in DictUtil.to_string_array(spell.raw_effect.get("allies_cure", [])):
+				_end_conditions_named(c, cond)
+			continue
 		affected.append(c)
 		affected_ids.append(c.id)
-	_emit("area_effect", {
+	var area_ev := {
 		"caster": actor.id, "spell": spell.id, "point": GridMath.vec_to_arr(point), "shape": spell.area_shape,
 		"size_tiles": size, "affected": affected_ids, "sculpted": sculpted,
-	})
+	}
+	if not warded.is_empty():
+		area_ev["warded"] = warded
+	_emit("area_effect", area_ev)
 	var mode := str(intent.get("mode", ""))
 	if spell.effect_type == SpellDefinition.EFFECT_AREA_ATTACK:
 		var attack := _spell_attack(actor, spell, slot, empower)
@@ -2774,21 +2921,55 @@ func _cast_area(actor: Combatant, spell: SpellDefinition, slot: int, intent: Dic
 func _cast_zone(actor: Combatant, spell: SpellDefinition, slot: int, intent: Dictionary) -> void:
 	var point := _area_point(actor, spell, intent)
 	var size := spell.area_size_tiles()
-	var cells: Array[Vector2i] = []
 	var anchor := ""
-	if spell.zone.get("wall", false) == true:
-		var end := GridMath.arr_to_vec(intent["wall_end"]) if GridMath.is_vec_arr(intent.get("wall_end", null)) else Vector2i(-1, -1)
-		cells = _wall_tiles(actor.position, point, size, end)
-	elif str(spell.zone.get("anchor", "")) == "caster":
+	if str(spell.zone.get("anchor", "")) == "caster":
 		anchor = actor.id
 		point = actor.position
-		cells = AreaOfEffect.tiles("sphere", size, point, point, walk_map)
-	else:
-		cells = AreaOfEffect.tiles(spell.area_shape, size, actor.position, point, walk_map)
-	var fx := _create_tile_effect(actor, spell, slot, cells, anchor)
-	fx["centre"] = GridMath.vec_to_arr(point)
+	var cells := _zone_cells(actor, spell, point, size, intent)
+	var fx := _create_tile_effect(actor, spell, slot, cells, anchor, point)
 	if _cast_meta.has("extended_spell") and DictUtil.to_int(fx.get("turns_left", -1), -1) > 0:
 		fx["turns_left"] = DictUtil.to_int(fx["turns_left"]) * 2
+
+
+## The tiles a zone spell covers: a wall line, a sphere around an anchored
+## caster, a ring (Forcecage: the tiles exactly `size` away), raw tiles
+## ("cells": "raw", walls included: Passwall's passage, Move Earth's square),
+## else the spell's area.
+func _zone_cells(actor: Combatant, spell: SpellDefinition, point: Vector2i, size: int, intent: Dictionary) -> Array[Vector2i]:
+	var z := spell.zone
+	var out: Array[Vector2i] = []
+	if z.get("wall", false) == true:
+		var end := GridMath.arr_to_vec(intent["wall_end"]) if GridMath.is_vec_arr(intent.get("wall_end", null)) else Vector2i(-1, -1)
+		return _wall_tiles(actor.position, point, size, end)
+	if str(z.get("anchor", "")) == "caster":
+		return AreaOfEffect.tiles("sphere", size, point, point, walk_map)
+	match str(z.get("cells", "")):
+		"ring":
+			var r := maxi(1, size)
+			for y in range(point.y - r, point.y + r + 1):
+				for x in range(point.x - r, point.x + r + 1):
+					var p := Vector2i(x, y)
+					if GridMath.distance_tiles(p, point) == r and region.has_point(p):
+						out.append(p)
+			return out
+		"raw":
+			if spell.area_shape == "line":
+				var d := point - actor.position
+				var step := Vector2i(signi(d.x), signi(d.y))
+				if step == Vector2i.ZERO:
+					step = Vector2i(1, 0)
+				for k in range(maxi(1, size)):
+					var p := point + step * k
+					if region.has_point(p):
+						out.append(p)
+				return out
+			for y in range(point.y - size, point.y + size + 1):
+				for x in range(point.x - size, point.x + size + 1):
+					var p := Vector2i(x, y)
+					if region.has_point(p):
+						out.append(p)
+			return out
+	return AreaOfEffect.tiles(spell.area_shape, size, actor.position, point, walk_map)
 
 
 ## Tiles of a wall `length` tiles long through `point`: to `end` when given,
@@ -2836,11 +3017,15 @@ func _cast_summon(actor: Combatant, spell: SpellDefinition, slot: int, intent: D
 	var limit := rounds if rounds > 0 else -1
 	var extra := {"concentration": spell.concentration, "familiar": spell.raw_effect.get("familiar", false) == true}
 	var custom := str(spell.raw_effect.get("custom", ""))
-	if not custom.is_empty():
-		extra["untargetable"] = true
-		_summon(actor, spell.id, null, near, limit, extra, _spiritual_weapon_custom(actor, slot, custom))
+	if custom == "illusion":
+		_cast_illusion(actor, spell, near, limit, extra, intent)
 		return
-	var def := _summon_def(spell, str(intent.get("form", spell.raw_effect.get("monster", ""))))
+	if not custom.is_empty():
+		extra["untargetable"] = spell.raw_effect.get("targetable", false) != true
+		for _i in range(Encounter.summon_count(spell, null, slot)):
+			_summon(actor, spell.id, null, near, limit, extra, _spiritual_weapon_custom(actor, slot, custom))
+		return
+	var def := _summon_def(spell, str(intent.get("form", spell.raw_effect.get("monster", ""))), slot)
 	if def == null:
 		return
 	for _i in range(Encounter.summon_count(spell, def, slot)):
@@ -2852,6 +3037,11 @@ static func summon_count(spell: SpellDefinition, def: MonsterDefinition, slot: i
 	var e := spell.raw_effect
 	if e.has("count_base"):
 		return DictUtil.to_int(e["count_base"], 1) + DictUtil.to_int(e.get("count_per_slot", 0), 0) * maxi(0, slot - spell.level)
+	if def == null:
+		return 1
+	var by_form_v: Variant = e.get("count_by_form", {})
+	if typeof(by_form_v) == TYPE_DICTIONARY and (by_form_v as Dictionary).has(def.id):
+		return DictUtil.to_int((by_form_v as Dictionary)[def.id], 1)
 	var n := 1
 	var table_v: Variant = e.get("count", {})
 	if typeof(table_v) == TYPE_DICTIONARY:
@@ -3280,13 +3470,13 @@ func _do_feature(actor: Combatant, intent: Dictionary) -> void:
 		ClassDefinition.FEATURE_BARDIC_INSPIRATION:
 			target = _cast_target(actor, intent)
 		"font_of_magic", "cunning_action", "pact_weapon", "revert_form", "volley", "whirlwind_attack", "intimidating_presence", \
-				"countercharm", "stillness_of_mind", "dragon_wings":
+				"countercharm", "stillness_of_mind", "dragon_wings", "magic_jar", "end_spell":
 			spend = 0
 	if FEATURE_SPEND.has(feature):
 		spend = FEATURE_SPEND[feature]
 	if spend > 0 and not resource.is_empty():
 		actor.sheet.spend_class_resource(resource, spend)
-	if feature in ["intimidating_presence", "cleansing_touch"]:
+	if feature in ["intimidating_presence", "cleansing_touch", "magic_jar"]:
 		target = _cast_target(actor, intent)
 	var used := {"actor": actor.id, "feature": feature, "target": target.id, "remaining": actor.sheet.class_resource(resource) if not resource.is_empty() else 0}
 	if intent.has("mode"):
@@ -3353,6 +3543,8 @@ func _do_feature(actor: Combatant, intent: Dictionary) -> void:
 				"cleansing_touch", "volley", "whirlwind_attack", "elemental_affinity", "dragon_wings", "wild_shape", \
 				"revert_form", "empty_body", "draconic_presence":
 			_do_feature_b(actor, feature, intent)
+		"magic_jar", "end_spell":
+			_do_feature_c(actor, feature, intent)
 		"pact_weapon":
 			actor.pact_weapon = true
 			actor.attacks.append(Encounter.pact_weapon_attack(actor.sheet))
@@ -3497,6 +3689,8 @@ func _on_turn_end(c: Combatant) -> void:
 			_emit("effect_ended", {"target": c.id, "effect": "sacred_weapon"})
 	_buffs_turn_end(c)
 	_tile_effects_turn_end(c)
+	_banish_turn_end(c)
+	_blink(c)
 	for s in _summons_of(c.id):
 		if s.summon_turns_left > 0:
 			s.summon_turns_left -= 1
@@ -3565,6 +3759,11 @@ func _start_of_turn(c: Combatant) -> void:
 		var duration: Dictionary = b.get("duration", {})
 		if str(duration.get("type", "")) == Conditions.DURATION_TARGET_TURN_START:
 			_remove_buff(c, b)
+	for entry: Dictionary in c.conditions.duplicate():
+		var duration: Dictionary = entry.get("duration", {})
+		if str(duration.get("type", "")) == Conditions.DURATION_TARGET_TURN_START:
+			_remove_condition(c, entry)
+	_violet_saves(c)
 	for other in tracker.order():
 		if other.helped_by == c.id:
 			other.helped_by = ""
@@ -3584,6 +3783,7 @@ func _start_of_turn(c: Combatant) -> void:
 		if not c.is_alive():
 			return
 	_tile_effects_turn_start(c)
+	_compelled_move(c)
 	if c.is_conscious() and c.has_buff("confused"):
 		var roll := rng.next_int(1, 10)
 		_emit("confusion_roll", {"actor": c.id, "roll": roll})
@@ -3595,6 +3795,19 @@ func _start_of_turn(c: Combatant) -> void:
 ## to its end_turn, intents validated and resolved without being logged
 ## (replays recompute them).
 func _auto_turn(c: Combatant) -> void:
+	if not c.orders.is_empty():
+		var orders: Array[Dictionary] = c.orders.duplicate(true)
+		c.orders.clear()
+		for order: Dictionary in orders:
+			var intent: Dictionary = order.duplicate(true)
+			intent["v"] = INTENT_VERSION
+			intent["actor"] = c.id
+			if str(intent.get("type", "")) == END_TURN or not _validate(c, intent).is_empty():
+				return
+			_resolve(c, intent)
+			if state != State.ACTIVE or tracker.current() != c or not c.is_conscious() or not _combatants.has(c.id):
+				return
+		return
 	for intent in MonsterBrain.decide(self, c.id):
 		if str(intent.get("type", "")) == END_TURN:
 			return
@@ -3698,6 +3911,7 @@ func _end_encounter(winner: int) -> void:
 	state = State.ENDED
 	winning_team = winner
 	_settle_companions()
+	_settle_lingering()
 	_emit("encounter_ended", {"winning_team": winner})
 
 
@@ -3705,7 +3919,7 @@ func _conscious_teams() -> Dictionary:
 	var teams := {}
 	for value: Variant in _combatants.values():
 		var c: Combatant = value
-		if c.is_conscious() and not c.is_summon():
+		if c.is_conscious() and not c.is_summon() and c.controlled_by.is_empty():
 			teams[c.team] = true
 	return teams
 
@@ -3715,7 +3929,7 @@ func _teams_in_fight() -> Dictionary:
 	var teams := {}
 	for value: Variant in _combatants.values():
 		var c: Combatant = value
-		if c.is_in_fight() and not c.is_summon():
+		if c.is_in_fight() and not c.is_summon() and c.controlled_by.is_empty():
 			teams[c.team] = true
 	return teams
 
@@ -3999,6 +4213,9 @@ func ability_check(c: Combatant, ability: int, skill: int = -1, dc: int = -1, re
 	var adv_checks := c.buff_list("adv_checks")
 	if adv_checks.has(Ability.abbreviation(ability)) or adv_checks.has("ALL"):
 		adv = true
+	var dis_checks := c.buff_list("disadv_checks")
+	if dis_checks.has(Ability.abbreviation(ability)) or dis_checks.has("ALL"):
+		dis = true
 	var mode := D20.combine(adv, dis)
 	var d := D20.roll(rng, mode)
 	var natural := d.natural
@@ -4102,6 +4319,11 @@ func _hide(actor: Combatant) -> void:
 		if not obscured and walk_map.has_line_of_sight(h.position, actor.position):
 			dc = maxi(dc, h.sheet.passive_perception())
 	var adv := actor.sheet.has_feature("supreme_sneak") and actor.tiles_moved <= floori(actor.speed_tiles() / 2.0)
+	if actor.buff_flag("stealth_advantage"):
+		adv = true
+		for b: Dictionary in actor.buffs.duplicate():
+			if b.get("stealth_advantage", false) == true:
+				_remove_buff(actor, b)
 	var bonus := 10 if actor.sheet.has_feature("hide_in_plain_sight") and actor.tiles_moved == 0 else 0
 	var res := ability_check(actor, Ability.Type.DEX, Skill.Type.STEALTH, dc, "hide", adv, false, bonus)
 	if res["success"] == true:
@@ -4142,7 +4364,7 @@ func _check_shove(actor: Combatant, intent: Dictionary) -> String:
 		return "shove mode must be \"prone\" or \"push\""
 	if actor.condition_sources(Conditions.CHARMED).has(target.id):
 		return "%s is charmed by %s" % [actor.display_name, target.display_name]
-	return ""
+	return _pacified_error(actor, target)
 
 
 ## Athletics contest against the target's Athletics or Acrobatics. Shove: prone
@@ -4371,21 +4593,43 @@ func _deal_effect_damage(source: Combatant, target: Combatant, amount: int, dama
 ## covering `cells` (anchored effects follow their anchor). Emits
 ## tile_effect_created {id, effect, source, spell, tiles, rounds}; "create"
 ## triggers resolve at once for every creature inside. Returns the entry.
-func _create_tile_effect(caster: Combatant, spell: SpellDefinition, slot: int, cells: Array[Vector2i], anchor_id: String = "") -> Dictionary:
-	var z := spell.zone
+func _create_tile_effect(caster: Combatant, spell: SpellDefinition, slot: int, cells: Array[Vector2i], anchor_id: String = "", centre: Vector2i = Vector2i(-1, -1)) -> Dictionary:
+	var z := spell.zone.duplicate(true)
+	var terrain_modes: Variant = z.get("terrain_modes", null)
+	if typeof(terrain_modes) == TYPE_DICTIONARY:
+		var tm: Dictionary = terrain_modes
+		z["terrain"] = str(tm.get(str(_cast_intent.get("mode", "")), z.get("terrain", "")))
+	if z.has("globe"):
+		z["globe"] = DictUtil.to_int(z["globe"], 5) + maxi(0, slot - spell.level)
+	return _create_zone(caster, spell.id, z, slot, cells, anchor_id, spell.area_size_tiles(), spell.concentration,
+			Encounter._zone_damage(spell, z, slot), str(z.get("damage_type", spell.damage_type)), spell.level, centre)
+
+
+## Creates a tile effect from zone data `z` (a spell's "zone", or a feature's:
+## Holy Nimbus). Round C fields: "terrain" ("solid": the tiles become walls
+## that block movement and sight; "open": walls become floor), "opaque"
+## (blocks sight only), "wind" (ranged weapon attacks through it are lost),
+## "barrier" ("living": hostile creatures other than undead / constructs
+## cannot enter or reach in, and are pushed out), "globe" (spells of that
+## level or lower cast from outside cannot affect creatures inside),
+## "antimagic", "layers" (Prismatic Wall), "phases" (Storm of Vengeance: one
+## effect per caster turn), "difficult_cost", "fall" (falling damage dice),
+## "breaks_concentration" (Earthquake).
+func _create_zone(caster: Combatant, spell_id: String, z: Dictionary, slot: int, cells: Array[Vector2i], anchor_id: String, radius: int,
+		concentration: bool, damage: String, damage_type: String, spell_level: int, centre: Vector2i = Vector2i(-1, -1)) -> Dictionary:
 	_effect_counter += 1
 	var rounds := DictUtil.to_int(z.get("rounds", -1), -1)
 	var fx := {
 		"id": "fx%d" % _effect_counter,
-		"effect": spell.id,
-		"spell": spell.id,
+		"effect": spell_id,
+		"spell": spell_id,
 		"source": caster.id,
 		"team": caster.team,
 		"cells": cells,
 		"anchor": anchor_id,
-		"radius": spell.area_size_tiles(),
+		"radius": radius,
 		"turns_left": rounds,
-		"concentration": spell.concentration,
+		"concentration": concentration,
 		"difficult": z.get("difficult", false) == true,
 		"ground": z.get("ground", false) == true,
 		"obscured": z.get("obscured", false) == true,
@@ -4394,9 +4638,9 @@ func _create_tile_effect(caster: Combatant, spell: SpellDefinition, slot: int, c
 		"affects": str(z.get("affects", "all")),
 		"triggers": DictUtil.to_string_array(z.get("triggers", [])),
 		"save": str(z.get("save", "")),
-		"dc": caster.sheet.spell_save_dc(),
-		"damage": Encounter._zone_damage(spell, z, slot),
-		"damage_type": str(z.get("damage_type", spell.damage_type)),
+		"dc": DictUtil.to_int(z.get("dc", caster.sheet.spell_save_dc()), 10),
+		"damage": damage,
+		"damage_type": damage_type,
 		"on_save": str(z.get("on_save", "none")),
 		"per_tile_damage": str(z.get("per_tile_damage", "")),
 		"condition": str(z.get("condition", "")),
@@ -4406,15 +4650,46 @@ func _create_tile_effect(caster: Combatant, spell: SpellDefinition, slot: int, c
 		"move_tiles": GridMath.feet_to_tiles(DictUtil.to_int(z.get("move_ft", 0), 0)),
 		"move_cost": str(z.get("move", "")),
 		"slot_level": slot,
+		"spell_level": spell_level,
 		"hit": {},
+		"terrain": str(z.get("terrain", "")),
+		"opaque": z.get("opaque", false) == true,
+		"wind": z.get("wind", false) == true,
+		"barrier": str(z.get("barrier", "")),
+		"globe": DictUtil.to_int(z.get("globe", -1), -1),
+		"antimagic": z.get("antimagic", false) == true,
+		"layers": DictUtil.to_string_array(z.get("layers", [])),
+		"phases": DictUtil.to_dict_array(z.get("phases", [])),
+		"age": 0,
+		"difficult_cost": DictUtil.to_int(z.get("difficult_cost", 2), 2),
+		"fall": str(z.get("fall", "")),
+		"breaks_concentration": z.get("breaks_concentration", false) == true,
+		"creature_types": DictUtil.to_string_array(z.get("creature_types", [])),
+		"darkness": z.get("darkness", false) == true,
+		"lit": z.get("lit", false) == true,
 	}
+	if centre.x >= 0:
+		fx["centre"] = GridMath.vec_to_arr(centre)
 	tile_effects.append(fx)
-	_emit("tile_effect_created", {"id": fx["id"], "effect": spell.id, "source": caster.id, "spell": spell.id,
-			"tiles": GridMath.vec_list_to_arr(cells), "rounds": rounds, "anchor": anchor_id})
+	var created := {"id": fx["id"], "effect": spell_id, "source": caster.id, "spell": spell_id,
+			"tiles": GridMath.vec_list_to_arr(cells), "rounds": rounds, "anchor": anchor_id}
+	for flag: String in ["terrain", "barrier"]:
+		if not str(fx[flag]).is_empty():
+			created[flag] = fx[flag]
+	for flag: String in ["opaque", "wind", "antimagic", "darkness", "lit"]:
+		if fx[flag] == true:
+			created[flag] = true
+	if DictUtil.to_int(fx["globe"]) >= 0:
+		created["globe"] = fx["globe"]
+	_emit("tile_effect_created", created)
 	if fx["triggers"].has("create"):
 		for c in tracker.order():
-			if c.is_alive() and _effect_covers(fx, c.position):
+			if c.is_alive() and _effect_covers(fx, c.position) and tile_effects.has(fx):
 				_trigger_tile_effect(fx, c, "create")
+	var phases: Array[Dictionary] = fx["phases"]
+	if not phases.is_empty() and tile_effects.has(fx):
+		_run_phase(fx, 0)
+	_after_zone_change(fx, cells)
 	return fx
 
 
@@ -4447,6 +4722,16 @@ func _effect_affects(fx: Dictionary, c: Combatant) -> bool:
 	if str(fx.get("affects", "all")) == "hostiles" and c.team == DictUtil.to_int(fx.get("team", -1), -1):
 		return false
 	if fx.get("ground", false) == true and c.ignores_ground():
+		return false
+	if not c.illusion.is_empty():
+		return false
+	if c.is_sealed() or (c.antimagic and fx.get("antimagic", false) != true):
+		return false
+	var types := DictUtil.to_string_array(fx.get("creature_types", []))
+	if not types.is_empty() and not types.has(c.creature_type):
+		return false
+	var source := get_combatant(str(fx.get("source", "")))
+	if source != null and source != c and _warded_by_globe(source, c, DictUtil.to_int(fx.get("spell_level", 0), 0)):
 		return false
 	return true
 
@@ -4505,32 +4790,51 @@ func _trigger_tile_effect(fx: Dictionary, c: Combatant, trigger: String) -> void
 			return
 		hit[key] = turn_counter
 	_emit("tile_effect_triggered", {"id": fx["id"], "target": c.id, "trigger": trigger})
+	_zone_hit(fx, fx, c)
+
+
+## One creature hit by a tile effect, with the rules in `spec` (the effect
+## itself, or one of its phases): the save (Evasion applies to DEX "half"
+## saves), damage, falling damage, condition, prismatic layers, and
+## Earthquake's concentration save.
+func _zone_hit(fx: Dictionary, spec: Dictionary, c: Combatant) -> void:
 	var source := get_combatant(str(fx["source"]))
 	var source_id := str(fx["source"])
-	var save := str(fx.get("save", ""))
+	var dc := DictUtil.to_int(fx["dc"], 10)
+	var save := str(spec.get("save", ""))
 	var success := false
 	var ability := Ability.from_string(save) if not save.is_empty() else -1
 	if ability >= 0:
-		success = _saving_throw(source_id, c, ability, DictUtil.to_int(fx["dc"], 10), {"plant": fx.get("plant", false) == true, "vs_condition": str(fx.get("condition", ""))})
-	var formula := str(fx.get("damage", ""))
+		success = _saving_throw(source_id, c, ability, dc, {"plant": fx.get("plant", false) == true, "vs_condition": str(spec.get("condition", ""))})
+	var formula := str(spec.get("damage", ""))
+	var dtype := str(spec.get("damage_type", fx.get("damage_type", "")))
 	if not formula.is_empty() and c.is_alive():
 		var rolled := maxi(0, DictUtil.to_int(DiceFormula.parse(formula).roll(rng)["total"]))
-		var amount := _save_damage(c, ability, rolled, success, str(fx.get("on_save", "none")) == "half")
+		var amount := _save_damage(c, ability, rolled, success, str(spec.get("on_save", "none")) == "half")
 		if amount > 0 or not success:
-			amount = c.adjust_damage(amount, str(fx.get("damage_type", "")), true)
-			_deal_effect_damage(source, c, amount, str(fx.get("damage_type", "")), {"spell": str(fx["spell"]), "effect_id": str(fx["id"])})
+			amount = c.adjust_damage(amount, dtype, true)
+			_deal_effect_damage(source, c, amount, dtype, {"spell": str(fx["spell"]), "effect_id": str(fx["id"])})
 			if DictUtil.to_int(fx.get("pool", 0), 0) > 0:
 				fx["pool"] = DictUtil.to_int(fx["pool"]) - amount
 				if DictUtil.to_int(fx["pool"]) <= 0:
 					_end_tile_effect(fx, "exhausted")
 					return
-	var condition := str(fx.get("condition", ""))
+	if not success and c.is_alive() and not str(spec.get("fall", "")).is_empty():
+		_fall(c, str(spec["fall"]), source_id, str(fx["spell"]))
+	var condition := str(spec.get("condition", ""))
 	if not condition.is_empty() and not success and c.is_alive():
-		var duration: Dictionary = fx.get("condition_duration", {})
+		var duration: Dictionary = Conditions.normalize_duration(spec.get("condition_duration", {}))
 		if duration.is_empty():
 			duration = Conditions.duration(Conditions.DURATION_ROUNDS, {"rounds": 1})
 		var extra := {"spell": str(fx["spell"])} if fx.get("concentration", false) == true else {}
 		_apply_condition(c, condition, source_id, duration, extra)
+	for layer in DictUtil.to_string_array(spec.get("layers", [])):
+		if not c.is_alive():
+			break
+		_prismatic_layer(source_id, c, layer, dc, str(fx["spell"]))
+	if spec.get("breaks_concentration", false) == true and c.is_alive() and c.id != source_id and not c.concentration.is_empty():
+		if not _saving_throw(source_id, c, Ability.Type.CON, dc):
+			_end_concentration(c, "earthquake")
 
 
 ## Damage after a save: full on a failure; half or none on a success. Evasion
@@ -4553,6 +4857,7 @@ func _end_tile_effect(fx: Dictionary, reason: String) -> void:
 		return
 	tile_effects.remove_at(i)
 	_emit("tile_effect_ended", {"id": fx["id"], "reason": reason})
+	_after_zone_change(fx, _effect_cells(fx))
 
 
 ## Recomputes the tiles of effects anchored to c (Spirit Guardians) after it moved.
@@ -4562,6 +4867,7 @@ func _refresh_anchored(c: Combatant) -> void:
 			continue
 		fx["cells"] = AreaOfEffect.tiles("sphere", DictUtil.to_int(fx.get("radius", 1), 1), c.position, c.position, walk_map)
 		_emit("tile_effect_moved", {"id": fx["id"], "tiles": GridMath.vec_list_to_arr(_effect_cells(fx))})
+		_after_zone_change(fx, [])
 
 
 ## move_effect {effect, point}: moves a movable tile effect of the actor
@@ -4631,6 +4937,11 @@ func _tile_effect_by_id(effect_id: String) -> Dictionary:
 ## Start of c's turn: tile effects with "start_turn" covering c trigger; the
 ## caster's drifting effects (Cloudkill) move away from it first.
 func _tile_effects_turn_start(c: Combatant) -> void:
+	for fx: Dictionary in tile_effects.duplicate():
+		var phases: Array[Dictionary] = fx["phases"]
+		if str(fx["source"]) == c.id and not phases.is_empty() and tile_effects.has(fx):
+			fx["age"] = DictUtil.to_int(fx["age"]) + 1
+			_run_phase(fx, mini(DictUtil.to_int(fx["age"]), phases.size() - 1))
 	for fx: Dictionary in tile_effects.duplicate():
 		if str(fx["source"]) == c.id and DictUtil.to_int(fx.get("drift_tiles", 0), 0) > 0:
 			var centre := Encounter._effect_centre(fx)
@@ -4704,14 +5015,19 @@ func _summon(owner: Combatant, spell_id: String, def: MonsterDefinition, near: V
 	c.untargetable = DictUtil.to_bool(extra.get("untargetable", false), false)
 	c.companion_index = DictUtil.to_int(extra.get("companion_index", -1), -1)
 	c.summon_concentration = DictUtil.to_bool(extra.get("concentration", false), false)
+	if typeof(extra.get("illusion", null)) == TYPE_DICTIONARY:
+		c.illusion = (extra["illusion"] as Dictionary).duplicate()
 	if not tracker.insert_after(c, owner):
 		return null
 	_combatants[c.id] = c
-	_emit("combatant_joined", {
+	var joined := {
 		"id": c.id, "name": c.display_name, "team": c.team, "initiative": c.initiative,
 		"position": GridMath.vec_to_arr(c.position), "hp": c.sheet.current_hp, "max_hp": c.sheet.max_hp,
-		"ac": c.sheet.armor_class(), "owner": owner.id,
-	})
+		"ac": c.sheet.armor_class(), "owner": owner.id, "monster": monster,
+	}
+	if not c.illusion.is_empty():
+		joined["illusion"] = true
+	_emit("combatant_joined", joined)
 	_emit("summoned", {"caster": owner.id, "spell": spell_id, "id": c.id, "monster": monster, "position": GridMath.vec_to_arr(c.position)})
 	return c
 
@@ -4737,7 +5053,7 @@ func _free_tile_near(p: Vector2i, _object: bool = false) -> Vector2i:
 func _dismiss(c: Combatant, reason: String) -> void:
 	if not _combatants.has(c.id):
 		return
-	if c.companion_index >= 0 and reason == "dropped":
+	if c.companion_index >= 0 and reason in ["dropped", "concentration"]:
 		var owner := get_combatant(c.owner_id)
 		if owner != null and c.companion_index < owner.sheet.companions.size():
 			owner.sheet.companions[c.companion_index]["dead"] = true
@@ -4780,11 +5096,25 @@ func _spawn_companions(owner: Combatant) -> void:
 		var entry: Dictionary = owner.sheet.companions[i]
 		if entry.get("dead", false) == true or not owner.is_conscious():
 			continue
-		var mid := str(entry.get("monster", ""))
-		if not monsters.has(mid):
-			continue
-		var def: MonsterDefinition = monsters[mid]
-		var c := _summon(owner, str(entry.get("spell", "")), def, owner.position, -1, {"companion_index": i, "familiar": str(entry.get("spell", "")) == "find_familiar"})
+		var spell_id := str(entry.get("spell", ""))
+		var extra := {"companion_index": i, "familiar": spell_id == "find_familiar" or entry.get("familiar", false) == true}
+		var concentration: bool = entry.get("concentration", false) == true
+		if concentration:
+			var spell := _spell_def(spell_id)
+			if spell != null and str(owner.concentration.get("spell", "")) != spell_id:
+				_start_concentration(owner, spell, DictUtil.to_int(entry.get("slot_level", spell.level), spell.level))
+			extra["concentration"] = true
+		var c: Combatant = null
+		var custom := str(entry.get("custom", ""))
+		if not custom.is_empty():
+			extra["untargetable"] = entry.get("untargetable", false) == true
+			c = _summon(owner, spell_id, null, owner.position, -1, extra, _custom_companion(owner, entry))
+		else:
+			var mid := str(entry.get("monster", ""))
+			if not monsters.has(mid):
+				continue
+			var def: MonsterDefinition = monsters[mid]
+			c = _summon(owner, spell_id, def, owner.position, -1, extra)
 		if c != null and entry.has("hp"):
 			c.sheet.current_hp = clampi(DictUtil.to_int(entry["hp"], c.sheet.max_hp), 1, c.sheet.max_hp)
 
@@ -4808,8 +5138,13 @@ func _settle_companions() -> void:
 			continue
 		var kept: Array[Dictionary] = []
 		for entry in c.sheet.companions:
-			if entry.get("dead", false) != true:
-				kept.append(entry)
+			if entry.get("dead", false) == true:
+				continue
+			if entry.has("encounters_left") and DictUtil.to_int(entry["encounters_left"], -1) > 0:
+				entry["encounters_left"] = DictUtil.to_int(entry["encounters_left"]) - 1
+				if DictUtil.to_int(entry["encounters_left"]) <= 0:
+					continue
+			kept.append(entry)
 		c.sheet.companions = kept
 
 
@@ -4832,11 +5167,68 @@ func _spiritual_weapon_custom(caster: Combatant, slot: int, kind: String = "spir
 	if kind == "arcane_sword":
 		damage = "3d10"
 		s.speed = 20
+	if kind == "arcane_hand":
+		# Arcane Hand (SRD): AC 20, hit points = the caster's maximum, Clenched Fist 4d8 force (+2d8 per slot above 5th).
+		s.name = "Arcane Hand"
+		s.max_hp = caster.sheet.max_hp
+		s.current_hp = caster.sheet.max_hp
+		s.armor_base = 20
+		s.speed = 60
+		s.abilities.set_score(Ability.Type.STR, 26)
+		s.abilities.set_score(Ability.Type.DEX, 10)
+		s.damage_immunities = []
+		s.condition_immunities = []
+		damage = "%dd8" % (4 + 2 * maxi(0, slot - 5))
+	var damage_type := "force"
+	var to_hit := caster.sheet.spell_attack_bonus()
+	match kind:
+		"animated_object":
+			# Animate Objects (SRD): a Tiny object: AC 18, 20 hp, +8 to hit, 1d4 + 4.
+			s.name = "Animated Object"
+			s.max_hp = 20
+			s.current_hp = 20
+			s.armor_base = 18
+			s.speed = 30
+			s.abilities.set_score(Ability.Type.DEX, 10)
+			s.damage_immunities = ["poison", "psychic"]
+			s.condition_immunities = []
+			damage = "1d4+4"
+			damage_type = "bludgeoning"
+			to_hit = 8
+		"faithful_hound":
+			# Faithful Hound (SRD): invisible, unharmable, bites a hostile within 5 ft for 4d8 piercing.
+			s.name = "Faithful Hound"
+			s.speed = 0
+			damage = "4d8"
+			damage_type = "piercing"
+		"unseen_servant":
+			# Unseen Servant (SRD): AC 10, 1 hp, STR 2: it cannot attack; it helps.
+			s.name = "Unseen Servant"
+			s.armor_base = 10
+			s.speed = 15
+			s.damage_immunities = []
+			s.condition_immunities = []
+			return {"sheet": s, "attacks": [{"name": "Help", "kind": "melee", "to_hit": -10, "damage": "0", "damage_type": "bludgeoning", "range_tiles": [1, 1]}], "monster_id": kind}
 	var attack := {
-		"name": s.name, "kind": "melee", "to_hit": caster.sheet.spell_attack_bonus(),
-		"damage": damage, "damage_type": "force", "magical": true, "range_tiles": [1, 1],
+		"name": s.name, "kind": "melee", "to_hit": to_hit,
+		"damage": damage, "damage_type": damage_type, "magical": true, "range_tiles": [1, 1],
 	}
 	return {"sheet": s, "attacks": [attack], "monster_id": kind}
+
+
+## A companion entry with "custom": a simulacrum (a copy of its "sheet"), or
+## a spell object of that kind (Unseen Servant, ...).
+func _custom_companion(owner: Combatant, entry: Dictionary) -> Dictionary:
+	var kind := str(entry.get("custom", ""))
+	if kind == "simulacrum" and typeof(entry.get("sheet", null)) == TYPE_DICTIONARY:
+		var s := CharacterSheet.from_dict(entry["sheet"])
+		s.uses_death_saves = false
+		var attacks: Array[Dictionary] = []
+		for a in s.attacks:
+			attacks.append(a.duplicate(true))
+		attacks.append(s.unarmed_strike())
+		return {"sheet": s, "attacks": attacks, "monster_id": "simulacrum"}
+	return _spiritual_weapon_custom(owner, DictUtil.to_int(entry.get("slot_level", 1), 1), kind)
 
 
 ## Wild Shape / Polymorph: c takes a beast's STR, DEX, CON, hit points, AC,
@@ -4868,7 +5260,7 @@ func _transform(c: Combatant, def: MonsterDefinition, kind: String, source_id: S
 	s.fly_speed = def.fly_speed
 	s.size = def.size
 	s.skill_bonuses = def.skills.duplicate()
-	if kind == "polymorph":
+	if kind in ["polymorph", "true_polymorph", "animal_shapes", "magic_jar"]:
 		s.save_bonuses = def.saving_throws.duplicate()
 	s.uses_death_saves = false
 	c.attacks.clear()
@@ -4887,6 +5279,9 @@ func _revert_form(c: Combatant, reason: String) -> void:
 		return
 	var saved: Dictionary = c.form["saved"]
 	var s := c.sheet
+	saved["kind"] = str(c.form.get("kind", ""))
+	saved["host"] = str(c.form.get("host", ""))
+	saved["form_hp"] = s.current_hp
 	s.abilities.set_score(Ability.Type.STR, DictUtil.to_int(saved["STR"]))
 	s.abilities.set_score(Ability.Type.DEX, DictUtil.to_int(saved["DEX"]))
 	s.abilities.set_score(Ability.Type.CON, DictUtil.to_int(saved["CON"]))
@@ -4912,6 +5307,8 @@ func _revert_form(c: Combatant, reason: String) -> void:
 	var source_id := str(c.form.get("source", ""))
 	c.form = {}
 	_emit("reverted", {"target": c.id, "reason": reason, "hp_after": s.current_hp})
+	if str(saved.get("kind", "")) == "magic_jar":
+		_release_host(c, str(saved.get("host", "")), reason, DictUtil.to_int(saved.get("form_hp", 0), 0))
 	if not spell_id.is_empty() and reason != "concentration":
 		var src := get_combatant(source_id)
 		if src != null and str(src.concentration.get("spell", "")) == spell_id:
@@ -4980,7 +5377,7 @@ func _check_feature_b(actor: Combatant, feature: String, intent: Dictionary) -> 
 			if not str(intent.get("mode", "fear")) in ["awe", "fear"]:
 				return "draconic_presence mode must be \"awe\" or \"fear\""
 			return ""
-	return "-"
+	return _check_feature_c(actor, feature, intent)
 
 
 ## Hostile spell effects on target, grouped by spell id (Cleansing Touch).
@@ -5102,3 +5499,760 @@ func _do_feature_b(actor: Combatant, feature: String, intent: Dictionary) -> voi
 					continue
 				if not _saving_throw(actor.id, h, Ability.Type.WIS, actor.sheet.spell_save_dc(), {"vs_condition": condition}):
 					_apply_condition(h, condition, actor.id, Conditions.duration(Conditions.DURATION_ROUNDS, {"rounds": 10}))
+
+
+# --- round C: terrain, walls and wards ------------------------------------------------
+
+## After a tile effect was created, moved or ended: terrain (walls, passages,
+## opaque tiles) is recomputed when it changes the map, Antimagic Fields are
+## re-applied and barriers (Antilife Shell) push out the creatures they bar.
+func _after_zone_change(fx: Dictionary, cells: Array[Vector2i]) -> void:
+	if not str(fx.get("terrain", "")).is_empty() or fx.get("opaque", false) == true:
+		_refresh_terrain(cells)
+	_refresh_antimagic()
+	_repel_barriers()
+
+
+## Recomputes walk_map on the tiles of terrain effects (and `extra`): the base
+## map, then each effect in creation order ("solid" walls, "open" passages
+## inside the region, "opaque" tiles). Emits terrain_changed {walls, floors}
+## (tiles that became walls / floor); creatures left on a wall tile are pushed
+## to the nearest free tile (pushed).
+func _refresh_terrain(extra: Array[Vector2i]) -> void:
+	var touched := {}
+	for p in extra:
+		touched[p] = true
+	for fx in tile_effects:
+		if not str(fx.get("terrain", "")).is_empty() or fx.get("opaque", false) == true:
+			for p in _effect_cells(fx):
+				touched[p] = true
+	var before := {}
+	for key: Variant in touched.keys():
+		var p: Vector2i = key
+		if not walk_map.in_bounds(p):
+			continue
+		before[p] = walk_map.is_walkable(p)
+		walk_map.set_walkable(p, _base_map.is_walkable(p))
+		walk_map.set_opaque(p, _base_map.is_opaque(p))
+	for fx in tile_effects:
+		var terrain := str(fx.get("terrain", ""))
+		for p in _effect_cells(fx):
+			if not walk_map.in_bounds(p):
+				continue
+			if terrain == "solid":
+				walk_map.set_walkable(p, false)
+			elif terrain == "open" and region.has_point(p):
+				walk_map.set_walkable(p, true)
+			if fx.get("opaque", false) == true:
+				walk_map.set_opaque(p, true)
+	var walls: Array = []
+	var floors: Array = []
+	for key: Variant in before.keys():
+		var p: Vector2i = key
+		if before[p] != walk_map.is_walkable(p):
+			(floors if walk_map.is_walkable(p) else walls).append(GridMath.vec_to_arr(p))
+	if not walls.is_empty() or not floors.is_empty():
+		_emit("terrain_changed", {"walls": walls, "floors": floors})
+	for c in tracker.order():
+		if c.is_alive() and not c.untargetable and not walk_map.is_walkable(c.position):
+			_expel(c, {}, "")
+
+
+## Moves c to the nearest free walkable tile (not in `avoid`): pushed {target,
+## source, from, to}.
+func _expel(c: Combatant, avoid: Dictionary, source_id: String) -> void:
+	var occupied := occupied_cells(c.id)
+	for r in range(1, 16):
+		for y in range(c.position.y - r, c.position.y + r + 1):
+			for x in range(c.position.x - r, c.position.x + r + 1):
+				var t := Vector2i(x, y)
+				if GridMath.distance_tiles(t, c.position) != r or avoid.has(t) or occupied.has(t):
+					continue
+				if region.has_point(t) and walk_map.is_walkable(t):
+					var from := c.position
+					c.position = t
+					_emit("pushed", {"target": c.id, "source": source_id, "from": GridMath.vec_to_arr(from), "to": GridMath.vec_to_arr(t)})
+					_after_position_change(c, from, false)
+					return
+
+
+## A barrier (Antilife Shell) keeps out c: c is alive, targetable, hostile to
+## the caster and neither undead nor a construct.
+func _barrier_affects(fx: Dictionary, c: Combatant) -> bool:
+	if str(fx.get("barrier", "")).is_empty() or not c.is_alive() or c.untargetable:
+		return false
+	return c.team != DictUtil.to_int(fx.get("team", -1), -1) and not c.creature_type in ["undead", "construct"]
+
+
+## The barrier covering `tile` that keeps `actor` out ({} = none).
+func _barrier_at(actor: Combatant, tile: Vector2i) -> Dictionary:
+	for fx in tile_effects:
+		if _effect_covers(fx, tile) and _barrier_affects(fx, actor):
+			return fx
+	return {}
+
+
+## Pushes creatures a barrier keeps out to the nearest tile outside it.
+func _repel_barriers() -> void:
+	for fx: Dictionary in tile_effects.duplicate():
+		if str(fx.get("barrier", "")).is_empty() or not tile_effects.has(fx):
+			continue
+		var avoid := {}
+		for p in _effect_cells(fx):
+			avoid[p] = true
+		for c in tracker.order():
+			if _barrier_affects(fx, c) and _effect_covers(fx, c.position):
+				_expel(c, avoid, str(fx["source"]))
+
+
+## Wind Wall: a ranged weapon attack whose line crosses a wind tile is lost
+## (attack_lost {attacker, target, reason: "wind_wall"}).
+func _wind_blocks(attacker: Combatant, target: Combatant) -> bool:
+	for fx in tile_effects:
+		if fx.get("wind", false) != true:
+			continue
+		for cell in WalkMap.line_cells(attacker.position, target.position):
+			if cell != attacker.position and _effect_covers(fx, cell):
+				_emit("attack_lost", {"attacker": attacker.id, "target": target.id, "reason": "wind_wall"})
+				return true
+	return false
+
+
+## Marks every combatant standing in an Antimagic Field.
+func _refresh_antimagic() -> void:
+	for value: Variant in _combatants.values():
+		var c: Combatant = value
+		var inside := false
+		for fx in tile_effects:
+			if fx.get("antimagic", false) == true and _effect_covers(fx, c.position):
+				inside = true
+				break
+		c.antimagic = inside
+
+
+## Globe of Invulnerability: target stands in a globe that `source` is
+## outside of, and a spell of `level` is within the globe's limit.
+func _warded_by_globe(source: Combatant, target: Combatant, level: int) -> bool:
+	for fx in tile_effects:
+		var limit := DictUtil.to_int(fx.get("globe", -1), -1)
+		if limit < 0 or level > limit:
+			continue
+		if _effect_covers(fx, target.position) and not _effect_covers(fx, source.position):
+			return true
+	return false
+
+
+## Why a spell of `caster` cannot affect target ("" = it can): a Resilient
+## Sphere around it, an Antimagic Field, a Globe of Invulnerability.
+func _spell_warded(caster: Combatant, target: Combatant, spell: SpellDefinition) -> String:
+	if target != caster and target.is_sealed():
+		return "resilient_sphere"
+	if target.antimagic:
+		return "antimagic_field"
+	if target != caster and _warded_by_globe(caster, target, spell.level):
+		return "globe_of_invulnerability"
+	return ""
+
+
+## Attacks into or out of a Resilient Sphere ("" = allowed).
+func _sealed_error(actor: Combatant, target: Combatant) -> String:
+	if actor.is_sealed() and actor != target:
+		return "%s is sealed inside a sphere of force" % actor.display_name
+	if target.is_sealed() and actor != target:
+		return "%s is sealed inside a sphere of force" % target.display_name
+	return ""
+
+
+## One phase of a phased effect (Storm of Vengeance): "set" changes the
+## effect's own fields (difficult, wind, obscured), then every creature it
+## affects (or, with "max_targets", that many hostiles of the caster nearest
+## its centre, ties by id) is hit by the phase (tile_effect_triggered
+## trigger "phase").
+func _run_phase(fx: Dictionary, index: int) -> void:
+	var phases: Array[Dictionary] = fx["phases"]
+	if index < 0 or index >= phases.size():
+		return
+	var phase := phases[index]
+	var set_v: Variant = phase.get("set", {})
+	if typeof(set_v) == TYPE_DICTIONARY:
+		var set_d: Dictionary = set_v
+		for key: Variant in set_d.keys():
+			fx[str(key)] = set_d[key]
+	var victims: Array[Combatant] = []
+	for c in tracker.order():
+		if _effect_covers(fx, c.position) and _effect_affects(fx, c):
+			victims.append(c)
+	var limit := DictUtil.to_int(phase.get("max_targets", 0), 0)
+	if limit > 0:
+		var centre := Encounter._effect_centre(fx)
+		var team := DictUtil.to_int(fx.get("team", -1), -1)
+		var hostile: Array[Combatant] = []
+		for c in victims:
+			if c.team != team:
+				hostile.append(c)
+		hostile.sort_custom(func(a: Combatant, b: Combatant) -> bool:
+			var da := GridMath.distance_tiles(a.position, centre)
+			var db := GridMath.distance_tiles(b.position, centre)
+			if da != db:
+				return da < db
+			return a.id < b.id)
+		victims = hostile.slice(0, limit)
+	for c in victims:
+		if not tile_effects.has(fx) or state != State.ACTIVE:
+			return
+		if not c.is_alive():
+			continue
+		_emit("tile_effect_triggered", {"id": fx["id"], "target": c.id, "trigger": "phase"})
+		_zone_hit(fx, phase, c)
+
+
+## Falling damage (Reverse Gravity): a falling creature may be saved by an
+## ally's (or its own) Feather Fall (reaction, trigger falling: no damage) or
+## reduce it with Slow Fall (monk: 5 x level). Emits damage {.., fall: true}.
+func _fall(c: Combatant, dice: String, source_id: String, spell_id: String) -> void:
+	var rolled := maxi(0, DictUtil.to_int(DiceFormula.parse(dice).roll(rng)["total"]))
+	var saver: Combatant = null
+	for ally in tracker.order():
+		if ally.team != c.team or GridMath.distance_tiles(ally.position, c.position) > 12:
+			continue
+		if _may_react(ally, "falling", "feather_fall") and _reaction_slot(ally, "feather_fall", 1) > 0:
+			saver = ally
+			break
+	if saver != null:
+		var slot := _reaction_slot(saver, "feather_fall", 1)
+		saver.sheet.use_spell_slot(slot)
+		_use_reaction(saver, "feather_fall", "falling", {"target": c.id, "spell": "feather_fall", "slot_level": slot})
+		rolled = 0
+	elif c.sheet.has_feature("slow_fall") and _may_react(c, "falling", "slow_fall"):
+		var reduced := mini(rolled, 5 * c.sheet.level)
+		_use_reaction(c, "slow_fall", "falling", {"amount": reduced})
+		rolled -= reduced
+	var amount := c.adjust_damage(rolled, "bludgeoning", false)
+	_deal_effect_damage(get_combatant(source_id), c, amount, "bludgeoning", {"spell": spell_id, "fall": true})
+
+
+## Prismatic Wall layers / Prismatic Spray rays (1 red fire, 2 orange acid,
+## 3 yellow lightning, 4 green poison, 5 blue cold: 10d6, half on a DEX save;
+## 6 indigo: restrained; 7 violet: blinded). `saved` -1 rolls the layer's own
+## DEX save, 0 / 1 uses a save already made (Prismatic Spray).
+func _prismatic_layer(source_id: String, c: Combatant, layer: String, dc: int, spell_id: String, saved: int = -1) -> void:
+	var damage_types := {"red": "fire", "orange": "acid", "yellow": "lightning", "green": "poison", "blue": "cold"}
+	var success := saved == 1
+	if saved < 0:
+		success = _saving_throw(source_id, c, Ability.Type.DEX, dc)
+	if damage_types.has(layer):
+		var dtype := str(damage_types[layer])
+		var rolled := maxi(0, DiceExpr.parse("10d6").roll(rng).total)
+		var amount := c.adjust_damage(_save_damage(c, Ability.Type.DEX, rolled, success, true), dtype, true)
+		_deal_effect_damage(get_combatant(source_id), c, amount, dtype, {"spell": spell_id, "layer": layer})
+		return
+	if success or not c.is_alive():
+		return
+	match layer:
+		"indigo":
+			_apply_condition(c, Conditions.RESTRAINED, source_id, Conditions.duration(Conditions.DURATION_SAVE_ENDS, {"ability": "CON", "dc": dc}), {"layer": layer})
+		"violet":
+			_apply_condition(c, Conditions.BLINDED, source_id, Conditions.duration(Conditions.DURATION_SAVE_ENDS, {"ability": "WIS", "dc": dc}), {"layer": layer})
+
+
+## Telekinesis: "point" (required) is free open ground within the effect's
+## move_ft of the target and within the spell's range of the caster; the
+## target is Huge or smaller.
+func _check_forced_move(actor: Combatant, spell: SpellDefinition, target: Combatant, intent: Dictionary) -> String:
+	if target == actor:
+		return "%s cannot move its caster" % spell.display_name
+	if not GridMath.is_vec_arr(intent.get("point", null)):
+		return "%s needs a point [x, y]" % spell.display_name
+	var p := GridMath.arr_to_vec(intent["point"])
+	var tiles := GridMath.feet_to_tiles(DictUtil.to_int(spell.raw_effect.get("move_ft", 30), 30))
+	if not region.has_point(p) or not walk_map.is_walkable(p) or occupied_cells(target.id).has(p):
+		return "the point is not free open ground"
+	if GridMath.distance_tiles(target.position, p) > tiles:
+		return "%s moves a creature at most %d tiles" % [spell.display_name, tiles]
+	if GridMath.distance_tiles(actor.position, p) > maxi(1, _spell_range(spell)):
+		return "the point is out of range"
+	if target.sheet.size_index() > 4:
+		return "%s is too large" % target.display_name
+	return ""
+
+
+## Telekinesis: a hostile contests the caster's spellcasting ability check
+## with Strength (contest reason "telekinesis"); on a win (or for an ally) it
+## is moved to the point (pushed {.., spell}) and a hostile is restrained
+## until the end of the caster's next turn.
+func _forced_move(actor: Combatant, target: Combatant, spell: SpellDefinition, intent: Dictionary) -> void:
+	var hostile := target.team != actor.team
+	if hostile and not contest(actor, maxi(0, actor.sheet.casting_ability), -1, target, [[Ability.Type.STR, -1]], "telekinesis"):
+		return
+	var from := target.position
+	var dest := GridMath.arr_to_vec(intent["point"])
+	target.position = dest
+	_emit("pushed", {"target": target.id, "source": actor.id, "from": GridMath.vec_to_arr(from), "to": GridMath.vec_to_arr(dest), "spell": spell.id})
+	_after_position_change(target, from, false)
+	if hostile and target.is_alive() and not spell.condition.is_empty():
+		var extra := {"spell": spell.id} if spell.concentration else {}
+		_apply_condition(target, spell.condition, actor.id, Conditions.duration(Conditions.DURATION_SOURCE_NEXT_TURN), extra)
+
+
+# --- round C: control, charm effects, absence and banishment ----------------------------
+
+## control {target, orders}: the actor dominates target; orders (intent
+## dictionaries without "v" / "actor", at most 12) run on its next turn
+## instead of MonsterBrain. Free; replaces earlier orders.
+func _check_control(actor: Combatant, intent: Dictionary) -> String:
+	var target := get_combatant(str(intent.get("target", "")))
+	if target == null or target.controlled_by != actor.id:
+		return "%s does not control that creature" % actor.display_name
+	var orders_v: Variant = intent.get("orders", null)
+	if typeof(orders_v) != TYPE_ARRAY:
+		return "control needs orders: an array of intents"
+	var orders: Array = orders_v
+	if orders.size() > 12:
+		return "at most 12 orders"
+	for o: Variant in orders:
+		if typeof(o) != TYPE_DICTIONARY or str((o as Dictionary).get("type", "")) in ["", CONTROL]:
+			return "every order is an intent with a type (not control)"
+	return ""
+
+
+func _do_control(actor: Combatant, intent: Dictionary) -> void:
+	var target := get_combatant(str(intent["target"]))
+	target.orders = DictUtil.to_dict_array(intent["orders"])
+	_emit("control", {"actor": actor.id, "target": target.id, "orders": target.orders.size()})
+
+
+## Hooks when a condition entry is added: dominated switches the creature to
+## the source's team (team_changed {target, team, controlled_by}); suggested
+## remembers the source's team; ethereal takes it out of reach.
+func _on_condition_added(target: Combatant, entry: Dictionary) -> void:
+	match str(entry.get("condition", "")):
+		Conditions.DOMINATED:
+			var src := get_combatant(str(entry.get("source", "")))
+			if src == null:
+				return
+			if target.controlled_by.is_empty():
+				target.original_team = target.team
+				target.was_auto_controlled = target.auto_controlled
+			target.controlled_by = src.id
+			target.team = src.team
+			target.auto_controlled = true
+			target.orders.clear()
+			_emit("team_changed", {"target": target.id, "team": target.team, "controlled_by": src.id})
+		Conditions.SUGGESTED:
+			var src := get_combatant(str(entry.get("source", "")))
+			if src != null:
+				entry["source_team"] = src.team
+		Conditions.ETHEREAL:
+			_set_absent(target, "ethereal", true)
+
+
+## Hooks when a condition entry goes: the last dominated entry gives the
+## creature back to its team; the last ethereal entry brings it back.
+func _on_condition_removed(target: Combatant, entry: Dictionary) -> void:
+	var condition := str(entry.get("condition", ""))
+	if condition == Conditions.DOMINATED and not target._has_own_condition(Conditions.DOMINATED) and not target.controlled_by.is_empty():
+		target.team = target.original_team
+		target.controlled_by = ""
+		target.auto_controlled = target.was_auto_controlled
+		target.orders.clear()
+		_emit("team_changed", {"target": target.id, "team": target.team, "controlled_by": ""})
+	elif condition == Conditions.ETHEREAL and not target._has_own_condition(Conditions.ETHEREAL):
+		_set_absent(target, "ethereal", false)
+
+
+## Marks c absent for `reason` (or back): absent creatures are untargetable
+## and occupy no tile; one coming back onto an occupied tile is pushed aside.
+func _set_absent(c: Combatant, reason: String, on: bool) -> void:
+	if on:
+		if c.absent.is_empty():
+			c.absent_saved_untargetable = c.untargetable
+		if not c.absent.has(reason):
+			c.absent.append(reason)
+		c.untargetable = true
+		return
+	if not c.absent.has(reason):
+		return
+	c.absent.erase(reason)
+	if not c.absent.is_empty():
+		return
+	c.untargetable = c.absent_saved_untargetable
+	if occupied_cells(c.id).has(c.position) or not walk_map.is_walkable(c.position):
+		_expel(c, {}, "")
+
+
+## Suggestion / Calm Emotions: no hostile action against the source's side.
+func _pacified_error(actor: Combatant, target: Combatant) -> String:
+	if actor.suggested_teams().has(target.team):
+		return "%s will not act against %s (suggestion)" % [actor.display_name, target.display_name]
+	return ""
+
+
+## Compulsion: a compelled creature first moves as far as it can toward the
+## entry's "toward" point (compelled {actor, toward}, then moved events).
+func _compelled_move(c: Combatant) -> void:
+	if not c.is_conscious() or c.movement_remaining <= 0:
+		return
+	for entry: Dictionary in c.conditions.duplicate():
+		if str(entry.get("condition", "")) != Conditions.COMPELLED or not GridMath.is_vec_arr(entry.get("toward", null)):
+			continue
+		var toward := GridMath.arr_to_vec(entry["toward"])
+		var path := walk_map.path_to(c.position, toward, occupied_cells(c.id))
+		var steps: Array[Vector2i] = []
+		var budget := c.movement_remaining
+		for p in path:
+			var cost := _step_cost(c, p, "walk")
+			if cost > budget:
+				break
+			budget -= cost
+			steps.append(p)
+		_emit("compelled", {"actor": c.id, "toward": GridMath.vec_to_arr(toward)})
+		if not steps.is_empty():
+			_do_move(c, steps)
+		return
+
+
+## Compulsion's bonus action: compelled creatures of the actor's casting now
+## head for the new point (redirected {actor, spell, point}).
+func _redirect(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -> void:
+	var point: Array = intent["point"] if GridMath.is_vec_arr(intent.get("point", null)) else GridMath.vec_to_arr(actor.position)
+	for c in tracker.order():
+		for entry in c.conditions:
+			if str(entry.get("condition", "")) == Conditions.COMPELLED and str(entry.get("source", "")) == actor.id:
+				entry["toward"] = point.duplicate()
+	_emit("redirected", {"actor": actor.id, "spell": spell.id, "point": point.duplicate()})
+
+
+## Prismatic violet: a creature blinded by it saves (WIS) at the start of the
+## source's next turn; success ends the blindness, failure sends it to
+## another plane (banished: for good, or 10 rounds for player characters).
+func _violet_saves(source: Combatant) -> void:
+	for other in tracker.order():
+		for entry: Dictionary in other.conditions.duplicate():
+			if str(entry.get("layer", "")) != "violet" or str(entry.get("source", "")) != source.id or not other.conditions.has(entry):
+				continue
+			var dc := DictUtil.to_int((entry.get("duration", {}) as Dictionary).get("dc", 10), 10)
+			_remove_condition(other, entry)
+			if not _saving_throw(source.id, other, Ability.Type.WIS, dc) and other.is_alive():
+				_banish(other, source.id, "prismatic", 10, true, {})
+
+
+## Banishment-type spells (see SpellDefinition.EFFECT_BANISH): the caster
+## itself or an ally leaves for "self_rounds"; a hostile is first hit by a
+## melee spell attack ("attack": "melee", Plane Shift), then saves ("save").
+func _banish_spell(actor: Combatant, target: Combatant, spell: SpellDefinition, _slot: int) -> void:
+	var e := spell.raw_effect
+	var rounds := DictUtil.to_int(e.get("rounds", 10), 10)
+	if rounds > 0 and _cast_meta.has("extended_spell"):
+		rounds *= 2
+	if target.team == actor.team:
+		_banish(target, actor.id, spell.id, DictUtil.to_int(e.get("self_rounds", rounds), rounds), false, {})
+		return
+	if str(e.get("attack", "")) == "melee":
+		var attack := {"name": spell.display_name, "kind": "spell", "melee": true, "to_hit": actor.sheet.spell_attack_bonus(),
+				"damage": "0", "damage_type": "force", "range_tiles": [1, 1]}
+		var r := _roll_attack(actor, target, attack, false, spell)
+		if not r.hit or not target.is_alive():
+			return
+	var save := Ability.from_string(str(e.get("save", "")))
+	if save >= 0 and _saving_throw(actor.id, target, save, actor.sheet.spell_save_dc(), _save_opts(spell, target)):
+		return
+	var extra := {}
+	if e.get("native_permanent", false) == true:
+		extra["native_permanent"] = true
+	if typeof(e.get("escape", null)) == TYPE_DICTIONARY:
+		extra["escape"] = e["escape"]
+	_banish(target, actor.id, spell.id, rounds, e.get("permanent", false) == true, extra)
+
+
+## Sends c away: banished {target, source, spell, rounds, permanent}. It is
+## out of reach, its turns pass, its concentration ends; a permanent
+## banishment takes it out of the fight (player characters: 10 rounds
+## instead). rounds -1 = until the source's concentration ends.
+func _banish(c: Combatant, source_id: String, spell_id: String, rounds: int, permanent: bool, extra: Dictionary) -> void:
+	if not c.is_alive():
+		return
+	if permanent and not c.is_monster():
+		permanent = false
+		rounds = maxi(rounds, 10)
+	c.banished = {"source": source_id, "spell": spell_id, "turns_left": rounds, "permanent": permanent, "position": GridMath.vec_to_arr(c.position)}
+	c.banished.merge(extra, true)
+	_set_absent(c, "banished", true)
+	_reveal(c, "dropped")
+	_end_concentration(c, "incapacitated")
+	_emit("banished", {"target": c.id, "source": source_id, "spell": spell_id, "rounds": rounds, "permanent": permanent})
+
+
+## Brings a banished creature back to its tile (or the nearest free one):
+## returned {target, position, reason}; Hurl Through Hell's damage follows.
+func _return(c: Combatant, reason: String) -> void:
+	if c.banished.is_empty():
+		return
+	var damage_v: Variant = c.banished.get("return_damage", null)
+	var source := get_combatant(str(c.banished.get("source", "")))
+	c.position = GridMath.arr_to_vec(c.banished.get("position", GridMath.vec_to_arr(c.position)))
+	c.banished = {}
+	for why: String in ["banished", "possessed"]:
+		_set_absent(c, why, false)
+	_emit("returned", {"target": c.id, "position": GridMath.vec_to_arr(c.position), "reason": reason})
+	_after_position_change(c, c.position, false)
+	if typeof(damage_v) == TYPE_DICTIONARY and c.is_alive():
+		var dmg: Dictionary = damage_v
+		if not DictUtil.to_string_array(dmg.get("immune_types", [])).has(c.creature_type):
+			var dtype := str(dmg.get("type", "psychic"))
+			var amount := c.adjust_damage(maxi(0, DiceExpr.parse(str(dmg.get("dice", "10d10"))).roll(rng).total), dtype, true)
+			_deal_effect_damage(source, c, amount, dtype, {"feature": str(dmg.get("feature", ""))})
+
+
+## End of c's turn: its own banishment counts down (Maze: an INT check DC 20
+## escapes; Banishment holding an otherworldly creature the full duration
+## sends it home for good), and banishments that last until c's turn ends
+## (Hurl Through Hell) end.
+func _banish_turn_end(c: Combatant) -> void:
+	for other in tracker.order():
+		if other.banished.is_empty() or str(other.banished.get("source", "")) != c.id or not other.banished.has("source_turns"):
+			continue
+		other.banished["source_turns"] = DictUtil.to_int(other.banished["source_turns"]) - 1
+		if DictUtil.to_int(other.banished["source_turns"]) <= 0:
+			_return(other, "expired")
+	if c.banished.is_empty() or c.banished.get("permanent", false) == true or c.banished.has("source_turns"):
+		return
+	var escape_v: Variant = c.banished.get("escape", null)
+	if typeof(escape_v) == TYPE_DICTIONARY:
+		var esc: Dictionary = escape_v
+		var res := ability_check(c, Ability.from_string(str(esc.get("ability", "INT"))), -1, DictUtil.to_int(esc.get("dc", 20), 20), "maze")
+		if res["success"] == true:
+			_return(c, "escaped")
+			return
+	var left := DictUtil.to_int(c.banished.get("turns_left", -1), -1)
+	if left < 0:
+		return
+	left -= 1
+	c.banished["turns_left"] = left
+	if left > 0:
+		return
+	if c.banished.get("native_permanent", false) == true and OTHERWORLDLY_TYPES.has(c.creature_type):
+		c.banished["permanent"] = true
+		_emit("banished", {"target": c.id, "source": str(c.banished.get("source", "")), "spell": str(c.banished.get("spell", "")), "rounds": -1, "permanent": true})
+		check_end()
+		return
+	_return(c, "expired")
+
+
+## Blink: at the end of its turns the creature rolls a d20; on 11+ it
+## vanishes to the Ethereal Plane until its next turn starts (blink {actor,
+## roll, vanished}).
+func _blink(c: Combatant) -> void:
+	if not c.is_conscious() or not c.buff_flag("blink"):
+		return
+	var roll := rng.next_int(1, 20)
+	var vanished := roll >= 11
+	_emit("blink", {"actor": c.id, "roll": roll, "vanished": vanished})
+	if vanished:
+		_apply_condition(c, Conditions.ETHEREAL, c.id, Conditions.duration(Conditions.DURATION_TARGET_TURN_START))
+
+
+# --- round C: lingering out-of-combat effects --------------------------------------------
+
+## Effects cast before the fight (CharacterSheet.lingering) take hold when it
+## starts: buffs on their owner ("buff", "stealth"), zones centred on it
+## ("zone": the spell's zone, mode / creature_type from the entry). Features
+## ("feature": Magic Jar) are checked when used.
+func _apply_lingering(c: Combatant) -> void:
+	for entry in c.sheet.lingering:
+		var spell_id := str(entry.get("spell", ""))
+		match str(entry.get("kind", "")):
+			"buff", "stealth":
+				var mods_v: Variant = entry.get("modifiers", {})
+				var mods: Dictionary = mods_v if typeof(mods_v) == TYPE_DICTIONARY else {}
+				_apply_buff(c, str(entry.get("effect", spell_id)), c.id, Conditions.duration(Conditions.DURATION_ENCOUNTER), mods, spell_id)
+				var cond := str(entry.get("condition", ""))
+				if not cond.is_empty():
+					_apply_condition(c, cond, c.id, Conditions.duration(Conditions.DURATION_ENCOUNTER), {})
+			"zone":
+				var spell := _spell_def(spell_id)
+				if spell == null:
+					continue
+				var z := spell.zone.duplicate(true)
+				var modes_v: Variant = z.get("modes", {})
+				var mode := str(entry.get("mode", ""))
+				if typeof(modes_v) == TYPE_DICTIONARY and (modes_v as Dictionary).has(mode):
+					z.merge((modes_v as Dictionary)[mode], true)
+				if entry.has("creature_type"):
+					z["creature_types"] = [str(entry["creature_type"])]
+				var slot := DictUtil.to_int(entry.get("slot_level", spell.level), spell.level)
+				var cells := AreaOfEffect.tiles("sphere", spell.area_size_tiles(), c.position, c.position, walk_map)
+				_create_zone(c, spell_id, z, slot, cells, "", spell.area_size_tiles(), false, Encounter._zone_damage(spell, z, slot),
+						str(z.get("damage_type", spell.damage_type)), spell.level, c.position)
+
+
+## Whether c carries a lingering feature (Magic Jar's container).
+func _lingering_feature(c: Combatant, feature: String) -> bool:
+	for entry in c.sheet.lingering:
+		if str(entry.get("kind", "")) == "feature" and str(entry.get("feature", "")) == feature:
+			return true
+	return false
+
+
+## Encounter end: lingering effects with a count lose one encounter; those
+## used up leave the sheet (lingering_ended {target, spell}).
+func _settle_lingering() -> void:
+	for value: Variant in _combatants.values():
+		var c: Combatant = value
+		if c.is_summon() or c.sheet.lingering.is_empty():
+			continue
+		var kept: Array[Dictionary] = []
+		for entry in c.sheet.lingering:
+			var left := DictUtil.to_int(entry.get("encounters_left", -1), -1)
+			if left > 0:
+				left -= 1
+				entry["encounters_left"] = left
+				if left == 0:
+					_emit("lingering_ended", {"target": c.id, "spell": str(entry.get("spell", ""))})
+					continue
+			kept.append(entry)
+		c.sheet.lingering = kept
+
+
+# --- round C class features and spell actions (use_feature) ------------------------------
+
+## Validation of the round C use_feature ids; "-" when `feature` is not one.
+func _check_feature_c(actor: Combatant, feature: String, intent: Dictionary) -> String:
+	match feature:
+		"magic_jar":
+			var target := _cast_target(actor, intent)
+			if target == null or target == actor or target.team == actor.team or not target.is_conscious() or target.untargetable:
+				return "Magic Jar needs a hostile creature"
+			if not target.is_monster() or target.creature_type != "humanoid":
+				return "Magic Jar can only possess a humanoid"
+			if GridMath.distance_tiles(actor.position, target.position) > 20:
+				return "%s is more than 100 feet away" % target.display_name
+			if not actor.form.is_empty():
+				return "%s is not in its own body" % actor.display_name
+			return ""
+		"end_spell":
+			var sid := str(intent.get("mode", ""))
+			if _own_spell_effects(actor, sid).is_empty() and str(actor.concentration.get("spell", "")) != sid:
+				return "%s has no %s to end" % [actor.display_name, sid]
+			return ""
+	return "-"
+
+
+## The actor's own buffs / conditions of spell_id on itself.
+func _own_spell_effects(actor: Combatant, spell_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if spell_id.is_empty():
+		return out
+	for b in actor.buffs:
+		if str(b.get("spell", "")) == spell_id and str(b.get("source", "")) == actor.id:
+			out.append(b)
+	for entry in actor.conditions:
+		if str(entry.get("spell", entry.get("cast_spell", ""))) == spell_id and str(entry.get("source", "")) == actor.id:
+			out.append(entry)
+	return out
+
+
+func _do_feature_c(actor: Combatant, feature: String, intent: Dictionary) -> void:
+	match feature:
+		"magic_jar":
+			var target := _cast_target(actor, intent)
+			if _saving_throw(actor.id, target, Ability.Type.CHA, actor.sheet.spell_save_dc()):
+				return
+			var monsters: Dictionary = _content().get("monsters", {})
+			if not monsters.has(target.monster_id):
+				return
+			var def: MonsterDefinition = monsters[target.monster_id]
+			var host_hp := target.sheet.current_hp
+			var host_pos := target.position
+			target.banished = {"source": actor.id, "spell": "magic_jar", "turns_left": -1, "permanent": false, "position": GridMath.vec_to_arr(host_pos), "possessed": true}
+			_set_absent(target, "possessed", true)
+			_emit("possessed", {"actor": actor.id, "target": target.id})
+			var from := actor.position
+			actor.position = host_pos
+			_emit("teleported", {"actor": actor.id, "from": GridMath.vec_to_arr(from), "to": GridMath.vec_to_arr(host_pos), "spell": "magic_jar"})
+			_transform(actor, def, "magic_jar", actor.id)
+			actor.sheet.current_hp = clampi(host_hp, 1, actor.sheet.max_hp)
+			actor.form["host"] = target.id
+			_after_position_change(actor, from, false)
+		"end_spell":
+			var sid := str(intent.get("mode", ""))
+			for entry in _own_spell_effects(actor, sid):
+				if actor.buffs.has(entry):
+					_remove_buff(actor, entry)
+				else:
+					_remove_condition(actor, entry)
+			if str(actor.concentration.get("spell", "")) == sid:
+				_end_concentration(actor, "dismissed")
+
+
+## Magic Jar ends: a host body that dropped to 0 dies; otherwise the host's
+## soul returns (with the body's hit points) next to the caster.
+func _release_host(c: Combatant, host_id: String, reason: String, form_hp: int) -> void:
+	var host := get_combatant(host_id)
+	if host == null or str(host.banished.get("spell", "")) != "magic_jar":
+		return
+	if reason == "dropped":
+		host.banished = {}
+		host.absent.erase("possessed")
+		host.sheet.kill()
+		_emit("destroyed", {"source": c.id, "target": host.id, "feature": "magic_jar"})
+		return
+	host.sheet.current_hp = clampi(form_hp, 1, host.sheet.max_hp)
+	_return(host, "released")
+
+
+# --- round C: illusions -------------------------------------------------------------------
+
+## An illusion spell's image: a creature-like decoy on the caster's team that
+## looks like "form" (a monster id; Project Image / Mislead: the caster),
+## takes no damage and does nothing. Mislead ("self_invisible") also makes the
+## caster invisible until it attacks or casts.
+func _cast_illusion(actor: Combatant, spell: SpellDefinition, near: Vector2i, limit: int, extra: Dictionary, intent: Dictionary) -> void:
+	var s := CharacterSheet.new()
+	var e := spell.raw_effect
+	var monsters: Dictionary = _content().get("monsters", {})
+	var form := str(intent.get("form", e.get("monster", "")))
+	s.name = "Illusory Figure"
+	s.max_hp = 1
+	if e.get("copy_caster", false) == true:
+		s.name = actor.display_name
+		s.max_hp = actor.sheet.max_hp
+		s.size = actor.sheet.size
+	elif monsters.has(form):
+		var def: MonsterDefinition = monsters[form]
+		s.name = def.display_name
+		s.max_hp = def.hit_points_avg
+		s.size = def.size
+	s.class_id = "monster:illusion"
+	s.current_hp = s.max_hp
+	s.speed = 30
+	s.uses_death_saves = false
+	s.armor_base = 10
+	s.damage_immunities = CharacterSheet.DAMAGE_TYPES.duplicate()
+	s.condition_immunities = Conditions.ALL.duplicate()
+	extra["illusion"] = {"spell": spell.id, "dc": actor.sheet.spell_save_dc(), "source": actor.id}
+	var at := near
+	if e.get("copy_caster", false) == true and near == actor.position:
+		at = actor.position + Vector2i(1, 0)
+	_summon(actor, spell.id, null, at, limit, extra, {"sheet": s, "attacks": [], "monster_id": "illusion"})
+	if e.get("self_invisible", false) == true:
+		var cond_extra := {"ends_on_attack": true, "cast_spell": spell.id}
+		if spell.concentration:
+			cond_extra["spell"] = spell.id
+		_apply_condition(actor, Conditions.INVISIBLE, actor.id, Conditions.duration(Conditions.DURATION_ENCOUNTER), cond_extra)
+
+
+## A hostile interacts with an illusion (attacks it, targets it): Witch Sight
+## within 30 ft sees through it; otherwise an Intelligence (Investigation)
+## check against the caster's DC (check reason "illusion"). Disbelieved:
+## disbelieved {actor, illusion} and the image ends (summon_ended reason
+## "disbelieved"); else the effort is wasted (attack_lost reason "illusion").
+func _illusion_interaction(viewer: Combatant, image: Combatant) -> void:
+	var seen := viewer.sheet.invocations.has("witch_sight") and GridMath.distance_tiles(viewer.position, image.position) <= 6
+	if not seen:
+		var res := ability_check(viewer, Ability.Type.INT, Skill.Type.INVESTIGATION, DictUtil.to_int(image.illusion.get("dc", 10), 10), "illusion")
+		seen = res["success"] == true
+	if seen:
+		_emit("disbelieved", {"actor": viewer.id, "illusion": image.id})
+		_dismiss(image, "disbelieved")
+		return
+	_emit("attack_lost", {"attacker": viewer.id, "target": image.id, "reason": "illusion"})
