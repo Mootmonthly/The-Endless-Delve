@@ -1,7 +1,9 @@
 class_name CharacterCreator
 extends Control
 ## Character creation screen: name, any of the twelve SRD classes, SRD
-## ancestry, standard-array scores (each value used once), class skill picks
+## ancestry, ability scores by a method (standard array or rolled values,
+## each used once, or 27-point buy with a live points-remaining label; see
+## CharacterDraft), class skill picks
 ## and a live preview (scores, HP, AC with the starting armor, every attack
 ## with ranges, prepared spells and slots, features and the starting kit).
 ## Level-1 progression: the subclass a cleric / sorcerer / warlock starts with
@@ -10,6 +12,13 @@ extends Control
 ## the rules text of each option; they are sent explicitly to the builder.
 ## Start stays disabled until the CharacterDraft is valid; pressing it emits
 ## character_created with the finished level 1 sheet.
+##
+## Layout (fits 1280x720 and up; the panel fills the height and is centred):
+## title over two columns. The left column (name / class / ancestry, class
+## and subclass text, score method and scores, Reroll) scrolls. The right
+## column keeps "Suggested scores for this class", then "Start the delve" and
+## "Settings", then the problems list at its top, always visible; below them
+## skills, creation choices and the preview scroll.
 ##
 ## The whole UI is built in code from _ready(); every control is reachable
 ## with the keyboard (Tab / arrows / Enter), no mouse needed. Escape
@@ -31,6 +40,19 @@ var _name_edit: LineEdit
 var _class_option: OptionButton
 var _ancestry_option: OptionButton
 var _score_options: Array[OptionButton] = []
+var _method_option: OptionButton
+var _method_info: Label
+var _points_label: Label
+var _reroll_button: Button
+var _suggest_button: Button
+var _settings_button: Button
+var _left_scroll: ScrollContainer
+var _right_scroll: ScrollContainer
+## Score menu item index -> value (UNASSIGNED first for pool methods).
+var _menu_values: Array[int] = []
+var _menu_key: String = ""
+## Clock-seeded dice for Roll (client-side; online servers will roll themselves).
+var _rng: Rng = null
 var _skill_box: VBoxContainer
 var _skill_checks: Dictionary = {}  # Skill.Type -> CheckBox
 var _skill_header: Label
@@ -48,6 +70,8 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_classes = CharacterDraft.ordered_classes(ContentLoader.load_classes())
 	_ancestries = CharacterDraft.sorted_ancestries(ContentLoader.load_ancestries())
+	if _rng == null:
+		_rng = Rng.new(CharacterCreator.clock_seed())
 	_build_ui()
 	if not _classes.is_empty():
 		draft.set_class(_classes[0])
@@ -56,7 +80,8 @@ func _ready() -> void:
 	draft.auto_assign()
 	_rebuild_skills()
 	_refresh()
-	_name_edit.grab_focus()
+	if is_inside_tree():
+		_name_edit.grab_focus()
 
 
 func _build_ui() -> void:
@@ -65,17 +90,24 @@ func _build_ui() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	# Full-height panel, centred horizontally at its minimum width.
+	var outer := MarginContainer.new()
+	outer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side: String in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		outer.add_theme_constant_override(side, 16)
+	add_child(outer)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	outer.add_child(row)
 	var panel := PanelContainer.new()
-	center.add_child(panel)
+	panel.size_flags_vertical = Control.SIZE_FILL
+	row.add_child(panel)
 	var margin := MarginContainer.new()
 	for side: String in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 20)
+		margin.add_theme_constant_override(side, 16)
 	panel.add_child(margin)
 	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 12)
+	root.add_theme_constant_override("separation", 10)
 	margin.add_child(root)
 
 	var title := Label.new()
@@ -84,13 +116,20 @@ func _build_ui() -> void:
 	root.add_child(title)
 
 	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 32)
+	columns.add_theme_constant_override("separation", 28)
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(columns)
+	_left_scroll = _scroll()
+	_left_scroll.name = "LeftScroll"
+	columns.add_child(_left_scroll)
 	var left := VBoxContainer.new()
-	left.custom_minimum_size = Vector2(360, 0)
-	columns.add_child(left)
+	left.custom_minimum_size = Vector2(380, 0)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_left_scroll.add_child(left)
 	var right := VBoxContainer.new()
-	right.custom_minimum_size = Vector2(360, 0)
+	right.name = "RightColumn"
+	right.custom_minimum_size = Vector2(440, 0)
+	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	columns.add_child(right)
 
 	# Name, class, ancestry.
@@ -118,66 +157,114 @@ func _build_ui() -> void:
 	_ancestry_option.item_selected.connect(_on_ancestry_selected)
 	form.add_child(_ancestry_option)
 
-	_class_info = Label.new()
-	_class_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_class_info.custom_minimum_size = Vector2(360, 0)
-	_class_info.modulate = Color(0.8, 0.8, 0.85)
+	_class_info = _wrapped(Color(0.8, 0.8, 0.85))
 	left.add_child(_class_info)
-	_subclass_info = Label.new()
-	_subclass_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_subclass_info.custom_minimum_size = Vector2(360, 0)
-	_subclass_info.modulate = Color(0.85, 0.8, 1.0)
+	_subclass_info = _wrapped(Color(0.85, 0.8, 1.0))
 	left.add_child(_subclass_info)
 
-	# Standard array.
-	left.add_child(_heading("Ability scores (standard array: 15, 14, 13, 12, 10, 8)"))
+	# Ability scores: method, explanation, one menu per ability, Reroll.
+	left.add_child(_heading("Ability scores"))
+	var method_row := GridContainer.new()
+	method_row.columns = 2
+	left.add_child(method_row)
+	method_row.add_child(_label("Method"))
+	_method_option = OptionButton.new()
+	_method_option.name = "ScoreMethod"
+	for m in CharacterDraft.METHODS:
+		_method_option.add_item(CharacterDraft.METHOD_LABELS[m])
+	_method_option.item_selected.connect(_on_method_selected)
+	method_row.add_child(_method_option)
+	_method_info = _wrapped(Color(0.8, 0.8, 0.85))
+	left.add_child(_method_info)
+	_points_label = _label("")
+	_points_label.name = "PointsRemaining"
+	left.add_child(_points_label)
 	var scores := GridContainer.new()
 	scores.columns = 2
 	left.add_child(scores)
 	for ability in range(Ability.COUNT):
 		scores.add_child(_label(Ability.name_of(ability)))
 		var opt := OptionButton.new()
-		opt.add_item(UNASSIGNED_LABEL)
-		for value in AbilityScores.standard_array():
-			opt.add_item(str(value))
+		opt.custom_minimum_size = Vector2(120, 0)
 		opt.item_selected.connect(_on_score_selected.bind(ability))
 		scores.add_child(opt)
 		_score_options.append(opt)
-	var suggest := Button.new()
-	suggest.text = "Suggested scores for this class"
-	suggest.pressed.connect(_on_suggest_pressed)
-	left.add_child(suggest)
+	_reroll_button = Button.new()
+	_reroll_button.name = "Reroll"
+	_reroll_button.text = "Reroll (4d6, drop lowest)"
+	_reroll_button.pressed.connect(reroll)
+	left.add_child(_reroll_button)
 
-	# Skills, preview, start.
+	# Right column, fixed part: suggestion, start, settings, problems.
+	_suggest_button = Button.new()
+	_suggest_button.name = "Suggest"
+	_suggest_button.text = "Suggested scores for this class"
+	_suggest_button.pressed.connect(_on_suggest_pressed)
+	right.add_child(_suggest_button)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	right.add_child(actions)
+	_start_button = Button.new()
+	_start_button.name = "Start"
+	_start_button.text = "Start the delve"
+	_start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_start_button.pressed.connect(_on_start_pressed)
+	actions.add_child(_start_button)
+	_settings_button = Button.new()
+	_settings_button.text = "Settings"
+	_settings_button.pressed.connect(settings_requested.emit)
+	actions.add_child(_settings_button)
+	_problems = _wrapped(Color(1.0, 0.65, 0.45))
+	right.add_child(_problems)
+
+	# Right column, scrolling part: skills, creation choices, preview.
+	_right_scroll = _scroll()
+	_right_scroll.name = "RightScroll"
+	right.add_child(_right_scroll)
+	var details := VBoxContainer.new()
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_right_scroll.add_child(details)
 	_skill_header = _heading("Skills")
-	right.add_child(_skill_header)
+	details.add_child(_skill_header)
 	_skill_box = VBoxContainer.new()
-	right.add_child(_skill_box)
+	details.add_child(_skill_box)
 	_choices_box = VBoxContainer.new()
-	right.add_child(_choices_box)
-	right.add_child(_heading("Preview"))
-	var preview_scroll := ScrollContainer.new()
-	preview_scroll.custom_minimum_size = Vector2(420, 300)
-	preview_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	right.add_child(preview_scroll)
+	details.add_child(_choices_box)
+	details.add_child(_heading("Preview"))
 	_preview = Label.new()
 	_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_preview.custom_minimum_size = Vector2(400, 0)
 	_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	preview_scroll.add_child(_preview)
-	_problems = Label.new()
-	_problems.modulate = Color(1.0, 0.65, 0.45)
-	_problems.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_problems.custom_minimum_size = Vector2(360, 0)
-	right.add_child(_problems)
-	_start_button = Button.new()
-	_start_button.text = "Start the delve"
-	_start_button.pressed.connect(_on_start_pressed)
-	right.add_child(_start_button)
-	var settings_button := Button.new()
-	settings_button.text = "Settings"
-	settings_button.pressed.connect(settings_requested.emit)
-	right.add_child(settings_button)
+	details.add_child(_preview)
+
+
+## A vertical-only ScrollContainer that fills its column and scrolls to the
+## focused control (keyboard navigation).
+func _scroll() -> ScrollContainer:
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	sc.follow_focus = true
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	return sc
+
+
+func _wrapped(color: Color) -> Label:
+	var l := Label.new()
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(360, 0)
+	l.modulate = color
+	return l
+
+
+## A seed from the wall clock and the tick counter (for Roll).
+static func clock_seed() -> int:
+	return int(Time.get_unix_time_from_system() * 1000.0) ^ Time.get_ticks_usec()
+
+
+## Uses `rng` for Roll instead of the clock-seeded one (tests); call before _ready().
+func use_rng(rng: Rng) -> void:
+	_rng = rng
 
 
 ## Score menu item index -> standard-array value (index 0 is unassigned).
@@ -295,9 +382,7 @@ func _refresh() -> void:
 		_class_info.text = cls.description
 	if draft.ancestry != null:
 		_ancestry_option.select(_ancestries.find(draft.ancestry))
-	for ability in range(Ability.COUNT):
-		var opt := _score_options[ability]
-		opt.select(CharacterCreator.index_for_score(draft.assigned[ability]))
+	_refresh_scores()
 	var sub := draft.subclass_info()
 	_subclass_info.text = "%s: %s" % [str(sub["name"]), str(sub["description"])] if not sub.is_empty() else ""
 	_subclass_info.visible = not sub.is_empty()
@@ -311,8 +396,71 @@ func _refresh() -> void:
 	_preview.text = _preview_text()
 	var problems := draft.problems()
 	_problems.text = "\n".join(problems)
+	_problems.visible = not problems.is_empty()
 	_start_button.disabled = not problems.is_empty()
 	_syncing = false
+
+
+## Method menu, explanation, points label, Reroll and the six score menus.
+func _refresh_scores() -> void:
+	_method_option.select(maxi(CharacterDraft.METHODS.find(draft.method), 0))
+	var point_buy := draft.method == CharacterDraft.METHOD_POINT_BUY
+	var values: Array[int] = []
+	if not point_buy:
+		values.append(CharacterDraft.UNASSIGNED)
+	values.append_array(draft.score_choices())
+	var key := "%s|%s" % [draft.method, str(values)]
+	if key != _menu_key:
+		_menu_key = key
+		_menu_values = values
+		for opt in _score_options:
+			opt.clear()
+			for v in values:
+				if v == CharacterDraft.UNASSIGNED:
+					opt.add_item(UNASSIGNED_LABEL)
+				elif point_buy:
+					opt.add_item("%d (%d pt)" % [v, AbilityScores.point_buy_cost(v)])
+				else:
+					opt.add_item(str(v))
+	for ability in range(Ability.COUNT):
+		var opt := _score_options[ability]
+		opt.select(_menu_values.find(draft.assigned[ability]))
+		for i in range(_menu_values.size()):
+			opt.set_item_disabled(i, point_buy and not draft.point_buy_affordable(ability, _menu_values[i]))
+	_method_info.text = _method_text()
+	_points_label.visible = point_buy
+	if point_buy:
+		var remaining := draft.point_buy_remaining()
+		_points_label.text = "Points remaining: %d of %d" % [remaining, AbilityScores.POINT_BUY_BUDGET]
+		_points_label.modulate = Color(1.0, 0.65, 0.45) if remaining < 0 else Color(0.75, 1.0, 0.75)
+	_reroll_button.visible = draft.method == CharacterDraft.METHOD_ROLL
+
+
+func _method_text() -> String:
+	match draft.method:
+		CharacterDraft.METHOD_POINT_BUY:
+			return ("Spend up to %d points; every score is %d-%d before ancestry bonuses. "
+				+ "8 costs 0, each point to 13 costs 1, 14 costs 7, 15 costs 9.") % [
+				AbilityScores.POINT_BUY_BUDGET, CharacterDraft.POINT_BUY_MIN, CharacterDraft.POINT_BUY_MAX]
+		CharacterDraft.METHOD_ROLL:
+			var rolled := "Rolled (4d6, drop the lowest): %s." % CharacterCreator._join(draft.score_pool())
+			var to_place := draft.unassigned_values()
+			if not to_place.is_empty():
+				rolled += " Still to place: %s." % CharacterCreator._join(to_place)
+			return rolled + ("\nOffline you may reroll as often as you like; online servers will restrict "
+				+ "rolled scores (see the design document).")
+	var text := "Assign %s, each once." % CharacterCreator._join(AbilityScores.standard_array())
+	var left := draft.unassigned_values()
+	if not left.is_empty():
+		text += " Still to place: %s." % CharacterCreator._join(left)
+	return text
+
+
+static func _join(values: Array[int]) -> String:
+	var parts: PackedStringArray = []
+	for v in values:
+		parts.append(str(v))
+	return ", ".join(parts)
 
 
 func _preview_text() -> String:
@@ -389,9 +537,32 @@ func _on_ancestry_selected(index: int) -> void:
 
 
 func _on_score_selected(index: int, ability: int) -> void:
-	if _syncing:
+	if _syncing or index < 0 or index >= _menu_values.size():
 		return
-	draft.assign(ability, CharacterCreator.score_for_index(index))
+	draft.assign(ability, _menu_values[index])
+	_refresh()
+
+
+## Score method menu (also callable directly): Roll rolls first if nothing
+## was rolled yet.
+func _on_method_selected(index: int) -> void:
+	if _syncing or index < 0 or index >= CharacterDraft.METHODS.size():
+		return
+	var m := CharacterDraft.METHODS[index]
+	if m == CharacterDraft.METHOD_ROLL and draft.rolled_values.size() != Ability.COUNT:
+		reroll()
+		return
+	draft.set_method(m)
+	_refresh()
+
+
+## Rolls six new values, suggests an assignment and refreshes (the Reroll
+## button). Offline rerolls are unlimited.
+func reroll() -> void:
+	if _rng == null:
+		_rng = Rng.new(CharacterCreator.clock_seed())
+	draft.roll_scores(_rng)
+	draft.auto_assign()
 	_refresh()
 
 

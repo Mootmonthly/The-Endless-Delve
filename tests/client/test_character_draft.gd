@@ -1,5 +1,6 @@
 extends TestCase
-## CharacterDraft: the creator's rules (standard array, skills, preview).
+## CharacterDraft: the creator's rules (score methods: standard array, point
+## buy, roll; skills, preview).
 
 var _classes: Dictionary = {}
 var _ancestries: Dictionary = {}
@@ -198,3 +199,190 @@ func test_creation_choices_for_level_one_subclasses_and_expertise() -> void:
 	rogue.creation_choices()
 	assert_eq(DictUtil.to_string_array(rogue.creation_picks["expertise"]), [opts[1]] as Array[String], "the dropped skill's expertise is gone")
 	assert_eq(rogue.build_sheet().expertise_skills.size(), 2, "defaults fill an incomplete answer")
+
+
+# --- Score methods ------------------------------------------------------------------
+
+func _ready_fighter() -> CharacterDraft:
+	var d := _fighter_draft()
+	d.toggle_skill(Skill.Type.ATHLETICS, true)
+	d.toggle_skill(Skill.Type.PERCEPTION, true)
+	d.auto_choose()
+	return d
+
+
+func test_standard_array_is_the_default_method() -> void:
+	var d := _ready_fighter()
+	assert_eq(d.method, CharacterDraft.METHOD_STANDARD)
+	assert_eq(d.score_choices(), [15, 14, 13, 12, 10, 8] as Array[int])
+	assert_eq(d.unassigned_values(), [15, 14, 13, 12, 10, 8] as Array[int])
+	assert_has(d.problems(), "Assign every standard-array score.")
+	d.auto_assign()
+	assert_true(d.is_valid(), str(d.problems()))
+	assert_eq(d.unassigned_values(), [] as Array[int])
+	d.set_method(CharacterDraft.METHOD_STANDARD)
+	assert_true(d.is_valid(), "re-selecting the same method keeps the scores")
+
+
+func test_point_buy_cost_arithmetic_and_remaining() -> void:
+	var d := _ready_fighter()
+	d.auto_assign()
+	d.set_method(CharacterDraft.METHOD_POINT_BUY)
+	assert_eq(d.assigned, [8, 8, 8, 8, 8, 8] as Array[int], "point buy starts at all 8s")
+	assert_eq(d.point_buy_spent(), 0)
+	assert_eq(d.point_buy_remaining(), 27)
+	assert_true(d.is_valid(), "unspent points are allowed: %s" % str(d.problems()))
+	assert_eq(d.score_choices(), [15, 14, 13, 12, 11, 10, 9, 8] as Array[int])
+	d.assign(Ability.Type.STR, 15)  # 9
+	assert_eq(d.point_buy_remaining(), 18)
+	d.assign(Ability.Type.DEX, 14)  # 7
+	assert_eq(d.point_buy_remaining(), 11)
+	d.assign(Ability.Type.CON, 13)  # 5
+	assert_eq(d.point_buy_remaining(), 6)
+	d.assign(Ability.Type.WIS, 12)  # 4
+	d.assign(Ability.Type.CHA, 10)  # 2
+	assert_eq(d.point_buy_spent(), 27)
+	assert_eq(d.point_buy_remaining(), 0)
+	assert_eq(d.assigned, [15, 14, 13, 8, 12, 10] as Array[int], "values may repeat; no swapping")
+	assert_true(d.is_valid(), str(d.problems()))
+	d.assign(Ability.Type.INT, 16)
+	assert_eq(d.assigned[Ability.Type.INT], 8, "above 15 is refused")
+	d.assign(Ability.Type.INT, 7)
+	assert_eq(d.assigned[Ability.Type.INT], 8, "below 8 is refused")
+	assert_false(d.point_buy_affordable(Ability.Type.INT, 9), "no points left")
+	assert_true(d.point_buy_affordable(Ability.Type.STR, 14), "lowering is always affordable")
+	assert_true(d.point_buy_affordable(Ability.Type.INT, 8))
+	# Suggested scores under point buy: the standard spread, exactly 27 points.
+	d.auto_assign()
+	assert_eq(d.point_buy_remaining(), 0)
+	assert_eq(d.assigned[Ability.Type.STR], 15)
+	var sheet := d.build_sheet()
+	assert_eq(sheet.abilities.get_score(Ability.Type.STR), 16, "ancestry bonus on top of the bought 15")
+	assert_eq(int(d.preview()["scores"][Ability.Type.STR]), 16)
+
+
+func test_point_buy_overspend_is_invalid() -> void:
+	var d := _ready_fighter()
+	d.set_method(CharacterDraft.METHOD_POINT_BUY)
+	for ability in [Ability.Type.STR, Ability.Type.DEX, Ability.Type.CON, Ability.Type.INT]:
+		d.assign(ability, 15)  # 4 x 9 = 36
+	assert_eq(d.point_buy_spent(), 36)
+	assert_eq(d.point_buy_remaining(), -9)
+	assert_false(d.is_valid())
+	assert_has(d.problems(), "Point buy: 9 points over the 27-point budget.")
+	d.assign(Ability.Type.INT, 8)
+	assert_eq(d.point_buy_remaining(), 0)
+	assert_true(d.is_valid(), str(d.problems()))
+	d.assigned[Ability.Type.WIS] = 17  # not reachable through assign()
+	assert_eq(d.point_buy_remaining(), -1)
+	assert_has(d.problems(), "Point-buy scores must be 8-15.")
+	d.assigned[Ability.Type.WIS] = CharacterDraft.UNASSIGNED
+	assert_has(d.problems(), "Choose every score.")
+
+
+func test_roll_assigns_like_the_standard_array() -> void:
+	var d := _ready_fighter()
+	assert_eq(d.rolled_values, [] as Array[int])
+	d.set_method(CharacterDraft.METHOD_ROLL)
+	assert_eq(d.method, CharacterDraft.METHOD_ROLL)
+	assert_false(d.is_fully_assigned(), "nothing to assign before a roll")
+	assert_has(d.problems(), "Roll your scores.")
+	d.roll_scores(Rng.new(1234))
+	var expected := AbilityScores.roll_scores(Rng.new(1234))
+	assert_eq(d.rolled_values, expected, "4d6 drop lowest via AbilityScores.roll_scores")
+	assert_eq(d.rolled_values.size(), 6)
+	for v in d.rolled_values:
+		assert_in_range(v, 3, 18)
+	assert_false(d.is_fully_assigned(), "the player assigns the rolled values")
+	assert_has(d.problems(), "Assign every rolled score.")
+	var pool := d.score_pool()
+	assert_eq(d.unassigned_values(), pool)
+	for i in range(Ability.COUNT):
+		d.assign(i, pool[i])
+	assert_true(d.is_fully_assigned())
+	assert_eq(d.unassigned_values(), [] as Array[int])
+	assert_true(d.is_valid(), str(d.problems()))
+	# A value not rolled is refused; assigning a taken value swaps.
+	var not_rolled := 3
+	while d.rolled_values.has(not_rolled):
+		not_rolled += 1
+	d.assign(Ability.Type.STR, not_rolled)
+	assert_eq(d.assigned[Ability.Type.STR], pool[0], "not a rolled value")
+	d.assign(Ability.Type.STR, pool[5])
+	assert_eq(d.assigned[Ability.Type.STR], pool[5])
+	if pool[5] != pool[0]:
+		assert_eq(d.assigned[5], pool[0], "the holder took STR's old value")
+	assert_true(d.is_valid(), str(d.problems()))
+	var sheet := d.build_sheet()
+	assert_eq(sheet.abilities.get_score(Ability.Type.STR), pool[5] + 1, "human +1 on the rolled value")
+
+
+func test_rolled_duplicates_can_each_be_used_once() -> void:
+	var d := _ready_fighter()
+	d.method = CharacterDraft.METHOD_ROLL
+	d.rolled_values = [12, 15, 12, 9, 10, 12] as Array[int]
+	assert_eq(d.score_choices(), [15, 12, 10, 9] as Array[int], "distinct values for the menus")
+	assert_eq(d.score_pool(), [15, 12, 12, 12, 10, 9] as Array[int])
+	d.assign(Ability.Type.STR, 12)
+	d.assign(Ability.Type.DEX, 12)
+	d.assign(Ability.Type.CON, 12)
+	assert_eq(d.assigned.slice(0, 3), [12, 12, 12] as Array[int], "three 12s rolled, three used")
+	d.assign(Ability.Type.INT, 12)
+	assert_eq(d.assigned[Ability.Type.INT], 12)
+	assert_eq(d.assigned[Ability.Type.STR], CharacterDraft.UNASSIGNED, "a fourth 12 swaps with the first holder")
+	d.assign(Ability.Type.STR, 15)
+	d.assign(Ability.Type.WIS, 10)
+	d.assign(Ability.Type.CHA, 9)
+	assert_true(d.is_valid(), str(d.problems()))
+	d.auto_assign()
+	assert_eq(d.assigned[Ability.Type.STR], 15, "suggestion: highest roll to the primary ability")
+	assert_true(d.is_valid(), str(d.problems()))
+
+
+func test_reroll_replaces_values_and_clears_the_assignment() -> void:
+	var d := _ready_fighter()
+	var rng := Rng.new(99)
+	d.roll_scores(rng)
+	d.auto_assign()
+	assert_true(d.is_valid(), str(d.problems()))
+	var first := d.rolled_values.duplicate()
+	d.roll_scores(rng)
+	assert_ne(d.rolled_values, first, "the same rng gives new values")
+	assert_eq(d.rolled_values.size(), 6)
+	assert_false(d.is_fully_assigned(), "a reroll clears the old assignment")
+	d.auto_assign()
+	var sorted := d.assigned.duplicate()
+	sorted.sort()
+	var rolled := d.rolled_values.duplicate()
+	rolled.sort()
+	assert_eq(sorted, rolled, "the new values are the ones assigned")
+	# Switching away and back keeps the roll (no free reroll by switching).
+	var kept := d.rolled_values.duplicate()
+	d.set_method(CharacterDraft.METHOD_STANDARD)
+	assert_true(d.is_valid(), "back to the standard array, suggested")
+	assert_eq(d.assigned[Ability.Type.STR], 15)
+	d.set_method(CharacterDraft.METHOD_ROLL)
+	assert_eq(d.rolled_values, kept)
+	assert_true(d.is_valid(), "the kept roll is suggested again: %s" % str(d.problems()))
+	d.set_method("nonsense")
+	assert_eq(d.method, CharacterDraft.METHOD_ROLL, "unknown methods are ignored")
+
+
+func test_every_method_builds_every_class() -> void:
+	for def in CharacterDraft.ordered_classes(_classes):
+		for m in CharacterDraft.METHODS:
+			var d := CharacterDraft.new()
+			d.character_name = "Tester"
+			d.set_class(def)
+			d.set_ancestry(_ancestries["human"])
+			if m == CharacterDraft.METHOD_ROLL:
+				d.roll_scores(Rng.new(7))
+			else:
+				d.set_method(m)
+			d.auto_assign()
+			for skill in def.skill_choices:
+				d.toggle_skill(skill, true)
+			d.auto_choose()
+			assert_true(d.is_valid(), "%s/%s: %s" % [def.id, m, str(d.problems())])
+			assert_true(int(d.preview()["hp"]) > 0, "%s/%s preview" % [def.id, m])
+			assert_not_null(d.build_sheet(), "%s/%s sheet" % [def.id, m])

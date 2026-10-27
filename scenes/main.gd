@@ -1,7 +1,10 @@
 class_name Main
 extends Node
 ## Boot scene for The Endless Delve: prints the version, loads and applies the
-## player's GameSettings (user://settings.cfg), shows the CharacterCreator, and
+## player's GameSettings (user://settings.cfg: audio, key bindings, and the
+## window mode / vsync, which are skipped under --headless; the window opens
+## maximized from project.godot until the saved mode is applied), shows the
+## CharacterCreator, and
 ## on confirm starts the GameScene in offline mode (InstanceServer in-process
 ## over a LocalTransport). When a run ends and the player asks for a new
 ## character, the creator comes back.

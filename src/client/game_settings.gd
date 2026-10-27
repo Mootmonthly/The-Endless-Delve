@@ -16,7 +16,12 @@ extends RefCounted
 ##            ; per action, up to SLOTS key strings: physical keycode plus
 ##            ; modifiers as OS.get_keycode_string() writes them ("Shift+W").
 ##            ; Missing or unparseable actions fall back to the defaults.
-##   [video]  fullscreen=false  vsync=true  lighting=true
+##   [video]  window_mode="maximized"  vsync=true  lighting=true
+##            ; window_mode: one of WINDOW_MODES (windowed / maximized /
+##            ; fullscreen / borderless). Files without it fall back to the
+##            ; legacy `fullscreen` bool (true -> fullscreen, false -> the
+##            ; default, maximized); `fullscreen` is still written for older
+##            ; builds.
 ##            ; lighting: the floor's darkness, torch / brazier lights and the
 ##            ; vignette (FloorView.set_lighting_enabled); off = plain layout
 
@@ -36,6 +41,22 @@ const MAX_VOLUME := 100
 const DEFAULT_VOLUME := 80
 ## Bus volume at slider 0 (linear_to_db(0) would be -inf).
 const SILENT_DB := -80.0
+
+## Window modes, in menu order. "fullscreen" is exclusive fullscreen;
+## "borderless" is a borderless window covering the screen.
+const WINDOW_WINDOWED := "windowed"
+const WINDOW_MAXIMIZED := "maximized"
+const WINDOW_FULLSCREEN := "fullscreen"
+const WINDOW_BORDERLESS := "borderless"
+const WINDOW_MODES: Array[String] = [WINDOW_WINDOWED, WINDOW_MAXIMIZED, WINDOW_FULLSCREEN, WINDOW_BORDERLESS]
+const WINDOW_MODE_LABELS: Dictionary[String, String] = {
+	WINDOW_WINDOWED: "Windowed",
+	WINDOW_MAXIMIZED: "Maximized",
+	WINDOW_FULLSCREEN: "Fullscreen",
+	WINDOW_BORDERLESS: "Borderless (fullscreen window)",
+}
+## Matches project.godot display/window/size/mode=2 (maximized).
+const DEFAULT_WINDOW_MODE := WINDOW_MAXIMIZED
 
 ## Key slots per action shown in the Controls tab.
 const SLOTS := 2
@@ -98,7 +119,8 @@ const SHAREABLE_PAIRS: Array[String] = ["cancel|open_settings"]
 
 var path: String = DEFAULT_PATH
 var volumes: Dictionary[String, int] = {}
-var fullscreen: bool = false
+## One of WINDOW_MODES.
+var window_mode: String = DEFAULT_WINDOW_MODE
 var vsync: bool = true
 ## Dynamic lighting on floors (darkness, lights, vignette).
 var lighting: bool = true
@@ -120,7 +142,7 @@ static func load_from(p_path: String = DEFAULT_PATH) -> GameSettings:
 func reset_all() -> void:
 	for bus in BUSES:
 		volumes[bus] = DEFAULT_VOLUME
-	fullscreen = false
+	window_mode = DEFAULT_WINDOW_MODE
 	vsync = true
 	lighting = true
 	reset_bindings()
@@ -141,7 +163,7 @@ static func default_keys(action: String) -> PackedStringArray:
 
 func copy_from(other: GameSettings) -> void:
 	volumes = other.volumes.duplicate()
-	fullscreen = other.fullscreen
+	window_mode = other.window_mode
 	vsync = other.vsync
 	lighting = other.lighting
 	bindings.clear()
@@ -156,7 +178,7 @@ func duplicate_settings() -> GameSettings:
 
 
 func equals(other: GameSettings) -> bool:
-	if volumes != other.volumes or fullscreen != other.fullscreen or vsync != other.vsync or lighting != other.lighting:
+	if volumes != other.volumes or window_mode != other.window_mode or vsync != other.vsync or lighting != other.lighting:
 		return false
 	for action in ACTIONS:
 		if bindings_for(action) != other.bindings_for(action):
@@ -180,8 +202,12 @@ func load_file() -> Error:
 		var v: Variant = cfg.get_value(SECTION_AUDIO, BUS_KEYS[bus], DEFAULT_VOLUME)
 		if v is int or v is float:
 			set_volume(bus, int(v))
-	var fs: Variant = cfg.get_value(SECTION_VIDEO, "fullscreen", false)
-	fullscreen = fs if fs is bool else false
+	var wm: Variant = cfg.get_value(SECTION_VIDEO, "window_mode", "")
+	if (wm is String or wm is StringName) and WINDOW_MODES.has(str(wm)):
+		window_mode = str(wm)
+	else:
+		var fs: Variant = cfg.get_value(SECTION_VIDEO, "fullscreen", false)
+		window_mode = WINDOW_FULLSCREEN if fs is bool and fs else DEFAULT_WINDOW_MODE
 	var vs: Variant = cfg.get_value(SECTION_VIDEO, "vsync", true)
 	vsync = vs if vs is bool else true
 	var li: Variant = cfg.get_value(SECTION_VIDEO, "lighting", true)
@@ -208,13 +234,46 @@ func save_file() -> Error:
 		cfg.set_value(SECTION_AUDIO, BUS_KEYS[bus], volumes[bus])
 	for action in ACTIONS:
 		cfg.set_value(SECTION_INPUT, action, Array(bindings_for(action)))
-	cfg.set_value(SECTION_VIDEO, "fullscreen", fullscreen)
+	cfg.set_value(SECTION_VIDEO, "window_mode", window_mode)
+	cfg.set_value(SECTION_VIDEO, "fullscreen", is_fullscreen())
 	cfg.set_value(SECTION_VIDEO, "vsync", vsync)
 	cfg.set_value(SECTION_VIDEO, "lighting", lighting)
 	var dir := path.get_base_dir()
 	if dir != "" and not DirAccess.dir_exists_absolute(dir):
 		DirAccess.make_dir_recursive_absolute(dir)
 	return cfg.save(path)
+
+
+# --- Video --------------------------------------------------------------------
+
+## Sets the window mode; unknown modes are ignored (returns false).
+func set_window_mode(mode: String) -> bool:
+	if not WINDOW_MODES.has(mode):
+		return false
+	window_mode = mode
+	return true
+
+
+## Whether the window covers the whole screen (fullscreen or borderless).
+func is_fullscreen() -> bool:
+	return window_mode == WINDOW_FULLSCREEN or window_mode == WINDOW_BORDERLESS
+
+
+## DisplayServer window mode for a WINDOW_MODES entry (unknown -> maximized).
+static func display_mode_for(mode: String) -> DisplayServer.WindowMode:
+	match mode:
+		WINDOW_WINDOWED:
+			return DisplayServer.WINDOW_MODE_WINDOWED
+		WINDOW_FULLSCREEN:
+			return DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+		WINDOW_BORDERLESS:
+			return DisplayServer.WINDOW_MODE_FULLSCREEN
+	return DisplayServer.WINDOW_MODE_MAXIMIZED
+
+
+## Whether the window can be changed (false under --headless).
+static func has_window() -> bool:
+	return DisplayServer.get_name() != "headless"
 
 
 # --- Audio --------------------------------------------------------------------
@@ -371,12 +430,13 @@ func apply_input() -> void:
 				InputMap.action_add_event(action, ev)
 
 
+## Window mode and vsync; does nothing under --headless.
 func apply_video() -> void:
-	var want_mode := DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
-	var mode := DisplayServer.window_get_mode()
-	var is_full := mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
-	if fullscreen != is_full:
-		DisplayServer.window_set_mode(want_mode)
+	if not GameSettings.has_window():
+		return
+	var want := GameSettings.display_mode_for(window_mode)
+	if DisplayServer.window_get_mode() != want:
+		DisplayServer.window_set_mode(want)
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 
 

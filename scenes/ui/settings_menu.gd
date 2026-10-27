@@ -9,7 +9,8 @@ extends CanvasLayer
 ## - Settings (from Pause, or the creator's Settings button): tabs Audio
 ##   (Master / Music / SFX sliders, previewed live), Controls (two key slots per
 ##   action; click a slot, press a key; Escape cancels; shared keys are
-##   highlighted but allowed; "Reset to defaults"), Video (fullscreen, vsync, dynamic lighting).
+##   highlighted but allowed; "Reset to defaults"), Video (window mode: windowed /
+##   maximized / fullscreen / borderless; vsync; dynamic lighting).
 ##   Apply saves and applies; Back discards unapplied changes.
 ##
 ## Edits go to `working`, a copy of the GameSettings handed to setup(); Apply
@@ -56,7 +57,7 @@ var _sliders: Dictionary[String, HSlider] = {}
 var _slider_values: Dictionary[String, Label] = {}
 var _action_labels: Dictionary[String, Label] = {}
 var _binding_buttons: Dictionary[String, Array] = {}  # action -> Array[Button], one per slot
-var _fullscreen_check: CheckBox
+var _window_mode_option: OptionButton
 var _vsync_check: CheckBox
 var _lighting_check: CheckBox
 var _status: Label
@@ -181,10 +182,13 @@ func _on_slider_changed(value: float, bus: String) -> void:
 	set_volume(bus, int(value))
 
 
-func _on_fullscreen_toggled(on: bool) -> void:
-	if not _syncing:
-		working.fullscreen = on
-		_mark_dirty()
+## Also callable directly (tests): item `index` of the Window mode menu
+## (GameSettings.WINDOW_MODES order).
+func _on_window_mode_selected(index: int) -> void:
+	if _syncing or index < 0 or index >= GameSettings.WINDOW_MODES.size():
+		return
+	working.set_window_mode(GameSettings.WINDOW_MODES[index])
+	_mark_dirty()
 
 
 func _on_vsync_toggled(on: bool) -> void:
@@ -434,10 +438,18 @@ func _build_controls_tab() -> Control:
 func _build_video_tab() -> Control:
 	var box := VBoxContainer.new()
 	box.name = "Video"
-	_fullscreen_check = CheckBox.new()
-	_fullscreen_check.text = "Fullscreen"
-	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
-	box.add_child(_fullscreen_check)
+	var mode_row := HBoxContainer.new()
+	mode_row.add_theme_constant_override("separation", 12)
+	var mode_label := Label.new()
+	mode_label.text = "Window mode"
+	mode_row.add_child(mode_label)
+	_window_mode_option = OptionButton.new()
+	_window_mode_option.name = "WindowMode"
+	for mode in GameSettings.WINDOW_MODES:
+		_window_mode_option.add_item(GameSettings.WINDOW_MODE_LABELS[mode])
+	_window_mode_option.item_selected.connect(_on_window_mode_selected)
+	mode_row.add_child(_window_mode_option)
+	box.add_child(mode_row)
 	_vsync_check = CheckBox.new()
 	_vsync_check.text = "V-Sync"
 	_vsync_check.toggled.connect(_on_vsync_toggled)
@@ -455,7 +467,7 @@ func _sync_from_working() -> void:
 	for bus in GameSettings.BUSES:
 		_sliders[bus].value = working.volume(bus)
 		_slider_values[bus].text = "%d%%" % working.volume(bus)
-	_fullscreen_check.button_pressed = working.fullscreen
+	_window_mode_option.select(maxi(GameSettings.WINDOW_MODES.find(working.window_mode), 0))
 	_vsync_check.button_pressed = working.vsync
 	_lighting_check.button_pressed = working.lighting
 	_syncing = false

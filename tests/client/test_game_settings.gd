@@ -92,7 +92,7 @@ func test_round_trip_through_config_file() -> void:
 	s.set_volume("Master", 55)
 	s.set_volume("Music", 0)
 	s.set_volume("SFX", 100)
-	s.fullscreen = true
+	assert_true(s.set_window_mode(GameSettings.WINDOW_BORDERLESS))
 	s.vsync = false
 	assert_true(s.set_binding("end_turn", 0, "Enter"))
 	assert_true(s.set_binding("move_up", 1, "Shift+I"))
@@ -102,7 +102,7 @@ func test_round_trip_through_config_file() -> void:
 	assert_true(back.equals(s), "loaded equals saved")
 	assert_eq(back.volume("Master"), 55)
 	assert_eq(back.volume("Music"), 0)
-	assert_true(back.fullscreen)
+	assert_eq(back.window_mode, GameSettings.WINDOW_BORDERLESS)
 	assert_false(back.vsync)
 	assert_eq(back.bindings_for("end_turn"), PackedStringArray(["Enter"]))
 	assert_eq(back.bindings_for("move_up"), PackedStringArray(["Up", "Shift+I"]))
@@ -110,13 +110,14 @@ func test_round_trip_through_config_file() -> void:
 	assert_eq(cfg.load(TMP_PATH), OK)
 	assert_eq(cfg.get_value("audio", "master"), 55)
 	assert_eq(cfg.get_value("input", "move_up"), ["Up", "Shift+I"])
-	assert_eq(cfg.get_value("video", "fullscreen"), true)
+	assert_eq(cfg.get_value("video", "window_mode"), "borderless")
+	assert_eq(cfg.get_value("video", "fullscreen"), true, "legacy key still written for older builds")
 
 
 func test_load_clamps_and_repairs_bad_values() -> void:
 	_write_cfg("[audio]\nmaster=250\nmusic=-3\nsfx=\"loud\"\n" +
 		"[input]\nmove_up=[\"Nonsense\"]\nend_turn=[\"ctrl+shift+f\", \"Bogus\", \"P\", \"O\"]\nrest=5\n" +
-		"[video]\nfullscreen=\"yes\"\nvsync=false\n")
+		"[video]\nwindow_mode=\"huge\"\nfullscreen=\"yes\"\nvsync=false\n")
 	var s := GameSettings.load_from(TMP_PATH)
 	assert_eq(s.volume("Master"), 100, "clamped high")
 	assert_eq(s.volume("Music"), 0, "clamped low")
@@ -124,7 +125,7 @@ func test_load_clamps_and_repairs_bad_values() -> void:
 	assert_eq(s.bindings_for("move_up"), GameSettings.default_keys("move_up"), "all-bad list -> default")
 	assert_eq(s.bindings_for("end_turn"), PackedStringArray(["Shift+Ctrl+F", "P"]), "canonical, bad dropped, max SLOTS")
 	assert_eq(s.bindings_for("rest"), GameSettings.default_keys("rest"), "non-list -> default")
-	assert_false(s.fullscreen, "non-bool -> default")
+	assert_eq(s.window_mode, GameSettings.DEFAULT_WINDOW_MODE, "unknown mode and non-bool legacy key -> default")
 	assert_false(s.vsync)
 
 
@@ -366,4 +367,84 @@ func test_lighting_setting_round_trips_and_the_video_tab_toggles_it() -> void:
 	assert_false(menu.settings.lighting)
 	assert_eq(seen, [false] as Array[bool], "applied carries the setting to the game")
 	assert_false(GameSettings.load_from(TMP_PATH).lighting, "saved")
+	menu.free()
+
+
+# --- Window mode ------------------------------------------------------------------
+
+func test_window_mode_defaults_to_maximized_like_project_godot() -> void:
+	var s := GameSettings.new(TMP_PATH)
+	assert_eq(s.window_mode, GameSettings.WINDOW_MAXIMIZED)
+	assert_eq(int(ProjectSettings.get_setting("display/window/size/mode", 0)), DisplayServer.WINDOW_MODE_MAXIMIZED,
+		"project.godot opens maximized")
+	assert_eq(str(ProjectSettings.get_setting("display/window/stretch/mode", "")), "canvas_items")
+	assert_eq(str(ProjectSettings.get_setting("display/window/stretch/aspect", "")), "expand",
+		"wide screens get more view, not bars")
+	assert_eq(GameSettings.WINDOW_MODES.size(), 4)
+	for mode in GameSettings.WINDOW_MODES:
+		assert_true(GameSettings.WINDOW_MODE_LABELS.has(mode), mode)
+	assert_false(s.set_window_mode("huge"), "unknown modes are refused")
+	assert_eq(s.window_mode, GameSettings.WINDOW_MAXIMIZED)
+
+
+func test_window_mode_maps_to_display_server_modes() -> void:
+	assert_eq(GameSettings.display_mode_for(GameSettings.WINDOW_WINDOWED), DisplayServer.WINDOW_MODE_WINDOWED)
+	assert_eq(GameSettings.display_mode_for(GameSettings.WINDOW_MAXIMIZED), DisplayServer.WINDOW_MODE_MAXIMIZED)
+	assert_eq(GameSettings.display_mode_for(GameSettings.WINDOW_FULLSCREEN), DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+	assert_eq(GameSettings.display_mode_for(GameSettings.WINDOW_BORDERLESS), DisplayServer.WINDOW_MODE_FULLSCREEN)
+	assert_eq(GameSettings.display_mode_for("nonsense"), DisplayServer.WINDOW_MODE_MAXIMIZED)
+	assert_false(GameSettings.has_window(), "the test run is headless")
+	GameSettings.new(TMP_PATH).apply_video()  # a no-op headless, must not error
+
+
+func test_window_mode_round_trips_every_mode() -> void:
+	for mode in GameSettings.WINDOW_MODES:
+		var s := GameSettings.new(TMP_PATH)
+		assert_true(s.set_window_mode(mode))
+		assert_eq(s.save_file(), OK)
+		var back := GameSettings.load_from(TMP_PATH)
+		assert_eq(back.window_mode, mode)
+		assert_true(back.equals(s), mode)
+		var cfg := ConfigFile.new()
+		cfg.load(TMP_PATH)
+		assert_eq(cfg.get_value("video", "fullscreen"), s.is_fullscreen(), "legacy key for %s" % mode)
+	var a := GameSettings.new(TMP_PATH)
+	var b := a.duplicate_settings()
+	b.set_window_mode(GameSettings.WINDOW_WINDOWED)
+	assert_false(a.equals(b), "window mode counts in equals")
+	a.copy_from(b)
+	assert_eq(a.window_mode, GameSettings.WINDOW_WINDOWED, "copy_from copies it")
+
+
+func test_legacy_fullscreen_key_is_the_fallback() -> void:
+	_write_cfg("[video]\nfullscreen=true\nvsync=true\n")
+	assert_eq(GameSettings.load_from(TMP_PATH).window_mode, GameSettings.WINDOW_FULLSCREEN, "old fullscreen=true")
+	_write_cfg("[video]\nfullscreen=false\n")
+	assert_eq(GameSettings.load_from(TMP_PATH).window_mode, GameSettings.WINDOW_MAXIMIZED,
+		"old fullscreen=false -> the new default, not the small window")
+	_write_cfg("[video]\nwindow_mode=\"windowed\"\nfullscreen=true\n")
+	assert_eq(GameSettings.load_from(TMP_PATH).window_mode, GameSettings.WINDOW_WINDOWED, "window_mode wins")
+
+
+func test_video_tab_window_mode_menu_replaces_the_fullscreen_checkbox() -> void:
+	var menu := _menu()
+	menu.open_settings()
+	var opt := menu._window_mode_option
+	assert_not_null(opt)
+	assert_eq(str(opt.name), "WindowMode")
+	assert_eq(str(opt.get_parent().get_parent().name), "Video", "the menu sits in Settings > Video")
+	assert_eq(opt.item_count, GameSettings.WINDOW_MODES.size())
+	assert_eq(opt.selected, GameSettings.WINDOW_MODES.find(GameSettings.WINDOW_MAXIMIZED))
+	for child in opt.get_parent().get_parent().get_children():
+		assert_false(child is CheckBox and (child as CheckBox).text == "Fullscreen", "no lone fullscreen checkbox")
+	menu._on_window_mode_selected(GameSettings.WINDOW_MODES.find(GameSettings.WINDOW_FULLSCREEN))
+	assert_true(menu.has_unapplied_changes())
+	menu.apply_changes()
+	assert_eq(menu.settings.window_mode, GameSettings.WINDOW_FULLSCREEN)
+	assert_eq(GameSettings.load_from(TMP_PATH).window_mode, GameSettings.WINDOW_FULLSCREEN, "saved")
+	menu.open_settings()
+	assert_eq(menu._window_mode_option.selected, GameSettings.WINDOW_MODES.find(GameSettings.WINDOW_FULLSCREEN),
+		"the menu shows the saved mode")
+	menu._on_window_mode_selected(99)
+	assert_false(menu.has_unapplied_changes(), "out-of-range index ignored")
 	menu.free()

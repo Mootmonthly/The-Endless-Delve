@@ -1,7 +1,16 @@
 class_name CharacterDraft
 extends RefCounted
 ## The character creator's choices and their validation, without any UI:
-## name, class, ancestry, a standard-array assignment and skill picks.
+## name, class, ancestry, ability scores and skill picks.
+##
+## Ability scores come from one of three `method`s (SRD rules), all before
+## ancestry bonuses:
+## - METHOD_STANDARD: 15, 14, 13, 12, 10, 8, each used once.
+## - METHOD_POINT_BUY: every score 8-15, AbilityScores.point_buy_cost per
+##   score, at most POINT_BUY_BUDGET (27) points in total.
+## - METHOD_ROLL: six 4d6-drop-lowest values (`rolled_values`, from
+##   roll_scores(rng)), each used once, like the standard array. Offline
+##   rerolls are unlimited; online servers will restrict rolled scores (GDD).
 ## The CharacterCreator scene edits a draft and asks it for the preview and,
 ## once is_valid(), the finished CharacterSheet (built by CharacterBuilder).
 ##
@@ -20,6 +29,18 @@ const CLASS_ORDER: Array[String] = [
 	"paladin", "ranger", "sorcerer", "warlock",
 ]
 const UNASSIGNED := -1
+const METHOD_STANDARD := "standard_array"
+const METHOD_POINT_BUY := "point_buy"
+const METHOD_ROLL := "roll"
+## Score methods in menu order.
+const METHODS: Array[String] = [METHOD_STANDARD, METHOD_POINT_BUY, METHOD_ROLL]
+const METHOD_LABELS: Dictionary[String, String] = {
+	METHOD_STANDARD: "Standard array",
+	METHOD_POINT_BUY: "Point buy",
+	METHOD_ROLL: "Roll (4d6, drop lowest)",
+}
+const POINT_BUY_MIN := 8
+const POINT_BUY_MAX := 15
 const MAX_NAME_LENGTH := 24
 ## Abilities filled after a class's primary abilities by auto_assign().
 const FALLBACK_PRIORITY: Array[int] = [
@@ -29,6 +50,11 @@ const FALLBACK_PRIORITY: Array[int] = [
 var character_name: String = ""
 var class_def: ClassDefinition = null
 var ancestry: AncestryDefinition = null
+## How the scores are generated: one of METHODS.
+var method: String = METHOD_STANDARD
+## The six 4d6-drop-lowest values of the last roll ([] until rolled); kept
+## when switching method so returning to Roll does not reroll.
+var rolled_values: Array[int] = []
 ## Base score per Ability.Type (before ancestry bonuses); UNASSIGNED = not chosen.
 var assigned: Array[int] = [UNASSIGNED, UNASSIGNED, UNASSIGNED, UNASSIGNED, UNASSIGNED, UNASSIGNED]
 var skills: Array[int] = []
@@ -81,23 +107,144 @@ func set_ancestry(def: AncestryDefinition) -> void:
 	ancestry = def
 
 
-## Gives ability `ability` the standard-array value `value` (or UNASSIGNED).
-## Each value is used once: an ability already holding `value` takes this
-## ability's previous value (a swap).
+## Switches the score method. Standard array: the class's suggested
+## assignment; point buy: every score 8 (all 27 points to spend); roll: the
+## suggested assignment of rolled_values, or nothing assigned until rolled.
+func set_method(m: String) -> void:
+	if not METHODS.has(m) or m == method:
+		return
+	method = m
+	clear_scores()
+	match method:
+		METHOD_STANDARD:
+			auto_assign()
+		METHOD_POINT_BUY:
+			for i in range(Ability.COUNT):
+				assigned[i] = POINT_BUY_MIN
+		METHOD_ROLL:
+			if rolled_values.size() == Ability.COUNT:
+				auto_assign()
+
+
+## Rolls six new values (4d6 drop lowest, AbilityScores.roll_scores) with
+## `rng`, switches to METHOD_ROLL and clears the assignment (a reroll
+## replaces the previous values).
+func roll_scores(rng: Rng) -> void:
+	rolled_values = AbilityScores.roll_scores(rng)
+	method = METHOD_ROLL
+	clear_scores()
+
+
+func clear_scores() -> void:
+	for i in range(Ability.COUNT):
+		assigned[i] = UNASSIGNED
+
+
+## The values to choose among, highest first: the standard array, the
+## distinct rolled values, or 15..8 for point buy.
+func score_choices() -> Array[int]:
+	var out: Array[int] = []
+	match method:
+		METHOD_POINT_BUY:
+			for v in range(POINT_BUY_MAX, POINT_BUY_MIN - 1, -1):
+				out.append(v)
+		METHOD_ROLL:
+			for v in rolled_values:
+				if not out.has(v):
+					out.append(v)
+			out.sort()
+			out.reverse()
+		_:
+			out = AbilityScores.standard_array()
+	return out
+
+
+## The values each used once (standard array or rolled values, highest
+## first); [] for point buy.
+func score_pool() -> Array[int]:
+	var out: Array[int] = []
+	match method:
+		METHOD_ROLL:
+			out.assign(rolled_values)
+			out.sort()
+			out.reverse()
+		METHOD_STANDARD:
+			out = AbilityScores.standard_array()
+	return out
+
+
+## Pool values not assigned to any ability yet, highest first ([] for point buy).
+func unassigned_values() -> Array[int]:
+	var left := score_pool()
+	for v in assigned:
+		if v != UNASSIGNED:
+			left.erase(v)
+	return left
+
+
+## Gives ability `ability` the value `value` (or UNASSIGNED). Standard array
+## and rolled values: each pool value is used once, so if every copy of
+## `value` is taken, the first ability holding it takes this ability's
+## previous value (a swap). Point buy: any score 8-15 (the budget is checked
+## by problems()). Values outside score_choices() are ignored.
 func assign(ability: int, value: int) -> void:
 	if not Ability.is_valid(ability):
 		return
-	if value != UNASSIGNED and not AbilityScores.standard_array().has(value):
+	if value != UNASSIGNED and not score_choices().has(value):
+		return
+	if method == METHOD_POINT_BUY:
+		if value != UNASSIGNED:
+			assigned[ability] = value
 		return
 	var previous := assigned[ability]
-	if value != UNASSIGNED:
+	if value != UNASSIGNED and value != previous:
+		var copies := score_pool().count(value)
+		var used := 0
+		var holder := -1
 		for other in range(Ability.COUNT):
 			if other != ability and assigned[other] == value:
-				assigned[other] = previous
+				used += 1
+				if holder < 0:
+					holder = other
+		if used >= copies and holder >= 0:
+			assigned[holder] = previous
 	assigned[ability] = value
 
 
-## Standard array by the class's primary abilities, then CON, DEX, WIS, STR, INT, CHA.
+## Point-buy points spent on the current scores (unassigned counts as 8), or
+## -1 if a score is outside 8..15.
+func point_buy_spent() -> int:
+	var values: Array[int] = []
+	for v in assigned:
+		values.append(POINT_BUY_MIN if v == UNASSIGNED else v)
+	return AbilityScores.point_buy_total(values)
+
+
+## Points left of the 27-point budget (negative when overspent); -1 if a
+## score is outside 8..15.
+func point_buy_remaining() -> int:
+	var spent := point_buy_spent()
+	if spent < 0:
+		return -1
+	return AbilityScores.POINT_BUY_BUDGET - spent
+
+
+## Whether setting `ability` to `value` keeps point buy within the budget.
+func point_buy_affordable(ability: int, value: int) -> bool:
+	if not Ability.is_valid(ability) or AbilityScores.point_buy_cost(value) < 0:
+		return false
+	var values: Array[int] = []
+	for i in range(Ability.COUNT):
+		var v := value if i == ability else assigned[i]
+		values.append(POINT_BUY_MIN if v == UNASSIGNED else v)
+	var total := AbilityScores.point_buy_total(values)
+	return total >= 0 and total <= AbilityScores.POINT_BUY_BUDGET
+
+
+## The suggested scores, by the class's primary abilities, then CON, DEX,
+## WIS, STR, INT, CHA: the standard array (also for point buy, where it costs
+## exactly 27 points) or the rolled values highest first. Nothing happens for
+## Roll before a roll.
 func auto_assign() -> void:
 	var priority: Array[int] = []
 	if class_def != null:
@@ -108,6 +255,10 @@ func auto_assign() -> void:
 		if not priority.has(a):
 			priority.append(a)
 	var values := AbilityScores.standard_array()
+	if method == METHOD_ROLL:
+		values = score_pool()
+		if values.size() != Ability.COUNT:
+			return
 	for i in range(Ability.COUNT):
 		assigned[priority[i]] = values[i]
 
@@ -233,8 +384,7 @@ func problems() -> Array[String]:
 		out.append("Choose a class.")
 	if ancestry == null:
 		out.append("Choose an ancestry.")
-	if not is_fully_assigned():
-		out.append("Assign every standard-array score.")
+	out.append_array(score_problems())
 	if class_def != null and skills.size() != class_def.skill_choice_count:
 		out.append("Choose %d skills (%d chosen)." % [class_def.skill_choice_count, skills.size()])
 	if class_def != null:
@@ -244,6 +394,42 @@ func problems() -> Array[String]:
 			if d.picks_for(entry).size() != count:
 				out.append("Choose %d: %s (%d chosen)." % [count, d.choice_title(entry), d.picks_for(entry).size()])
 	return out
+
+
+## The ability-score part of problems() for the current method.
+func score_problems() -> Array[String]:
+	var out: Array[String] = []
+	match method:
+		METHOD_POINT_BUY:
+			if not is_fully_assigned():
+				out.append("Choose every score.")
+			var remaining := point_buy_remaining()
+			if point_buy_spent() < 0:
+				out.append("Point-buy scores must be %d-%d." % [POINT_BUY_MIN, POINT_BUY_MAX])
+			elif remaining < 0:
+				out.append("Point buy: %d points over the %d-point budget." % [-remaining, AbilityScores.POINT_BUY_BUDGET])
+		METHOD_ROLL:
+			if rolled_values.size() != Ability.COUNT:
+				out.append("Roll your scores.")
+			elif not is_fully_assigned():
+				out.append("Assign every rolled score.")
+			elif not _assignment_matches_pool():
+				out.append("Use each rolled value once.")
+		_:
+			if not is_fully_assigned():
+				out.append("Assign every standard-array score.")
+			elif not _assignment_matches_pool():
+				out.append("Use each standard-array value once.")
+	return out
+
+
+func _assignment_matches_pool() -> bool:
+	var mine: Array[int] = []
+	mine.assign(assigned)
+	mine.sort()
+	var pool := score_pool()
+	pool.sort()
+	return mine == pool
 
 
 func is_valid() -> bool:
