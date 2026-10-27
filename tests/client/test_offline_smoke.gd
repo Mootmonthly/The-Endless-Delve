@@ -118,7 +118,8 @@ func _play(sheet: CharacterSheet, instance_seed: int) -> ClientState:
 	assert_eq(pid, "p1")
 	server.run_tick()
 	assert_eq(st.mode, ClientState.Mode.EXPLORING)
-	assert_eq(st.player_position(), floor_data.arrival)
+	assert_false(st.landing_id.is_empty(), "FLOOR_LOADED names the landing")
+	assert_eq(st.player_position(), floor_data.get_landing(st.landing_id).position, "the player stands on its landing")
 	var expected_entities := 1
 	for z in floor_data.encounter_zones:
 		expected_entities += z.monster_ids.size()
@@ -154,7 +155,7 @@ func _play(sheet: CharacterSheet, instance_seed: int) -> ClientState:
 		server.run_tick()
 	_server_hp = server.get_entity(pid).sheet.current_hp
 	_server_sheet = server.get_entity(pid).sheet.to_dict()
-	_zone_cleared = server.is_zone_cleared("z1")
+	_zone_cleared = server.is_zone_cleared(floor_data.stairs_zone().id)
 	server.free()
 	return st
 
@@ -177,7 +178,7 @@ func test_hardy_character_clears_the_floor() -> void:
 	sheet.current_hp = 100
 	var st := _play(sheet, 7)
 	assert_true(_fought)
-	assert_true(_zone_cleared, "z1 cleared")
+	assert_true(_zone_cleared, "the stairs guard was beaten")
 	assert_eq(st.mode, ClientState.Mode.FLOOR_CLEARED, st.mode_text())
 	assert_eq(st.cleared_floor_id, "floor_001")
 	assert_eq(st.player_position(), FloorFile.load(FLOOR_PATH).stairs)

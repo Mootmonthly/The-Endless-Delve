@@ -16,7 +16,9 @@ extends RefCounted
 ##            ; per action, up to SLOTS key strings: physical keycode plus
 ##            ; modifiers as OS.get_keycode_string() writes them ("Shift+W").
 ##            ; Missing or unparseable actions fall back to the defaults.
-##   [video]  fullscreen=false  vsync=true
+##   [video]  fullscreen=false  vsync=true  lighting=true
+##            ; lighting: the floor's darkness, torch / brazier lights and the
+##            ; vignette (FloorView.set_lighting_enabled); off = plain layout
 
 const DEFAULT_PATH := "user://settings.cfg"
 const SECTION_AUDIO := "audio"
@@ -98,6 +100,8 @@ var path: String = DEFAULT_PATH
 var volumes: Dictionary[String, int] = {}
 var fullscreen: bool = false
 var vsync: bool = true
+## Dynamic lighting on floors (darkness, lights, vignette).
+var lighting: bool = true
 var bindings: Dictionary[String, PackedStringArray] = {}
 
 
@@ -118,6 +122,7 @@ func reset_all() -> void:
 		volumes[bus] = DEFAULT_VOLUME
 	fullscreen = false
 	vsync = true
+	lighting = true
 	reset_bindings()
 
 
@@ -138,6 +143,7 @@ func copy_from(other: GameSettings) -> void:
 	volumes = other.volumes.duplicate()
 	fullscreen = other.fullscreen
 	vsync = other.vsync
+	lighting = other.lighting
 	bindings.clear()
 	for action: String in other.bindings.keys():
 		bindings[action] = other.bindings[action].duplicate()
@@ -150,7 +156,7 @@ func duplicate_settings() -> GameSettings:
 
 
 func equals(other: GameSettings) -> bool:
-	if volumes != other.volumes or fullscreen != other.fullscreen or vsync != other.vsync:
+	if volumes != other.volumes or fullscreen != other.fullscreen or vsync != other.vsync or lighting != other.lighting:
 		return false
 	for action in ACTIONS:
 		if bindings_for(action) != other.bindings_for(action):
@@ -178,6 +184,8 @@ func load_file() -> Error:
 	fullscreen = fs if fs is bool else false
 	var vs: Variant = cfg.get_value(SECTION_VIDEO, "vsync", true)
 	vsync = vs if vs is bool else true
+	var li: Variant = cfg.get_value(SECTION_VIDEO, "lighting", true)
+	lighting = li if li is bool else true
 	for action in ACTIONS:
 		if not cfg.has_section_key(SECTION_INPUT, action):
 			continue
@@ -202,6 +210,7 @@ func save_file() -> Error:
 		cfg.set_value(SECTION_INPUT, action, Array(bindings_for(action)))
 	cfg.set_value(SECTION_VIDEO, "fullscreen", fullscreen)
 	cfg.set_value(SECTION_VIDEO, "vsync", vsync)
+	cfg.set_value(SECTION_VIDEO, "lighting", lighting)
 	var dir := path.get_base_dir()
 	if dir != "" and not DirAccess.dir_exists_absolute(dir):
 		DirAccess.make_dir_recursive_absolute(dir)

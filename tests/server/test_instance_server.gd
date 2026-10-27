@@ -552,7 +552,7 @@ func test_floor_001_playthrough_to_the_stairs() -> void:
 		elif _pos("p1") == floor_data.stairs:
 			break
 	assert_eq(_pos("p1"), floor_data.stairs, "reached the stairs")
-	assert_true(server.is_zone_cleared("z1"), "the route crosses z1")
+	assert_true(server.is_zone_cleared(floor_data.stairs_zone().id), "the stairs guard was beaten on the way")
 	_send(Messages.USE_STAIRS)
 	_tick()
 	_flush()

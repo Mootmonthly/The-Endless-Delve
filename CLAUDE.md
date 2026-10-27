@@ -200,3 +200,17 @@ Append one entry per working session (newest last).
   landings, `tools/build_tiles.py` art refresh (autotiled walls, floor
   variants, doors, props, torch lighting, vignette; CC0 Kenney pieces with
   provenance). Suite: 831 green. Next: D2 + round C UI (one agent).
+- **2026-10-27 — Round D2 + round C UI.** Server: seeded landing
+  assignment, doors (open/close/unlock by tools, key or Knock) and
+  breakable props that block paths, sight and fight maps, pack and boss
+  respawns on timers (never with a player in the zone), exploration_effect
+  resolution (unlock/open/reveal/light/teleport/recall), control intent
+  for dominated creatures, fight light from the floor. Client: click doors
+  and props, terrain overlay (walls, darkness, difficult ground, zones),
+  unseen/banished/illusion rendering, control panel, ritual toggle,
+  "no effect in the delve" label, familiar/Overchannel/Quivering Palm/Hurl
+  Through Hell options, new level-up sections, a Dynamic lighting setting.
+  Gaps for later: no object targets in fights, logged mid-fight map edits,
+  move-only blockers, floor light levels, tool proficiencies on sheets,
+  key items, Messages lacks hide/search/shove/grapple/help/move_effect
+  validation. Suite: 886 green.

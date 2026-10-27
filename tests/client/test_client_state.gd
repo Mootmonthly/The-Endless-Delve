@@ -764,14 +764,16 @@ func test_spells_targeting_slots_and_unsupported() -> void:
 	if not leveled.is_empty():
 		assert_eq(st.sheet.slots_left(1), 1, "a level 1 slot was spent")
 	assert_ne(st.cast_error(cantrip), "", "action used")
-	# An unsupported spell is listed but never castable.
+	# Round C: every SRD spell is castable; Alarm is a declared no-effect spell
+	# with a 1-minute casting time, listed but not castable in a fight.
 	st.sheet.spells_prepared.append("alarm")
 	var found := false
 	for e in st.spell_entries():
 		if str(e["id"]) == "alarm":
 			found = true
-			assert_false(bool(e["supported"]))
-			assert_eq(str(e["error"]), "not supported yet")
+			assert_true(bool(e["supported"]))
+			assert_false(str(e["no_effect"]).is_empty(), "it says why it does nothing here")
+			assert_eq(str(e["error"]), "takes too long to cast in combat")
 	assert_true(found)
 
 

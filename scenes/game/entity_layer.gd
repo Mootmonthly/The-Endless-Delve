@@ -8,7 +8,10 @@ extends Node2D
 ##   the dungeon tileset's TILE_PLAYER / TILE_MONSTER;
 ## - the downed (and dead players) as TILE_UNCONSCIOUS;
 ## - a selection ring (TILE_SELECTION) on the combatant whose turn it is.
-## Slain monsters are not drawn. Pure view: reads the state, never changes it.
+## Slain monsters are not drawn. Round C visibility (ClientState.visibility_of):
+## hidden / invisible hostiles and banished creatures are not drawn; the
+## player's own side while unseen, and illusions, are drawn ghosted (the
+## Ghosts layers, half transparent). Pure view: reads the state, never changes it.
 
 const TILESET_PATH := "res://assets/tiles/dungeon_tiles.tres"
 
@@ -18,6 +21,9 @@ var markers: TileMapLayer
 var fallback: TileMapLayer
 ## Icon-atlas figures.
 var figures: TileMapLayer
+## Ghosted figures (icon atlas / dungeon tileset), drawn half transparent.
+var ghosts: TileMapLayer
+var ghost_fallback: TileMapLayer
 var icons: EntityIcons
 
 
@@ -41,12 +47,24 @@ func _init() -> void:
 	figures.name = "Figures"
 	figures.tile_set = icon_set
 	add_child(figures)
+	ghost_fallback = TileMapLayer.new()
+	ghost_fallback.name = "GhostFallback"
+	ghost_fallback.tile_set = tile_set
+	ghost_fallback.modulate = Color(0.75, 0.85, 1.0, 0.45)
+	add_child(ghost_fallback)
+	ghosts = TileMapLayer.new()
+	ghosts.name = "Ghosts"
+	ghosts.tile_set = icon_set
+	ghosts.modulate = Color(0.75, 0.85, 1.0, 0.45)
+	add_child(ghosts)
 
 
 ## Redraws every entity and chest from scratch (a floor holds at most a few hundred).
 func refresh(state: ClientState) -> void:
 	figures.clear()
 	fallback.clear()
+	ghosts.clear()
+	ghost_fallback.clear()
 	markers.clear()
 	chest_layer.clear()
 	for c in state.visible_chests():
@@ -56,13 +74,17 @@ func refresh(state: ClientState) -> void:
 	for id: String in state.entities.keys():
 		var e: Dictionary = state.entities[id]
 		var p: Vector2i = e["position"]
+		var vis := state.visibility_of(id)
+		if vis == ClientState.VIS_HIDDEN:
+			continue
+		var ghost := vis == ClientState.VIS_GHOST
 		var icon := EntityLayer.icon_for(e, icons)
 		if icon >= 0:
-			figures.set_cell(p, icons.source_id, Vector2i(icon, 0))
+			(ghosts if ghost else figures).set_cell(p, icons.source_id, Vector2i(icon, 0))
 			continue
 		var tile := EntityLayer.tile_for(e)
 		if tile >= 0:
-			fallback.set_cell(p, FloorView.SOURCE_ID, Vector2i(tile, 0))
+			(ghost_fallback if ghost else fallback).set_cell(p, FloorView.SOURCE_ID, Vector2i(tile, 0))
 	if state.in_encounter and state.entities.has(state.current_actor):
 		var current: Dictionary = state.entities[state.current_actor]
 		var cp: Vector2i = current["position"]

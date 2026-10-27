@@ -9,7 +9,7 @@ extends CanvasLayer
 ## - Settings (from Pause, or the creator's Settings button): tabs Audio
 ##   (Master / Music / SFX sliders, previewed live), Controls (two key slots per
 ##   action; click a slot, press a key; Escape cancels; shared keys are
-##   highlighted but allowed; "Reset to defaults"), Video (fullscreen, vsync).
+##   highlighted but allowed; "Reset to defaults"), Video (fullscreen, vsync, dynamic lighting).
 ##   Apply saves and applies; Back discards unapplied changes.
 ##
 ## Edits go to `working`, a copy of the GameSettings handed to setup(); Apply
@@ -58,6 +58,7 @@ var _action_labels: Dictionary[String, Label] = {}
 var _binding_buttons: Dictionary[String, Array] = {}  # action -> Array[Button], one per slot
 var _fullscreen_check: CheckBox
 var _vsync_check: CheckBox
+var _lighting_check: CheckBox
 var _status: Label
 var _capture_action: String = ""
 var _capture_slot: int = -1
@@ -189,6 +190,13 @@ func _on_fullscreen_toggled(on: bool) -> void:
 func _on_vsync_toggled(on: bool) -> void:
 	if not _syncing:
 		working.vsync = on
+		_mark_dirty()
+
+
+## Also callable directly (tests): the dynamic lighting toggle.
+func _on_lighting_toggled(on: bool) -> void:
+	if not _syncing:
+		working.lighting = on
 		_mark_dirty()
 
 
@@ -434,6 +442,11 @@ func _build_video_tab() -> Control:
 	_vsync_check.text = "V-Sync"
 	_vsync_check.toggled.connect(_on_vsync_toggled)
 	box.add_child(_vsync_check)
+	_lighting_check = CheckBox.new()
+	_lighting_check.name = "Lighting"
+	_lighting_check.text = "Dynamic lighting (darkness, torches, vignette)"
+	_lighting_check.toggled.connect(_on_lighting_toggled)
+	box.add_child(_lighting_check)
 	return box
 
 
@@ -444,6 +457,7 @@ func _sync_from_working() -> void:
 		_slider_values[bus].text = "%d%%" % working.volume(bus)
 	_fullscreen_check.button_pressed = working.fullscreen
 	_vsync_check.button_pressed = working.vsync
+	_lighting_check.button_pressed = working.lighting
 	_syncing = false
 	_refresh_controls()
 

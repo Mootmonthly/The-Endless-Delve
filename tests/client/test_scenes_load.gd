@@ -29,6 +29,7 @@ func test_client_scripts_compile() -> void:
 		"res://scenes/game/hud.gd",
 		"res://scenes/game/entity_layer.gd",
 		"res://scenes/game/reach_overlay.gd",
+		"res://scenes/game/terrain_overlay.gd",
 		"res://src/client/client_state.gd",
 		"res://src/client/character_draft.gd",
 		"res://src/client/game_settings.gd",

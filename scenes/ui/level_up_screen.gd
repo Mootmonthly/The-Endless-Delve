@@ -9,8 +9,12 @@ extends CanvasLayer
 ## for prepared casters (count shown), one section per progression choice
 ## (subclass with its description, fighting style, expertise from proficient
 ## skills, invocations, metamagic, option features such as Dragon Ancestor,
-## extra skills; counts shown, every option with its rules text and a
-## "not yet modelled" badge when the engine does not model it), and the
+## extra skills, round C's spell choices: Magical Secrets, Mystic Arcanum,
+## Pact of the Tome cantrips, Book of Ancient Secrets rituals, Spell Mastery
+## and Signature Spells, each option named with its spell level, plus a note
+## when a choice only applies with another pick; counts shown, every option
+## with its rules text and a "not yet modelled" badge when the engine does
+## not model it), and the
 ## features gained as cards (data/features descriptions, "implemented" /
 ## "not yet modelled", subclass features marked). Confirm stays disabled until
 ## the draft is valid; it emits `confirmed(choices)` and waits (set_waiting)
@@ -419,6 +423,9 @@ func _fill_choices() -> void:
 		var heading := _heading("%s (choose %d)" % [draft.choice_title(entry), count])
 		heading.set_meta("heading", true)
 		section.add_child(heading)
+		var note := draft.choice_note(entry)
+		if not note.is_empty():
+			section.add_child(_description(note))
 		var group: ButtonGroup = ButtonGroup.new() if count == 1 else null
 		if group != null:
 			group.allow_unpress = true

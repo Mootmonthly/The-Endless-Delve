@@ -18,7 +18,12 @@ extends RefCounted
 ##   cast        {"spell": id, "target"?: id, "slot_level"?: int 0..9,
 ##                "point"?: [x, y] (area spells), "sculpt"?: [id],
 ##                "metamagic"?: [id], "twin_target"?: id, "targets"?: [id],
-##                "form"?: monster id (Find Familiar / Animate Dead form)}
+##                "form"?: monster id (Find Familiar / Animate Dead form),
+##                round C: "mode"?: String (spell variant / Wish choice), "duplicate_mode"?:
+##                String, "target_kind"?: "chest"|"door"|"zone"|"landmark", "target_id"?: id,
+##                "invocation"?: id, "overchannel"?: bool, "ritual"?: bool (out of combat:
+##                cast as a ritual, no slot), "spend_slot"?: bool (a no-effect spell spends
+##                its slot anyway)}
 ##                                                    BOTH: resolved by the encounter
 ##                                                    when the actor is in one, else
 ##                                                    out of combat by the server
@@ -31,6 +36,10 @@ extends RefCounted
 ##   use_feature {"feature": id, "target"?: id, "amount"?: int >= 0,
 ##                "mode"?: String, "slot_level"?: int 0..9,
 ##                "allocations"?: {id: int >= 1}, "frenzy"?: bool}
+##                round C: "via_familiar"?, "quivering_palm"?, "hurl_through_hell"?: bool
+##   control     {"target": id, "orders": [intent dicts with a "type", not control, <= 12]}
+##                                                    round C (encounter, free): orders for a
+##                                                    creature the actor dominates
 ##   dash, dodge, disengage, end_turn                 no extra fields
 ##   use_item    {"item": id, "target"?: id, "bonus"?: bool}
 ##                                                    BOTH: resolved by the encounter
@@ -45,6 +54,17 @@ extends RefCounted
 ##   equip       {"item": id, "slot": "main_hand"|"off_hand"|"armor"}
 ##   unequip     {"slot": "main_hand"|"off_hand"|"armor"}
 ##   open_chest  {"chest_id": id}                     on or adjacent to the chest
+##   open_door   {"door_id": id}                      adjacent, out of combat: closed -> open
+##   close_door  {"door_id": id}                      adjacent, out of combat: open -> closed
+##                                                    (nobody may stand in the doorway)
+##   unlock_door {"door_id": id, "method": "key"|"tools"|"spell", "spell"?: id}
+##                                                    adjacent (spell: in the spell's range);
+##                                                    key: carry the door's key item (kept);
+##                                                    tools: thieves' tools, DEX check (+
+##                                                    proficiency) vs the door's dc; spell:
+##                                                    casts "spell" (default knock) at the door
+##   interact    {"prop_id": id}                      adjacent, out of combat: breaks a
+##                                                    prop and rolls its loot
 ##   drop_item   {"item": id, "qty": int >= 1}        discarded (nothing on the floor in M2)
 ##   dismiss_companion {"companion_id": id}           out of combat: removes a companion
 ##                                                    (sheet.companions entry "id") from
@@ -68,30 +88,54 @@ extends RefCounted
 ##   explore_state    {"entities": [{"id", "position": [x, y], "kind"}], "tick": int}
 ##   error            {"message": String}
 ##   floor_loaded     {"floor": FloorData.to_dict()}    sent again for every new floor
+##                    (doors carry their current state and never key_item; props never
+##                    loot_table; hidden chests and their tables never)
 ##                    extras: "entity_id", "cleared_zones", "set_id", "set_name",
 ##                    "floor_index" (0-based in the set), "floor_count",
 ##                    "chests": [{"id", "position": [x, y], "hidden": bool, "opened": bool}]
-##                    (hidden chests are listed only once revealed or opened)
+##                    (hidden chests are listed only once revealed or opened),
+##                    "landings": [{"id", "position", "facing"?}], "landing_id" (where this
+##                    player arrived), "doors": [{"id", "position", "state", "dc"?, "keyed"?}],
+##                    "props": [{"id", "kind", "position", "hp", "blocks", "destroyed"}],
+##                    "light" (the floor's light level: "bright"|"dim"|"dark")
 ##   character_state  {"sheet": CharacterSheet.to_dict()}
 ##                    extras: "entity_id", "healed", "xp_gained", "floor_clear_xp",
 ##                    "leveled_to" (after a level_up intent), "long_rest", "item_used",
 ##                    "equipped", "unequipped", "dropped", "slots_recovered" ([levels],
 ##                    after a short_rest with recover_slots), "recovery_error",
 ##                    "reaction_policy", "spell_cast" (out-of-combat cast),
-##                    "companion_dismissed" {"id", "monster"}
+##                    "companion_dismissed" {"id", "monster"}, "light_level" (the
+##                    player's own light after a light spell), "door_unlocked" {door_id,
+##                    method}, "unlock_failed" {door_id, total, dc}
 ##                    sheet "companions" entries carry a server-given "id"
 ##   out_of_combat_events {"entity_id": id, "spell": id, "events": [event dicts, each
 ##                    with "kind"]}  an out-of-combat cast; extras "slot_level" and
 ##                    "result" (OutOfCombat.cast's result dict). Event kinds:
-##                    cast {actor, spell, target, slot_level, casting_time, ritual},
-##                    companion_summoned {caster, spell, monster, count, companion_ids},
-##                    heal {target, amount, hp_after}, temp_hp {target, amount,
-##                    temp_hp_after}, revived {target, hp}, restored {target,
-##                    conditions_removed, exhaustion}, buff {target, buff, ac}
-##   loot_gained      {"entity_id", "items": [{"item", "qty"}], "source": "chest"|"monster"|"floor"}
-##                    extras: "chest_id" (chest loot)
+##                    the core's (OutOfCombat.cast): cast {actor, spell, target,
+##                    slot_level, casting_time, ritual (the spell's tag), as_ritual,
+##                    invocation?}, companion_summoned {caster, spell, monster, count,
+##                    companion_ids}, heal {target, amount, hp_after}, temp_hp {target,
+##                    amount, temp_hp_after}, revived {target, hp}, restored {target,
+##                    conditions_removed, exhaustion}, buff {target, buff, ac}; round C
+##                    exploration_effect {actor, spell, effect, reveal?, target_kind?,
+##                    target_id?, ...} (the server then resolves it: door_changed,
+##                    chest_revealed, chest_opened, reveal), no_effect {actor, spell,
+##                    reason}, lingering_added {target, spell, lingering_kind, encounters}
+##   loot_gained      {"entity_id", "items": [{"item", "qty"}], "source": "chest"|"monster"|
+##                    "floor"|"prop"}  extras: "chest_id" (chest loot), "prop_id" (a broken prop)
 ##   chest_opened     {"chest_id": id}                  extras: "entity_id" (the opener)
-##   chest_revealed   {"chest": {"id", "position", "hidden", "opened"}}
+##   chest_revealed   {"chest": {"id", "position", "hidden", "opened", "locked"?}}
+##   door_changed     {"door_id", "state": "open"|"closed"|"locked", "by": entity id}
+##                    extras: "method" ("hand"|"key"|"tools"|"spell"), "spell"
+##   prop_destroyed   {"prop_id", "by": entity id}
+##   zone_respawned   {"zone_id"}                       a cleared pack came back (its timer
+##                                                      ran out with no player in its rect)
+##   reveal           {"entity_id", "reveal": "monsters"|"creatures"|"hidden_chests"|"stairs"|
+##                    "map"|"threat"|"traps"|"magic_items"|"teleport"|"recall"|"light"|"nothing",
+##                    "spell"} + per kind: "zones" [{"zone_id", "name", "rect", "monsters"
+##                    [{"id", "monster_id", "position"}]}], "chests" [ids], "stairs" [x, y],
+##                    "position" [x, y], "threat" ("weal"|"woe"|"cleared"), "zone_id",
+##                    "light" ("bright"|"dim"|"dark"), "reason"; only to the caster
 ##   level_up_available {"entity_id", "choices": LevelUp.choices(...)}  one level at a
 ##                    time, only out of combat; answer with the level_up intent
 ##   game_over        {}                                the party is wiped out
@@ -125,6 +169,21 @@ const DROP_ITEM := "drop_item"
 const LEVEL_UP := "level_up"
 const REACTION_POLICY := "reaction_policy"
 const DISMISS_COMPANION := "dismiss_companion"
+const OPEN_DOOR := "open_door"
+const CLOSE_DOOR := "close_door"
+const UNLOCK_DOOR := "unlock_door"
+const INTERACT := "interact"
+## Round C (encounter, free): orders for a dominated creature.
+const CONTROL := "control"
+## unlock_door "method" values.
+const UNLOCK_KEY := "key"
+const UNLOCK_TOOLS := "tools"
+const UNLOCK_SPELL := "spell"
+const UNLOCK_METHODS: Array[String] = [UNLOCK_KEY, UNLOCK_TOOLS, UNLOCK_SPELL]
+## cast "target_kind" values (exploration spells).
+const TARGET_KINDS: Array[String] = ["chest", "door", "zone", "landmark"]
+## Most orders one control intent may carry (Encounter._check_control).
+const MAX_CONTROL_ORDERS := 12
 ## Reaction triggers of a reaction policy (Combatant.reaction_policy); a key
 ## may also be a reaction id. Values: "auto" (react when able) or "never".
 const REACTION_TRIGGERS: Array[String] = [
@@ -142,13 +201,13 @@ const MAX_SLOT_LEVEL := 9
 
 ## Intents resolved by an Encounter (Encounter.submit).
 const ENCOUNTER_INTENTS: Array[String] = [
-	MOVE, STAND, ATTACK, DASH, DODGE, DISENGAGE, END_TURN, CAST, USE_ITEM, USE_FEATURE, REACTION_POLICY,
+	MOVE, STAND, ATTACK, DASH, DODGE, DISENGAGE, END_TURN, CAST, USE_ITEM, USE_FEATURE, REACTION_POLICY, CONTROL,
 ]
 ## Intents resolved by the real-time floor simulation. USE_ITEM and CAST are
 ## in both lists: the server routes them to the encounter when the actor is in one.
 const EXPLORE_INTENTS: Array[String] = [
 	EXPLORE_MOVE, USE_STAIRS, SHORT_REST, EQUIP, UNEQUIP, USE_ITEM, CAST, OPEN_CHEST, DROP_ITEM, LEVEL_UP,
-	REACTION_POLICY, DISMISS_COMPANION,
+	REACTION_POLICY, DISMISS_COMPANION, OPEN_DOOR, CLOSE_DOOR, UNLOCK_DOOR, INTERACT,
 ]
 
 # --- Result kinds (server -> client) ---
@@ -165,15 +224,22 @@ const CHEST_OPENED := "chest_opened"
 const CHEST_REVEALED := "chest_revealed"
 const LEVEL_UP_AVAILABLE := "level_up_available"
 const OUT_OF_COMBAT_EVENTS := "out_of_combat_events"
+const DOOR_CHANGED := "door_changed"
+const PROP_DESTROYED := "prop_destroyed"
+const ZONE_RESPAWNED := "zone_respawned"
+const REVEAL := "reveal"
 
 ## LOOT_GAINED "source" values.
 const LOOT_SOURCE_CHEST := "chest"
 const LOOT_SOURCE_MONSTER := "monster"
 const LOOT_SOURCE_FLOOR := "floor"
+const LOOT_SOURCE_PROP := "prop"
+const LOOT_SOURCES: Array[String] = [LOOT_SOURCE_CHEST, LOOT_SOURCE_MONSTER, LOOT_SOURCE_FLOOR, LOOT_SOURCE_PROP]
 
 const RESULT_KINDS: Array[String] = [
 	ENCOUNTER_EVENTS, EXPLORE_STATE, ERROR, FLOOR_LOADED, CHARACTER_STATE, GAME_OVER, FLOOR_CLEARED,
 	SET_CLEARED, LOOT_GAINED, CHEST_OPENED, CHEST_REVEALED, LEVEL_UP_AVAILABLE, OUT_OF_COMBAT_EVENTS,
+	DOOR_CHANGED, PROP_DESTROYED, ZONE_RESPAWNED, REVEAL,
 ]
 
 
@@ -241,6 +307,8 @@ static func validate_intent(d: Dictionary) -> String:
 			for step: Variant in path:
 				if not Messages.is_position(step):
 					return "move: path step %s is not [x, y]" % str(step)
+			if d.has("mode") and (typeof(d["mode"]) != TYPE_STRING or not ["walk", "fly", "teleport"].has(str(d["mode"]))):
+				return "move: 'mode' must be walk, fly or teleport"
 		ATTACK:
 			if not Messages._is_non_empty_string(d.get("target")):
 				return "attack: missing or empty 'target'"
@@ -248,7 +316,7 @@ static func validate_intent(d: Dictionary) -> String:
 				return "attack: 'attack_index' must be an int"
 			if Messages._as_int(d["attack_index"]) < 0:
 				return "attack: 'attack_index' must be >= 0"
-			for key: String in ["bonus", "reckless", "stun", "retarget"]:
+			for key: String in ["bonus", "reckless", "stun", "retarget", "haste", "via_familiar", "quivering_palm", "hurl_through_hell"]:
 				if d.has(key) and typeof(d[key]) != TYPE_BOOL:
 					return "attack: '%s' must be a bool" % key
 			if d.has("smite") and not Messages._is_slot_level(d["smite"]):
@@ -273,6 +341,16 @@ static func validate_intent(d: Dictionary) -> String:
 				return "cast: 'targets' must be an array of non-empty strings"
 			if d.has("form") and not Messages._is_non_empty_string(d["form"]):
 				return "cast: 'form' must be a non-empty string"
+			for key: String in ["mode", "duplicate_mode", "target_id", "invocation"]:
+				if d.has(key) and not Messages._is_non_empty_string(d[key]):
+					return "cast: '%s' must be a non-empty string" % key
+			if d.has("target_kind") and (typeof(d["target_kind"]) != TYPE_STRING or not TARGET_KINDS.has(str(d["target_kind"]))):
+				return "cast: 'target_kind' must be one of %s" % ", ".join(TARGET_KINDS)
+			if d.has("target_id") and not d.has("target_kind"):
+				return "cast: 'target_id' needs a 'target_kind'"
+			for key: String in ["overchannel", "ritual", "spend_slot", "sustain"]:
+				if d.has(key) and typeof(d[key]) != TYPE_BOOL:
+					return "cast: '%s' must be a bool" % key
 		USE_ITEM:
 			if not Messages._is_non_empty_string(d.get("item")):
 				return "use_item: missing or empty 'item'"
@@ -325,6 +403,32 @@ static func validate_intent(d: Dictionary) -> String:
 		DISMISS_COMPANION:
 			if not Messages._is_non_empty_string(d.get("companion_id")):
 				return "dismiss_companion: missing or empty 'companion_id'"
+		OPEN_DOOR, CLOSE_DOOR:
+			if not Messages._is_non_empty_string(d.get("door_id")):
+				return "%s: missing or empty 'door_id'" % type
+		UNLOCK_DOOR:
+			if not Messages._is_non_empty_string(d.get("door_id")):
+				return "unlock_door: missing or empty 'door_id'"
+			if typeof(d.get("method")) != TYPE_STRING or not UNLOCK_METHODS.has(str(d.get("method"))):
+				return "unlock_door: 'method' must be one of %s" % ", ".join(UNLOCK_METHODS)
+			if d.has("spell") and not Messages._is_non_empty_string(d["spell"]):
+				return "unlock_door: 'spell' must be a non-empty string"
+		INTERACT:
+			if not Messages._is_non_empty_string(d.get("prop_id")):
+				return "interact: missing or empty 'prop_id'"
+		CONTROL:
+			if not Messages._is_non_empty_string(d.get("target")):
+				return "control: missing or empty 'target'"
+			if typeof(d.get("orders")) != TYPE_ARRAY:
+				return "control: 'orders' must be an array of intents"
+			var orders: Array = d["orders"]
+			if orders.size() > MAX_CONTROL_ORDERS:
+				return "control: at most %d orders" % MAX_CONTROL_ORDERS
+			for o: Variant in orders:
+				if typeof(o) != TYPE_DICTIONARY or not Messages._is_non_empty_string((o as Dictionary).get("type")):
+					return "control: every order must be an intent with a 'type'"
+				if str((o as Dictionary)["type"]) == CONTROL:
+					return "control: an order may not be another control"
 		REACTION_POLICY:
 			if typeof(d.get("policy")) != TYPE_DICTIONARY:
 				return "reaction_policy: 'policy' must be a dictionary {trigger: \"auto\"|\"never\"}"
@@ -413,8 +517,8 @@ static func validate_result(d: Dictionary) -> String:
 					return "loot_gained: item without an 'item' id"
 				if not Messages._is_int_like(entry.get("qty")):
 					return "loot_gained: item '%s' has no int 'qty'" % str(entry.get("item"))
-			if not [LOOT_SOURCE_CHEST, LOOT_SOURCE_MONSTER, LOOT_SOURCE_FLOOR].has(str(d.get("source", ""))):
-				return "loot_gained: 'source' must be chest, monster or floor"
+			if not LOOT_SOURCES.has(str(d.get("source", ""))):
+				return "loot_gained: 'source' must be one of %s" % ", ".join(LOOT_SOURCES)
 		CHEST_OPENED:
 			if not Messages._is_non_empty_string(d.get("chest_id")):
 				return "chest_opened: missing or empty 'chest_id'"
@@ -441,6 +545,22 @@ static func validate_result(d: Dictionary) -> String:
 				return "level_up_available: missing or empty 'entity_id'"
 			if typeof(d.get("choices")) != TYPE_DICTIONARY:
 				return "level_up_available: 'choices' must be a dictionary"
+		DOOR_CHANGED:
+			if not Messages._is_non_empty_string(d.get("door_id")):
+				return "door_changed: missing or empty 'door_id'"
+			if typeof(d.get("state")) != TYPE_STRING or not ["open", "closed", "locked"].has(str(d.get("state"))):
+				return "door_changed: 'state' must be open, closed or locked"
+		PROP_DESTROYED:
+			if not Messages._is_non_empty_string(d.get("prop_id")):
+				return "prop_destroyed: missing or empty 'prop_id'"
+		ZONE_RESPAWNED:
+			if not Messages._is_non_empty_string(d.get("zone_id")):
+				return "zone_respawned: missing or empty 'zone_id'"
+		REVEAL:
+			if not Messages._is_non_empty_string(d.get("entity_id")):
+				return "reveal: missing or empty 'entity_id'"
+			if not Messages._is_non_empty_string(d.get("reveal")):
+				return "reveal: missing or empty 'reveal'"
 		FLOOR_CLEARED:
 			if not Messages._is_non_empty_string(d.get("floor_id")):
 				return "floor_cleared: missing or empty 'floor_id'"

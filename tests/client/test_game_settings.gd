@@ -343,3 +343,27 @@ func test_menu_pause_page_reactions_entry() -> void:
 	assert_false(menu.is_open(), "the menu closes")
 	assert_eq(asked[0], 1)
 	menu.free()
+
+
+func test_lighting_setting_round_trips_and_the_video_tab_toggles_it() -> void:
+	var s := GameSettings.new(TMP_PATH)
+	assert_true(s.lighting, "on by default")
+	s.lighting = false
+	assert_false(s.equals(GameSettings.new()), "lighting counts in equals")
+	assert_eq(s.save_file(), OK)
+	var back := GameSettings.load_from(TMP_PATH)
+	assert_false(back.lighting)
+	assert_true(back.equals(s))
+	var menu := _menu()
+	menu.open_settings()
+	assert_true(menu._lighting_check.button_pressed)
+	assert_eq(str(menu._lighting_check.get_parent().name), "Video", "the toggle sits in Settings > Video")
+	menu._on_lighting_toggled(false)
+	assert_true(menu.has_unapplied_changes())
+	var seen: Array[bool] = []
+	menu.applied.connect(func(applied: GameSettings) -> void: seen.append(applied.lighting))
+	menu.apply_changes()
+	assert_false(menu.settings.lighting)
+	assert_eq(seen, [false] as Array[bool], "applied carries the setting to the game")
+	assert_false(GameSettings.load_from(TMP_PATH).lighting, "saved")
+	menu.free()

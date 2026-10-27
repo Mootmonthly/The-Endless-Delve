@@ -192,3 +192,87 @@ func test_spell_options_are_grouped_by_level() -> void:
 	for lvl: int in groups.keys():
 		for id: String in groups[lvl]:
 			assert_eq(d.spell_level(id), lvl)
+
+
+func _raised(class_id: String, to_level: int) -> CharacterSheet:
+	var d := CharacterDraft.new()
+	d.character_name = "Lev"
+	d.set_class(ContentLoader.load_classes()[class_id])
+	d.set_ancestry(ContentLoader.load_ancestries()["human"])
+	d.auto_assign()
+	for skill in d.class_def.skill_choices:
+		d.toggle_skill(skill, true)
+	d.auto_choose()
+	var s := d.build_sheet()
+	while s.level < to_level:
+		s.xp = maxi(s.xp, Experience.xp_for_level(s.level + 1))
+		assert_eq(LevelUp.apply(s, LevelUpDraft.first_valid(LevelUp.choices(s), s).to_choices(), {}, null), "")
+	return s
+
+
+func _entry(draft: LevelUpDraft, kind: String, feature: String = "") -> Dictionary:
+	for e in draft.choice_entries():
+		if str(e["type"]) == kind and (feature.is_empty() or str(e.get("feature", "")) == feature):
+			return e
+	return {}
+
+
+## Pact of the Tome's cantrips: optional until the boon is picked, then three
+## cantrips with spell labels; Book of Ancient Secrets likewise.
+func test_tome_cantrips_follow_the_pact_boon_pick() -> void:
+	var s := _raised("warlock", 2)
+	s.xp = Experience.xp_for_level(3)
+	var offer := LevelUp.choices(s)
+	var draft := LevelUpDraft.first_valid(offer, s)
+	var boon := _entry(draft, LevelUp.CHOICE_FEATURE_OPTION, "pact_boon")
+	var tome := _entry(draft, LevelUp.CHOICE_TOME_CANTRIPS)
+	assert_false(boon.is_empty(), "the pact boon is chosen at 3")
+	assert_false(tome.is_empty(), "the tome cantrips are offered alongside")
+	assert_eq(draft.choice_title(tome), "Book of Shadows cantrips (Pact of the Tome)")
+	assert_has(draft.option_label(tome, str(tome["options"][0])), "(cantrip")
+	draft.toggle_choice(boon, "pact_of_the_blade", true)
+	assert_false(draft.requirement_met(tome))
+	assert_has(draft.choice_note(tome), "Only if you pick")
+	for o in draft.picks_for(tome):
+		draft.toggle_choice(tome, o, false)
+	assert_true(draft.is_valid(), str(draft.problems()))
+	assert_eq(draft.to_choices()[LevelUp.CHOICE_TOME_CANTRIPS], [], "unmet: answered with []")
+	draft.toggle_choice(boon, "pact_of_the_tome", true)
+	assert_true(draft.requirement_met(tome))
+	assert_false(draft.is_valid(), "three cantrips are now needed")
+	draft.fill_choice(tome)
+	assert_true(draft.is_valid(), str(draft.problems()))
+	assert_eq(LevelUp.apply(s, draft.to_choices(), {}, null), "")
+	assert_eq(s.tome_cantrips.size(), 3)
+
+
+## Spell Mastery at 18 (one 1st- and one 2nd-level spell) and Signature
+## Spells at 20, through first_valid and with labels.
+func test_spell_mastery_and_signature_spells_choices() -> void:
+	var s := _raised("wizard", 17)
+	s.xp = Experience.xp_for_level(18)
+	var draft := LevelUpDraft.first_valid(LevelUp.choices(s), s)
+	var mastery := _entry(draft, LevelUp.CHOICE_SPELL_MASTERY)
+	assert_false(mastery.is_empty())
+	assert_eq(draft.choice_title(mastery), "Spell Mastery (one 1st- and one 2nd-level spell)")
+	assert_true(draft.is_valid(), str(draft.problems()))
+	var firsts: Array[String] = []
+	for o in DictUtil.to_string_array(mastery["options"]):
+		if draft.spell_level(o) == 1:
+			firsts.append(o)
+	if firsts.size() >= 2:
+		draft.toggle_choice(mastery, draft.picks_for(mastery)[1], false)
+		draft.toggle_choice(mastery, firsts[1] if firsts[1] != draft.picks_for(mastery)[0] else firsts[0], true)
+		assert_false(draft.is_valid(), "two 1st-level spells are refused")
+		draft = LevelUpDraft.first_valid(LevelUp.choices(s), s)
+	assert_eq(LevelUp.apply(s, draft.to_choices(), {}, null), "")
+	assert_eq(s.spell_mastery.size(), 2)
+	while s.level < 20:
+		s.xp = Experience.xp_for_level(s.level + 1)
+		var d := LevelUpDraft.first_valid(LevelUp.choices(s), s)
+		var sig := _entry(d, LevelUp.CHOICE_SIGNATURE_SPELLS)
+		if not sig.is_empty():
+			assert_eq(d.choice_title(sig), "Signature Spells")
+			assert_has(d.option_label(sig, str(sig["options"][0])), "3rd level")
+		assert_eq(LevelUp.apply(s, d.to_choices(), {}, null), "")
+	assert_eq(s.signature_spells.size(), 2)

@@ -11,7 +11,8 @@ extends Node
 ## pause menu over the game (Resume / Settings / Quit to character creator;
 ## the offline server keeps ticking; "Reactions" closes the menu and opens the
 ## game HUD's Reactions panel) or straight to Settings over the creator, which
-## also has a Settings button.
+## also has a Settings button. The video setting `lighting` is handed to the
+## GameScene (set_lighting_enabled) at start and whenever settings are applied.
 
 const CREATOR_SCENE := "res://scenes/ui/character_creator.tscn"
 const GAME_SCENE := "res://scenes/game/game_scene.tscn"
@@ -59,6 +60,7 @@ func start_game(sheet: CharacterSheet) -> void:
 	var packed: PackedScene = load(GAME_SCENE)
 	var game := packed.instantiate() as GameScene
 	game.setup(sheet)
+	game.lighting_enabled = settings.lighting if settings != null else true
 	game.exit_requested.connect(show_creator)
 	_swap(game)
 
@@ -96,8 +98,14 @@ func _ensure_menu() -> SettingsMenu:
 		_menu.quit_requested.connect(show_creator)
 		_menu.closed.connect(_on_menu_closed)
 		_menu.reactions_requested.connect(_on_reactions_requested)
+		_menu.applied.connect(_on_settings_applied)
 		add_child(_menu)
 	return _menu
+
+
+func _on_settings_applied(applied_settings: GameSettings) -> void:
+	if _current is GameScene:
+		(_current as GameScene).set_lighting_enabled(applied_settings.lighting)
 
 
 func _on_reactions_requested() -> void:

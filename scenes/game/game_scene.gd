@@ -26,6 +26,15 @@ extends Node2D
 ## the cursor and rings the creatures it would catch (ClientState.area_preview).
 ## The short rest spends one hit die when hurt and asks for Arcane / Natural
 ## Recovery when it applies.
+##
+## Round D: FloorView draws doors and props from FLOOR_LOADED; every
+## DOOR_CHANGED / PROP_DESTROYED (ClientState.objects_serial) is passed on
+## through FloorView.set_door_state / set_prop_state; the player light
+## follows the character (set_focus); lighting_enabled (Settings > Video)
+## switches the floor's darkness, lights and vignette. Clicking a door
+## opens / closes / unlocks it, clicking a prop breaks it (ClientState
+## intent_for_click). TerrainOverlay paints the fight's round C terrain
+## (walls, darkness, difficult ground, zones).
 
 ## Emitted when the player asks for a new character after the run ended.
 signal exit_requested
@@ -56,6 +65,9 @@ var server: InstanceServer = null
 var state: ClientState = null
 var floor_view: FloorView = null
 var reach: ReachOverlay = null
+var terrain: TerrainOverlay = null
+## Dynamic lighting (Settings > Video); set before _ready or via set_lighting_enabled.
+var lighting_enabled: bool = true
 var entity_layer: EntityLayer = null
 var camera: Camera2D = null
 var hud: Hud = null
@@ -69,6 +81,7 @@ var _highlighted: Rect2i = Rect2i()
 var _zoom: int = DEFAULT_ZOOM
 var _seen_level_up_serial: int = 0
 var _hover_tile: Vector2i = Vector2i(-1, -1)
+var _synced_objects: int = -1
 
 
 ## Call before adding the scene to the tree. seed 0 = pick one from the clock.
@@ -90,6 +103,10 @@ func _ready() -> void:
 	var packed: PackedScene = load(FLOOR_VIEW_SCENE)
 	floor_view = packed.instantiate() as FloorView
 	add_child(floor_view)
+	floor_view.set_lighting_enabled(lighting_enabled)
+	terrain = TerrainOverlay.new()
+	terrain.name = "TerrainOverlay"
+	add_child(terrain)
 	reach = ReachOverlay.new()
 	reach.name = "ReachOverlay"
 	add_child(reach)
@@ -183,8 +200,12 @@ func _refresh_view() -> void:
 	var new_floor := state.floor_data != null and state.floor_serial != _built_floor_serial
 	if new_floor:
 		floor_view.build(state.floor_data)
+		floor_view.set_lighting_enabled(lighting_enabled)
 		_built_floor_serial = state.floor_serial
 		_highlighted = Rect2i()
+		_synced_objects = -1
+	if state.floor_data != null and state.objects_serial != _synced_objects:
+		_sync_floor_objects()
 	var want := state.region if state.in_encounter else Rect2i()
 	if want != _highlighted:
 		if _highlighted.has_area():
@@ -193,6 +214,7 @@ func _refresh_view() -> void:
 			floor_view.set_zone_highlight(want, true)
 		_highlighted = want
 	entity_layer.refresh(state)
+	terrain.refresh(state)
 	var tiles: Array[Vector2i] = []
 	for key: Variant in state.reachable_tiles().keys():
 		var t: Vector2i = key
@@ -203,12 +225,31 @@ func _refresh_view() -> void:
 	_refresh_level_up()
 	if state.has_player_entity():
 		camera.position = FloorView.tile_to_world(state.player_position())
+		floor_view.set_focus(FloorView.tile_to_world(state.player_position()))
 		if new_floor:
 			camera.reset_smoothing()  # jump to the new arrival, no pan across floors
 	elif new_floor and state.floor_data != null:
 		camera.position = FloorView.tile_to_world(state.floor_data.arrival)
 		camera.reset_smoothing()
 	hud.refresh(state)
+
+
+## Door states and broken props from the ClientState onto the FloorView.
+func _sync_floor_objects() -> void:
+	_synced_objects = state.objects_serial
+	for d in state.floor_data.doors:
+		floor_view.set_door_state(d.id, state.door_state(d.id) if not state.door_state(d.id).is_empty() else d.state)
+	for p in state.floor_data.props:
+		var want := FloorView.PROP_DESTROYED if state.destroyed_props.has(p.id) else FloorView.PROP_INTACT
+		if floor_view.prop_state(p.id) != want:
+			floor_view.set_prop_state(p.id, want)
+
+
+## Settings > Video: the floor's darkness, lights and vignette.
+func set_lighting_enabled(on: bool) -> void:
+	lighting_enabled = on
+	if floor_view != null:
+		floor_view.set_lighting_enabled(on)
 
 
 ## The area footprint under the cursor while an area spell is aimed.

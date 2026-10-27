@@ -264,3 +264,95 @@ func test_out_of_combat_cast_and_companion_messages() -> void:
 	for bad: Dictionary in [{"spell": "x", "events": []}, {"entity_id": "p1", "events": []}, {"entity_id": "p1", "spell": "x"},
 			{"entity_id": "p1", "spell": "x", "events": [{"amount": 1}]}, {"entity_id": "p1", "spell": "x", "events": ["heal"]}]:
 		assert_ne(Messages.validate_result(Messages.make_result(Messages.OUT_OF_COMBAT_EVENTS, bad)), "", str(bad))
+
+
+# --- Round D (doors, props) and round C fields ---------------------------------------
+
+func _intent(type: String, fields: Dictionary = {}) -> Dictionary:
+	var f := fields.duplicate()
+	f["actor"] = "p1"
+	return Messages.make_intent(type, f)
+
+
+func test_door_prop_and_control_intents_validate() -> void:
+	var good: Array[Dictionary] = [
+		_intent(Messages.OPEN_DOOR, {"door_id": "d1"}),
+		_intent(Messages.CLOSE_DOOR, {"door_id": "d1"}),
+		_intent(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "key"}),
+		_intent(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "tools"}),
+		_intent(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "spell", "spell": "knock"}),
+		_intent(Messages.INTERACT, {"prop_id": "p1"}),
+		_intent(Messages.CONTROL, {"target": "goblin_0", "orders": [{"type": "attack", "target": "x", "attack_index": 0}, {"type": "end_turn"}]}),
+		_intent(Messages.CONTROL, {"target": "goblin_0", "orders": []}),
+	]
+	for d in good:
+		assert_eq(Messages.validate_intent(d), "", str(d))
+	var bad: Array[Dictionary] = [
+		_intent(Messages.OPEN_DOOR),
+		_intent(Messages.CLOSE_DOOR, {"door_id": ""}),
+		_intent(Messages.UNLOCK_DOOR, {"door_id": "d1"}),
+		_intent(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "crowbar"}),
+		_intent(Messages.UNLOCK_DOOR, {"door_id": "d1", "method": "spell", "spell": ""}),
+		_intent(Messages.INTERACT, {}),
+		_intent(Messages.CONTROL, {"orders": []}),
+		_intent(Messages.CONTROL, {"target": "g", "orders": {}}),
+		_intent(Messages.CONTROL, {"target": "g", "orders": [{"target": "x"}]}),
+		_intent(Messages.CONTROL, {"target": "g", "orders": [{"type": "control"}]}),
+		_intent(Messages.CONTROL, {"target": "g", "orders": [{"type": "end_turn"}, {"type": "end_turn"}, {"type": "end_turn"},
+			{"type": "end_turn"}, {"type": "end_turn"}, {"type": "end_turn"}, {"type": "end_turn"}, {"type": "end_turn"},
+			{"type": "end_turn"}, {"type": "end_turn"}, {"type": "end_turn"}, {"type": "end_turn"}, {"type": "end_turn"}]}),
+	]
+	for d in bad:
+		assert_ne(Messages.validate_intent(d), "", str(d))
+	assert_true(Messages.is_encounter_intent(_intent(Messages.CONTROL, {"target": "g", "orders": []})), "control goes to the encounter")
+	for type: String in [Messages.OPEN_DOOR, Messages.CLOSE_DOOR, Messages.UNLOCK_DOOR, Messages.INTERACT]:
+		assert_false(Messages.is_encounter_intent({"type": type}), "%s is exploration" % type)
+		assert_false(Messages.is_dual_intent({"type": type}))
+
+
+func test_round_c_cast_attack_and_move_fields() -> void:
+	var good: Array[Dictionary] = [
+		_intent(Messages.CAST, {"spell": "knock", "target_kind": "door", "target_id": "d1"}),
+		_intent(Messages.CAST, {"spell": "wish", "mode": "fireball", "duplicate_mode": "x"}),
+		_intent(Messages.CAST, {"spell": "eldritch_blast", "invocation": "agonizing_blast"}),
+		_intent(Messages.CAST, {"spell": "fireball", "overchannel": true}),
+		_intent(Messages.CAST, {"spell": "detect_magic", "ritual": true, "spend_slot": false}),
+		_intent(Messages.ATTACK, {"target": "g", "attack_index": 0, "via_familiar": true}),
+		_intent(Messages.ATTACK, {"target": "g", "attack_index": 0, "quivering_palm": true, "hurl_through_hell": false}),
+		_intent(Messages.MOVE, {"path": [[1, 1]], "mode": "fly"}),
+	]
+	for d in good:
+		assert_eq(Messages.validate_intent(d), "", str(d))
+	var bad: Array[Dictionary] = [
+		_intent(Messages.CAST, {"spell": "knock", "target_kind": "window", "target_id": "d1"}),
+		_intent(Messages.CAST, {"spell": "knock", "target_id": "d1"}),
+		_intent(Messages.CAST, {"spell": "wish", "mode": ""}),
+		_intent(Messages.CAST, {"spell": "fireball", "overchannel": 1}),
+		_intent(Messages.CAST, {"spell": "detect_magic", "ritual": "yes"}),
+		_intent(Messages.ATTACK, {"target": "g", "attack_index": 0, "via_familiar": "yes"}),
+		_intent(Messages.MOVE, {"path": [[1, 1]], "mode": "swim"}),
+	]
+	for d in bad:
+		assert_ne(Messages.validate_intent(d), "", str(d))
+
+
+func test_door_prop_respawn_and_reveal_results() -> void:
+	var good: Array[Dictionary] = [
+		Messages.make_result(Messages.DOOR_CHANGED, {"door_id": "d1", "state": "open", "by": "p1"}),
+		Messages.make_result(Messages.PROP_DESTROYED, {"prop_id": "p1", "by": "p1"}),
+		Messages.make_result(Messages.ZONE_RESPAWNED, {"zone_id": "z1"}),
+		Messages.make_result(Messages.REVEAL, {"entity_id": "p1", "reveal": "monsters", "zones": []}),
+		Messages.make_result(Messages.LOOT_GAINED, {"entity_id": "p1", "items": [], "source": "prop", "prop_id": "p1"}),
+	]
+	for d in good:
+		assert_eq(Messages.validate_result(d), "", str(d))
+	var bad: Array[Dictionary] = [
+		Messages.make_result(Messages.DOOR_CHANGED, {"door_id": "d1", "state": "ajar"}),
+		Messages.make_result(Messages.DOOR_CHANGED, {"state": "open"}),
+		Messages.make_result(Messages.PROP_DESTROYED, {}),
+		Messages.make_result(Messages.ZONE_RESPAWNED, {"zone_id": ""}),
+		Messages.make_result(Messages.REVEAL, {"entity_id": "p1"}),
+		Messages.make_result(Messages.LOOT_GAINED, {"entity_id": "p1", "items": [], "source": "sky"}),
+	]
+	for d in bad:
+		assert_ne(Messages.validate_result(d), "", str(d))

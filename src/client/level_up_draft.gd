@@ -23,6 +23,15 @@ extends RefCounted
 ## metamagic records (and the class's subclass text) for the screen;
 ## feature_cards() describes the features gained ("implemented" or "not yet
 ## modelled").
+##
+## Spell choices (magical_secrets, mystic_arcanum, tome_cantrips,
+## ritual_book, spell_mastery, signature_spells) label their options with the
+## spell's name and level; damage_type options are damage types. A choice
+## with "requires" (tome_cantrips needs Pact of the Tome, ritual_book needs
+## Book of Ancient Secrets) may stay empty while that boon / invocation is
+## neither on the sheet nor picked in this draft (requirement_met), and is
+## then sent as []; Spell Mastery needs one spell of each level of its
+## "per_level" ({"1": 1, "2": 1}).
 
 const HP_AVERAGE := "average"
 const HP_ROLL := "roll"
@@ -179,7 +188,54 @@ func choice_title(entry: Dictionary) -> String:
 			return "Skill proficiencies"
 		LevelUp.CHOICE_FEATURE_OPTION:
 			return _record_name("features", str(entry.get("feature", "")))
+		LevelUp.CHOICE_MAGICAL_SECRETS:
+			return "Magical Secrets"
+		LevelUp.CHOICE_MYSTIC_ARCANUM:
+			return "Mystic Arcanum (%s level)" % ClientState.ordinal(DictUtil.to_int(entry.get("spell_level", 6), 6))
+		LevelUp.CHOICE_DAMAGE_TYPE:
+			return "Fiendish Resilience: damage type"
+		LevelUp.CHOICE_TOME_CANTRIPS:
+			return "Book of Shadows cantrips (Pact of the Tome)"
+		LevelUp.CHOICE_RITUAL_BOOK:
+			return "Book of Ancient Secrets rituals"
+		LevelUp.CHOICE_SPELL_MASTERY:
+			return "Spell Mastery (one 1st- and one 2nd-level spell)"
+		LevelUp.CHOICE_SIGNATURE_SPELLS:
+			return "Signature Spells"
 	return str(entry.get("type", "")).capitalize()
+
+
+## The choice types whose options are spell ids.
+const SPELL_CHOICES: Array[String] = [LevelUp.CHOICE_MAGICAL_SECRETS, LevelUp.CHOICE_MYSTIC_ARCANUM, LevelUp.CHOICE_TOME_CANTRIPS,
+	LevelUp.CHOICE_RITUAL_BOOK, LevelUp.CHOICE_SPELL_MASTERY, LevelUp.CHOICE_SIGNATURE_SPELLS]
+
+
+## Whether a "requires" choice applies: its boon / invocation is on the sheet
+## or picked in this draft (true for choices without "requires").
+func requirement_met(entry: Dictionary) -> bool:
+	var req := str(entry.get("requires", ""))
+	if req.is_empty():
+		return true
+	if sheet != null and (sheet.has_feature(req) or sheet.invocations.has(req)):
+		return true
+	for other in choice_entries():
+		if other == entry:
+			continue
+		if picks_for(other).has(req):
+			return true
+	return false
+
+
+## A line under a choice's heading ("" when none): why it may stay empty, or
+## the per-level rule of Spell Mastery.
+func choice_note(entry: Dictionary) -> String:
+	if entry.has("requires") and not requirement_met(entry):
+		return "Only if you pick %s." % _record_name("features" if str(entry["requires"]).begins_with("pact_") else "invocations", str(entry["requires"]))
+	if str(entry.get("type", "")) == LevelUp.CHOICE_SPELL_MASTERY:
+		return "Cast them at their lowest level without a slot."
+	if str(entry.get("type", "")) == LevelUp.CHOICE_SIGNATURE_SPELLS:
+		return "Each casts once per short rest at 3rd level without a slot."
+	return ""
 
 
 ## Display name of an option.
@@ -202,6 +258,11 @@ func option_label(entry: Dictionary, option: String) -> String:
 			var full := _record_name("features", option)
 			var prefix := _record_name("features", str(entry.get("feature", ""))) + ": "
 			return full.trim_prefix(prefix) if full.begins_with(prefix) else full
+	if SPELL_CHOICES.has(str(entry.get("type", ""))):
+		var spell := _spell(option)
+		if spell != null:
+			var lvl := "cantrip" if spell.level == 0 else ClientState.ordinal(spell.level) + " level"
+			return "%s (%s%s)" % [spell.display_name, lvl, ", ritual" if spell.ritual else ""]
 	return option.replace("_", " ").capitalize()
 
 
@@ -225,6 +286,8 @@ func option_description(entry: Dictionary, option: String) -> String:
 			return "Double your proficiency bonus for checks with this skill."
 		LevelUp.CHOICE_SKILLS:
 			return "Gain proficiency in this skill."
+		LevelUp.CHOICE_DAMAGE_TYPE:
+			return "Resistance to %s damage (not from magical or silvered weapons)." % option
 	return ""
 
 
@@ -239,6 +302,8 @@ func option_implemented(entry: Dictionary, option: String) -> bool:
 			return Features.IMPLEMENTED_METAMAGIC.has(option)
 		LevelUp.CHOICE_FEATURE_OPTION:
 			return Features.is_implemented(option)
+	if SPELL_CHOICES.has(str(entry.get("type", ""))):
+		return is_supported(option)
 	return true
 
 
@@ -478,11 +543,22 @@ func problems() -> Array[String]:
 		var picked := picks_for(entry)
 		var opts := DictUtil.to_string_array(entry.get("options", []))
 		var count := choice_count(entry)
-		if picked.size() != count:
+		var optional := entry.has("requires") and not requirement_met(entry)
+		if picked.size() != count and not (optional and picked.is_empty()):
 			out.append("Choose %d: %s (%d chosen)." % [count, choice_title(entry), picked.size()])
 		for p in picked:
 			if not opts.has(p):
 				out.append("%s is not an option for %s." % [p, choice_title(entry)])
+		var per_level_v: Variant = entry.get("per_level", {})
+		if typeof(per_level_v) == TYPE_DICTIONARY and picked.size() == count:
+			var want: Dictionary = per_level_v
+			var have := {}
+			for p in picked:
+				var key := str(spell_level(p))
+				have[key] = DictUtil.to_int(have.get(key, 0), 0) + 1
+			for key: Variant in want.keys():
+				if DictUtil.to_int(have.get(str(key), 0), 0) != DictUtil.to_int(want[key], 0):
+					out.append("%s: pick %d spell(s) of level %s." % [choice_title(entry), DictUtil.to_int(want[key], 0), str(key)])
 	return out
 
 
@@ -504,11 +580,15 @@ func to_choices() -> Dictionary:
 	var feature_options := {}
 	for entry in choice_entries():
 		var picked := picks_for(entry)
+		if entry.has("requires") and not requirement_met(entry):
+			picked = [] as Array[String]
 		match str(entry.get("type", "")):
 			LevelUp.CHOICE_SUBCLASS, LevelUp.CHOICE_FIGHTING_STYLE:
 				d[str(entry["type"])] = picked[0] if not picked.is_empty() else ""
 			LevelUp.CHOICE_FEATURE_OPTION:
 				feature_options[str(entry.get("feature", ""))] = picked[0] if not picked.is_empty() else ""
+			LevelUp.CHOICE_DAMAGE_TYPE:
+				d[str(entry["type"])] = picked[0] if not picked.is_empty() else ""
 			_:
 				d[str(entry["type"])] = picked
 	if not feature_options.is_empty():
@@ -554,13 +634,22 @@ static func first_valid(p_offer: Dictionary, p_sheet: CharacterSheet, p_content:
 	for id in d.learn_spells:
 		d.toggle_prepared(id, true)
 	for entry in d.choice_entries():
-		d.fill_choice(entry)
+		if not entry.has("requires"):
+			d.fill_choice(entry)
+	for entry in d.choice_entries():
+		if entry.has("requires") and d.requirement_met(entry):
+			d.fill_choice(entry)
 	return d
 
 
-## Fills a choice up to its count: modelled options first, in offer order.
+## Fills a choice up to its count: modelled options first, in offer order
+## (Spell Mastery: the offer's first two options, a valid pair).
 func fill_choice(entry: Dictionary) -> void:
 	var opts := DictUtil.to_string_array(entry.get("options", []))
+	if typeof(entry.get("per_level")) == TYPE_DICTIONARY:
+		for o in opts.slice(0, choice_count(entry)):
+			toggle_choice(entry, o, true)
+		return
 	for pass_implemented: bool in [true, false]:
 		for o in opts:
 			if picks_for(entry).size() >= choice_count(entry):

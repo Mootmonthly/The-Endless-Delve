@@ -36,6 +36,17 @@ extends CanvasLayer
 ##   weapon properties (two-handed, light, versatile...) and Use / Equip /
 ##   Unequip / Drop, gold, carried weight and the AC breakdown;
 ## - combat log and the end-of-run panel.
+## Round D / round C: the floor line names the landing ("arrived at the
+## north-west landing"); while exploring the turn line says what a nearby
+## door / prop click does; the attack options row adds Familiar attacks
+## (Pact of the Chain), Quivering Palm and Hurl Through Hell; the Spells
+## popup adds a Ritual check box for spells the character can ritual-cast,
+## "no effect in the delve" with the reason for spells that do nothing here,
+## a landmark picker for Teleport / Teleportation Circle, an Overchannel
+## toggle, and exploration spells aimed by clicking a door, chest or zone;
+## the Control panel (shown while the character dominates a creature) gives
+## it Move / Attack / Hold orders through the control intent; the initiative
+## list tags unseen, banished, illusory and dominated creatures.
 ##
 ## Reads a ClientState in refresh(). Spells / features / items call the
 ## state's begin_* helpers (targeting mode) and send ready intents through
@@ -89,6 +100,12 @@ var _smite_picker: OptionButton
 var _smite_key: String = ""
 var _stun_check: CheckBox
 var _technique_picker: OptionButton
+var _familiar_check: CheckBox
+var _palm_check: CheckBox
+var _hurl_check: CheckBox
+var _control_panel: PanelContainer
+var _control_box: VBoxContainer
+var _control_key: String = ""
 var _end_panel: PanelContainer
 var _end_title: Label
 var _end_text: Label
@@ -128,6 +145,7 @@ func _ready() -> void:
 	_build_spells_popup(root)
 	_build_features_popup(root)
 	_build_reactions_popup(root)
+	_build_control_panel(root)
 	_build_inventory(root)
 	_build_end_panel(root)
 
@@ -286,6 +304,35 @@ func _build_attack_options(parent: Control) -> void:
 		_technique_picker.set_item_metadata(_technique_picker.item_count - 1, t)
 	_technique_picker.item_selected.connect(func(i: int) -> void: _set_option("technique", str(_technique_picker.get_item_metadata(i))))
 	_options_row.add_child(_technique_picker)
+	_familiar_check = _option_check("Familiar attacks", "Pact of the Chain: your familiar makes this attack with its reaction", "via_familiar")
+	_palm_check = _option_check("Quivering Palm", "Spend 3 ki on the next unarmed hit: set deadly vibrations", "quivering_palm")
+	_hurl_check = _option_check("Hurl Through Hell", "On the next hit (once per long rest): the target is hurled through the lower planes", "hurl_through_hell")
+
+
+func _option_check(text: String, tip: String, key: String) -> CheckBox:
+	var c := CheckBox.new()
+	c.text = text
+	c.focus_mode = Control.FOCUS_NONE
+	c.tooltip_text = tip
+	c.toggled.connect(func(on: bool) -> void: _set_option(key, on))
+	_options_row.add_child(c)
+	return c
+
+
+## The Control panel: one row per dominated creature with Move / Attack / Hold.
+func _build_control_panel(root: Control) -> void:
+	_control_panel = PanelContainer.new()
+	_control_panel.name = "ControlPanel"
+	_control_panel.anchor_left = 1.0
+	_control_panel.anchor_right = 1.0
+	_control_panel.offset_left = -268
+	_control_panel.offset_right = -8
+	_control_panel.offset_top = 220
+	_control_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_control_panel.visible = false
+	root.add_child(_control_panel)
+	_control_box = VBoxContainer.new()
+	_control_panel.add_child(_control_box)
 
 
 func _set_option(key: String, value: Variant) -> void:
@@ -553,7 +600,7 @@ func refresh(state: ClientState) -> void:
 		_gold_label.text = ""
 	_slots_label.visible = not _slots_label.text.is_empty()
 	_resources_label.visible = not _resources_label.text.is_empty()
-	_floor_label.text = state.floor_label()
+	_floor_label.text = state.floor_hud_text()
 	_mode_label.text = state.mode_text()
 	if state.is_my_turn():
 		var counter := state.attack_counter_text()
@@ -571,6 +618,10 @@ func refresh(state: ClientState) -> void:
 	else:
 		var chest := state.nearest_closed_chest()
 		_turn_label.text = "A chest is within reach: click it to open." if not chest.is_empty() and state.can_open_chest(chest) else ""
+		if _turn_label.text.is_empty() and state.mode == ClientState.Mode.EXPLORING:
+			_turn_label.text = state.nearby_object_hint()
+	if not state.is_targeting() and not state.hint.is_empty() and state.mode == ClientState.Mode.EXPLORING and _turn_label.text.is_empty():
+		_turn_label.text = state.hint
 	_hint_label.text = state.hint if state.is_targeting() else ""
 	if state.is_targeting():
 		_hint_label.text += " (Esc / right click cancels)"
@@ -581,6 +632,7 @@ func refresh(state: ClientState) -> void:
 		if state.can_level_up() else "Level up available after the fight"
 	_refresh_companions(state)
 	_refresh_order(state)
+	_refresh_control(state)
 	_refresh_attack_picker(state)
 	var my_action := state.can_take_action()
 	_set_enabled("attack", state.can_attack())
@@ -674,6 +726,14 @@ func _refresh_order(state: ClientState) -> void:
 		elif bool(e.get("down", false)):
 			status = " (down)"
 		var tags := state.status_tags(id)
+		if state.absent_ids.has(id):
+			tags.append("banished")
+		elif bool(e.get("illusion", false)):
+			tags.append("illusion")
+		elif state.visibility_of(id) != ClientState.VIS_SHOWN:
+			tags.append("unseen")
+		if state.controlled.has(id):
+			tags.append("dominated")
 		if not tags.is_empty():
 			status += " [%s]" % ", ".join(tags)
 		var hp := ""
@@ -681,6 +741,44 @@ func _refresh_order(state: ClientState) -> void:
 			hp = " %d/%d" % [int(e["hp"]), int(e["max_hp"])]
 		lines.append("%s%s  [%d]%s%s" % [marker, state.display_name(id), int(state.initiatives.get(id, 0)), hp, status])
 	_order_label.text = "\n".join(lines)
+
+
+## The Control panel: shown while the character dominates creatures in its
+## fight; each gets Move / Attack (pick on the map) and Hold (end its turn).
+func _refresh_control(state: ClientState) -> void:
+	var ids := state.controlled_creatures()
+	var mine := state.is_my_turn()
+	var key := "%s|%s" % [str(ids), mine]
+	_control_panel.visible = not ids.is_empty()
+	if key == _control_key:
+		return
+	_control_key = key
+	_clear(_control_box)
+	if ids.is_empty():
+		return
+	var title := Label.new()
+	title.text = "Under your control" + ("" if mine else " (orders on your turn)")
+	_control_box.add_child(title)
+	for id in ids:
+		var cid := id
+		var row := HBoxContainer.new()
+		_control_box.add_child(row)
+		var l := Label.new()
+		l.text = state.display_name(cid)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
+		var move := _make_button("Move", func() -> void:
+			state.begin_control(cid, "move")
+			state_changed.emit())
+		var attack := _make_button("Attack", func() -> void:
+			state.begin_control(cid, "attack")
+			state_changed.emit())
+		var hold := _make_button("Hold", func() -> void:
+			intent_requested.emit(state.control_hold_intent(cid))
+			state_changed.emit())
+		for b: Button in [move, attack, hold]:
+			b.disabled = not mine
+			row.add_child(b)
 
 
 func _refresh_attack_options(state: ClientState) -> void:
@@ -701,6 +799,12 @@ func _refresh_attack_options(state: ClientState) -> void:
 	for i in range(_technique_picker.item_count):
 		if str(_technique_picker.get_item_metadata(i)) == technique:
 			_technique_picker.select(i)
+	for pair: Array in [[_familiar_check, "via_familiar"], [_palm_check, "quivering_palm"], [_hurl_check, "hurl_through_hell"]]:
+		var c: CheckBox = pair[0]
+		c.visible = kinds.has(str(pair[1]))
+		c.set_pressed_no_signal(bool(state.attack_options.get(str(pair[1]), false)))
+	_palm_check.disabled = state.sheet == null or state.sheet.class_resource("ki") < 3
+	_hurl_check.disabled = state.sheet == null or state.sheet.class_resource("hurl_through_hell") < 1
 	_smite_picker.visible = kinds.has("smite")
 	if kinds.has("smite"):
 		var levels := state.smite_levels()
@@ -740,7 +844,8 @@ func _refresh_spells(state: ClientState) -> void:
 	for entry in all_entries:
 		if not exploring or bool(entry["out_of_combat"]):
 			entries.append(entry)
-	var key := "%s|%s|%s|%s|%s" % [str(entries), state.slots_text(), str(state.concentration), state.resources_text(), exploring]
+	var key := "%s|%s|%s|%s|%s|%s" % [str(entries), state.slots_text(), str(state.concentration), state.resources_text(), exploring,
+		str(state.cast_options)]
 	if key == _spells_key:
 		return
 	_spells_key = key
@@ -752,10 +857,20 @@ func _refresh_spells(state: ClientState) -> void:
 		_spells_box.add_child(_note(state.slots_text()))
 	if exploring:
 		var hidden := all_entries.size() - entries.size()
-		_spells_box.add_child(_note("Out of combat: spells cast on yourself at once, long casting times included.%s" % (
+		_spells_box.add_child(_note("Out of combat: spells cast on yourself at once, long casting times included; Knock, Mage Hand and the like aim at a door, chest or zone you click.%s" % (
 			" %d combat spell%s hidden." % [hidden, "" if hidden == 1 else "s"] if hidden > 0 else "")))
 		if entries.is_empty():
 			_spells_box.add_child(_note("None of your prepared spells works outside a fight."))
+	if state.sheet != null and state.sheet.has_feature("overchannel") and not exploring:
+		var oc := CheckBox.new()
+		oc.text = "Overchannel (maximum damage, 1st-5th level)"
+		oc.focus_mode = Control.FOCUS_NONE
+		oc.button_pressed = bool(state.cast_options.get("overchannel", false))
+		oc.tooltip_text = "The next damaging wizard spell of 1st-5th level deals maximum damage (free once per long rest)"
+		oc.toggled.connect(func(on: bool) -> void:
+			state.set_cast_option("overchannel", on)
+			state_changed.emit())
+		_spells_box.add_child(oc)
 	for entry in entries:
 		var row := HBoxContainer.new()
 		_spells_box.add_child(row)
@@ -806,16 +921,51 @@ func _refresh_spells(state: ClientState) -> void:
 		var warning := state.concentration_warning(id)
 		if not warning.is_empty():
 			label += " (!)"
+		var no_effect := str(entry.get("no_effect", ""))
+		if not no_effect.is_empty():
+			label += " - no effect in the delve"
+		if not bool(entry.get("prepared", true)):
+			label += " - %s" % ("at will" if not str(entry.get("invocation", "")).is_empty() else "ritual only")
+		var ritual_check: CheckBox = null
+		if exploring and bool(entry.get("ritual_castable", false)) and level > 0:
+			ritual_check = CheckBox.new()
+			ritual_check.text = "Ritual"
+			ritual_check.focus_mode = Control.FOCUS_NONE
+			ritual_check.tooltip_text = "Cast as a ritual: no spell slot (takes 10 minutes longer; at once in this version)"
+			ritual_check.button_pressed = not bool(entry.get("prepared", true)) or state.sheet.lowest_available_slot(level) == 0
+			ritual_check.disabled = not str(entry.get("ritual_error", "")).is_empty()
+		var landmark_picker: OptionButton = null
+		var marks: Array[String] = []
+		marks.assign(entry.get("landmarks", []))
+		if exploring and marks.size() > 0:
+			landmark_picker = OptionButton.new()
+			landmark_picker.focus_mode = Control.FOCUS_NONE
+			landmark_picker.tooltip_text = "Where to go"
+			for m in marks:
+				landmark_picker.add_item("to your landing" if m == "arrival" else "to the %s" % m)
+				landmark_picker.set_item_metadata(landmark_picker.item_count - 1, m)
 		var b := _make_button(label, func() -> void:
 			var slot := slot_picker.get_selected_id() if slot_picker != null else 0
 			var meta: Array[String] = []
 			if meta_picker != null and not str(meta_picker.get_selected_metadata()).is_empty():
 				meta.append(str(meta_picker.get_selected_metadata()))
 			var form := str(form_picker.get_selected_metadata()) if form_picker != null and form_picker.selected >= 0 else ""
-			_begin_cast(id, slot, meta, form))
+			var extra := {}
+			if not form.is_empty():
+				extra["form"] = form
+			if ritual_check != null and ritual_check.button_pressed:
+				extra["ritual"] = true
+			if landmark_picker != null and landmark_picker.selected >= 0:
+				extra["target_kind"] = "landmark"
+				extra["target_id"] = str(landmark_picker.get_selected_metadata())
+			if not str(entry.get("invocation", "")).is_empty() and bool(entry.get("prepared", true)):
+				extra["invocation"] = str(entry["invocation"])
+			_begin_cast(id, slot, meta, form, extra))
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var error := str(entry["error"])
+		if not error.is_empty() and ritual_check != null and str(entry.get("ritual_error", "")).is_empty():
+			error = ""  # castable as a ritual
 		b.disabled = not error.is_empty()
 		if not bool(entry["supported"]):
 			b.text += " - not castable yet"
@@ -823,7 +973,14 @@ func _refresh_spells(state: ClientState) -> void:
 		b.tooltip_text = error if not error.is_empty() else "Cast %s" % str(entry["name"])
 		if not warning.is_empty():
 			b.tooltip_text += "\n" + warning
+		if not no_effect.is_empty():
+			b.tooltip_text += "\nNo effect in the delve: %s." % no_effect
 		row.add_child(b)
+		if ritual_check != null:
+			row.add_child(ritual_check)
+		if landmark_picker != null:
+			landmark_picker.disabled = b.disabled
+			row.add_child(landmark_picker)
 		if slot_picker != null:
 			slot_picker.disabled = b.disabled
 			slot_picker.tooltip_text = "Upcast with a higher slot"
@@ -1109,11 +1266,14 @@ func _on_attack_picked(index: int) -> void:
 	state_changed.emit()
 
 
-func _begin_cast(spell_id: String, slot_level: int, metamagic: Array[String] = [], form: String = "") -> void:
+func _begin_cast(spell_id: String, slot_level: int, metamagic: Array[String] = [], form: String = "", extra: Dictionary = {}) -> void:
 	if _state == null:
 		return
 	close_popups()
-	var intent := _state.begin_cast(spell_id, slot_level, metamagic, {"form": form} if not form.is_empty() else {})
+	var fields := extra.duplicate()
+	if not form.is_empty():
+		fields["form"] = form
+	var intent := _state.begin_cast(spell_id, slot_level, metamagic, fields)
 	if not intent.is_empty():
 		intent_requested.emit(intent)
 	state_changed.emit()

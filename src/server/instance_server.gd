@@ -91,7 +91,37 @@ extends Node
 ## Items and chests: use_item is resolved by the Encounter while the actor
 ## fights, else here (no action cost). Chest state lasts one floor visit;
 ## hidden chests are withheld from FLOOR_LOADED until a player comes within
-## CHEST_REVEAL_RANGE (CHEST_REVEALED) or opens them.
+## CHEST_REVEAL_RANGE (CHEST_REVEALED) or opens them. A locked chest
+## (ChestData.locked, or Arcane Lock) opens only after Knock.
+##
+## Floor objects (Round D, floor file v2; state lasts one floor visit):
+##   - landings: each player arrives on one (add_player: the floor's seeded
+##     base landing, then round robin; a party descending together lands on
+##     the new floor's base landing); v1 floors have one, the arrival tile.
+##   - doors: a closed or locked door is a wall of the exploration map
+##     (explore_map(): movement and line of sight) and of every new
+##     encounter's map copy; open_door / close_door (adjacent, out of combat),
+##     unlock_door {method: key | tools | spell}; DOOR_CHANGED is broadcast.
+##   - props: intact blocking props are obstacles (exploration: occupied
+##     tiles; encounters: walls of the map copy). interact {prop_id}
+##     (adjacent, out of combat) breaks one: PROP_DESTROYED, its loot table to
+##     the breaker (LOOT_GAINED source "prop"). Props cannot be attacked in a
+##     fight (the core has no object targets; see the D2 report).
+##   - respawns (schema 2 floors): a cleared zone with `respawns` comes back
+##     after the floor's pack_seconds (boss zones: boss_seconds), never while
+##     a living player stands in its rect or a fight runs there; its new
+##     monsters (ids suffixed "_r<n>") re-arm the zone: ZONE_RESPAWNED, then
+##     EXPLORE_STATE.
+##   - exploration effects (round C): out-of-combat casts forward the core's
+##     events (exploration_effect, no_effect, lingering_added, ...) in
+##     OUT_OF_COMBAT_EVENTS; this server resolves exploration_effect: unlock /
+##     lock / open doors and chests (target_kind / target_id, checked before
+##     the cast so a bad aim spends nothing), reveal (REVEAL to the caster;
+##     hidden chests also CHEST_REVEALED), light (the caster's light level ->
+##     bright, CHARACTER_STATE extra light_level), teleport (landmark arrival
+##     = the player's landing, or the stairs) and recall (the landing). The
+##     same hooks cast inside a fight resolve after its events. A fight starts
+##     at the floor's light level (floor_light(); Encounter.set_light).
 
 const TICKS_PER_SECOND := 20
 const TICK_SECONDS := 1.0 / TICKS_PER_SECOND
@@ -114,6 +144,11 @@ const LEVEL_STREAM := 1 << 23
 const LOOT_STREAM := 1 << 24
 ## Rng.fork stream id (root) for out-of-combat spells (heal and temp HP dice).
 const CAST_STREAM := 1 << 25
+## Rng.fork stream ids: the landing pick (forked from the floor's stream) and
+## thieves' tools checks (root).
+const LANDING_STREAM := 1 << 26
+const TOOLS_STREAM := 1 << 27
+const THIEVES_TOOLS := "thieves_tools"
 ## XP every living player gets when the stairs are taken (not split).
 const FLOOR_CLEAR_XP := 100
 ## A hidden chest is revealed once a player stands within this many tiles.
@@ -136,6 +171,7 @@ var _item_rng: Rng = null
 var _level_rng: Rng = null
 var _loot_rng: Rng = null  # per floor: forked from _floor_rng
 var _cast_rng: Rng = null
+var _tools_rng: Rng = null
 var _monster_defs: Dictionary = {}  # id -> MonsterDefinition
 var _entities: Dictionary = {}  # id -> ServerEntity, insertion order
 var _peer_entities: Dictionary = {}  # peer id -> entity id
@@ -145,6 +181,19 @@ var _zone_attempts: Dictionary = {}  # zone id -> encounters created
 # Chest state of the current floor visit (reset on every floor load).
 var _opened_chests: Dictionary = {}  # chest id -> true
 var _revealed_chests: Dictionary = {}  # chest id -> true (hidden chests only)
+# Floor objects of the current floor visit (reset on every floor load).
+var _door_states: Dictionary = {}  # door id -> state
+var _door_dcs: Dictionary = {}  # door id -> dc (Arcane Lock raises it)
+var _destroyed_props: Dictionary = {}  # prop id -> true
+var _unlocked_chests: Dictionary = {}  # locked chest id -> true (Knock)
+var _arcane_locked_chests: Dictionary = {}  # chest id -> true
+var _cleared_at: Dictionary = {}  # zone id -> tick it was cleared (respawn timer)
+var _zone_respawns: Dictionary = {}  # zone id -> respawns so far
+var _landing_base: int = 0
+var _landing_counter: int = 0
+var _explore_map: WalkMap = null
+var _prop_block: Dictionary = {}  # Vector2i -> prop id (intact blocking props)
+var _teleported: Array[ServerEntity] = []  # moved by exploration effects this intent
 var _game_over: bool = false
 var _floor_cleared: bool = false
 var _accumulator: float = 0.0
@@ -191,6 +240,7 @@ func configure(transport: Transport, floor_data: FloorData, instance_seed: int) 
 	_item_rng = _root_rng.fork(ITEM_STREAM)
 	_level_rng = _root_rng.fork(LEVEL_STREAM)
 	_cast_rng = _root_rng.fork(CAST_STREAM)
+	_tools_rng = _root_rng.fork(TOOLS_STREAM)
 	_loot_rng = _floor_rng.fork(LOOT_STREAM)
 	if _monster_defs.is_empty():
 		_monster_defs = ContentLoader.load_monsters()
@@ -199,6 +249,7 @@ func configure(transport: Transport, floor_data: FloorData, instance_seed: int) 
 	if floor_data == null:
 		push_error("InstanceServer.configure: floor is null")
 		return
+	_reset_floor_runtime()
 	_spawn_monsters()
 
 
@@ -226,7 +277,8 @@ func configure_set(transport: Transport, set_manifest: Dictionary, instance_seed
 
 
 ## Adds a player character (the server keeps its own copy of the sheet) as
-## entity "p<peer_id>" at the floor's arrival tile (or the nearest free tile),
+## entity "p<peer_id>" on a landing (_next_landing; v1 floors: the arrival
+## tile) or the nearest free tile,
 ## sends FLOOR_LOADED and CHARACTER_STATE to that peer, then broadcasts
 ## EXPLORE_STATE. Returns the entity id, or "" on failure.
 func add_player(peer_id: int, sheet: CharacterSheet) -> String:
@@ -245,7 +297,10 @@ func add_player(peer_id: int, sheet: CharacterSheet) -> String:
 	e.peer_id = peer_id
 	e.sheet = CharacterSheet.from_dict(sheet.to_dict())
 	e.display_name = e.sheet.name
-	e.position = _free_tile_near(_floor.arrival)
+	var landing := _next_landing()
+	e.landing_id = landing.id
+	e.light_level = floor_light()
+	e.position = _free_tile_near(landing.position)
 	_entities[e.id] = e
 	_peer_entities[peer_id] = e.id
 	_send_floor_loaded(e)
@@ -358,6 +413,7 @@ func run_tick() -> void:
 	_pump_transport()
 	_run_due_monster_turns()
 	_advance_exploration()
+	_check_respawns()
 
 
 func _pump_transport() -> void:
@@ -423,6 +479,14 @@ func _on_intent_received(peer_id: int, intent: Dictionary) -> void:
 			_handle_drop_item(peer_id, entity, str(intent["item"]), DictUtil.to_int(intent["qty"], 0))
 		Messages.OPEN_CHEST:
 			_handle_open_chest(peer_id, entity, str(intent["chest_id"]))
+		Messages.OPEN_DOOR:
+			_handle_open_door(peer_id, entity, str(intent["door_id"]))
+		Messages.CLOSE_DOOR:
+			_handle_close_door(peer_id, entity, str(intent["door_id"]))
+		Messages.UNLOCK_DOOR:
+			_handle_unlock_door(peer_id, entity, intent)
+		Messages.INTERACT:
+			_handle_interact(peer_id, entity, str(intent["prop_id"]))
 		Messages.LEVEL_UP:
 			_handle_level_up(peer_id, entity, intent["choices"])
 
@@ -439,6 +503,8 @@ func _handle_combat_intent(peer_id: int, entity: ServerEntity, intent: Dictionar
 		return
 	var events: Array = res.get("events", [])
 	_broadcast_events(session, events)
+	_teleported.clear()
+	_resolve_fight_exploration(events)
 	_after_encounter_change(session)
 
 
@@ -446,14 +512,15 @@ func _handle_explore_move(peer_id: int, entity: ServerEntity, target: Vector2i) 
 	if not entity.sheet.is_conscious():
 		_send_error(peer_id, "%s cannot move" % entity.display_name)
 		return
-	var walk_map := _floor.walk_map
+	var walk_map := explore_map()
 	if not walk_map.is_walkable(target):
-		_send_error(peer_id, "tile %s is not walkable" % str(target))
+		var door := _floor.door_at(target)
+		_send_error(peer_id, "door '%s' is %s" % [door.id, door_state(door.id)] if door != null else "tile %s is not walkable" % str(target))
 		return
 	if target == entity.position:
 		entity.path.clear()
 		return
-	var occupied := _occupied(entity.id)
+	var occupied := _blocked(entity.id)
 	var path := walk_map.path_to(entity.position, target, occupied)
 	if path.is_empty():
 		if occupied.has(target) and GridMath.is_adjacent(entity.position, target):
@@ -532,8 +599,8 @@ func _load_set_floor(floor_id: String, overrides: Dictionary) -> FloorData:
 
 
 ## Moves the whole instance to the set's floor `index`: old monsters go, the
-## new floor's monsters spawn, players keep their sheets and stand at the
-## new arrival.
+## new floor's monsters spawn, players keep their sheets and stand on the
+## new floor's base landing.
 ## `extras` (entity id -> Dictionary) are merged into each player's CHARACTER_STATE.
 func _enter_floor(index: int, floor_data: FloorData, extras: Dictionary = {}) -> void:
 	var players := _players()
@@ -548,14 +615,19 @@ func _enter_floor(index: int, floor_data: FloorData, extras: Dictionary = {}) ->
 	_floor = floor_data
 	_floor_rng = _root_rng.fork(FLOOR_STREAM + index)
 	_loot_rng = _floor_rng.fork(LOOT_STREAM)
+	_reset_floor_runtime()
 	_spawn_monsters()
+	# The party descended together: everyone lands on the floor's base landing.
+	var landing := _next_landing()
 	for e in players:
 		e.path.clear()
 		e.step_timer = 0
 		e.encounter_id = ""
 		e.combatant = null
 		e.zone_id = ""
-		e.position = _free_tile_near(_floor.arrival) if e.is_alive() else _floor.arrival
+		e.landing_id = landing.id
+		e.light_level = floor_light()
+		e.position = _free_tile_near(landing.position) if e.is_alive() else landing.position
 		_entities[e.id] = e
 	for e in players:
 		_send_floor_loaded(e)
@@ -707,8 +779,14 @@ func _handle_use_item(peer_id: int, entity: ServerEntity, intent: Dictionary) ->
 
 
 ## Out-of-combat cast (see the class comment): OutOfCombat.cast with the
-## player's own sheet as the target, then OUT_OF_COMBAT_EVENTS and
-## CHARACTER_STATE to the caster, or ERROR (nothing changed).
+## player's own sheet as the target (options: slot_level, form, mode,
+## target_kind / target_id, invocation, ritual, spend_slot), then
+## OUT_OF_COMBAT_EVENTS (the core's events: cast, companion_summoned, heal,
+## temp_hp, revived, restored, buff, exploration_effect, no_effect,
+## lingering_added), the exploration hooks' own results, and CHARACTER_STATE
+## to the caster; or ERROR (nothing changed). An exploration spell aimed at
+## an object that is missing, out of range or in the wrong state is refused
+## before the cast.
 func _handle_cast_out_of_combat(peer_id: int, entity: ServerEntity, intent: Dictionary) -> void:
 	var spell_id := str(intent["spell"])
 	var content := ContentLoader.cache()
@@ -726,15 +804,22 @@ func _handle_cast_out_of_combat(peer_id: int, entity: ServerEntity, intent: Dict
 		if id != entity.id:
 			_send_error(peer_id, "out of combat, %s can only target yourself for now" % spell.display_name)
 			return
-	var options := {}
+	if spell.effect_type == SpellDefinition.EFFECT_EXPLORATION:
+		var problem := _exploration_problem(entity, spell, intent)
+		if not problem.is_empty():
+			_send_error(peer_id, problem)
+			return
+	var options := {"caster_id": entity.id, "target_ids": [entity.id]}
 	if intent.has("slot_level"):
 		options["slot_level"] = DictUtil.to_int(intent["slot_level"], 0)
-	if intent.has("form"):
-		options["form"] = str(intent["form"])
+	for key: String in ["form", "mode", "target_kind", "target_id", "invocation"]:
+		if intent.has(key):
+			options[key] = str(intent[key])
+	for key: String in ["ritual", "spend_slot"]:
+		if intent.has(key):
+			options[key] = intent[key] == true
 	var sheet := entity.sheet
 	var targets: Array[CharacterSheet] = [sheet]
-	var conditions_before: Array[String] = []
-	conditions_before.assign(sheet.conditions.duplicate())
 	var res := OutOfCombat.cast(sheet, spell_id, content, _cast_rng, targets, options)
 	if res.get("ok", false) != true:
 		_send_error(peer_id, str(res.get("error", "the spell fails")))
@@ -742,37 +827,41 @@ func _handle_cast_out_of_combat(peer_id: int, entity: ServerEntity, intent: Dict
 	_stamp_companion_ids(entity)
 	var slot := DictUtil.to_int(res.get("slot_level", 0), 0)
 	var result: Dictionary = res.get("result", {})
-	var events: Array = [{
-		"kind": "cast", "actor": entity.id, "spell": spell_id, "target": entity.id, "slot_level": slot,
-		"casting_time": spell.casting_time, "ritual": spell.raw.get("ritual", false) == true,
-	}]
-	if result.has("companions"):
-		var count := DictUtil.to_int(result["companions"], 0)
-		var new_ids: Array = []
-		for i in range(maxi(0, sheet.companions.size() - count), sheet.companions.size()):
-			new_ids.append(str(sheet.companions[i].get("id", "")))
-		events.append({"kind": "companion_summoned", "caster": entity.id, "spell": spell_id,
-			"monster": str(result.get("monster", "")), "count": count, "companion_ids": new_ids})
-	if result.has("revived"):
-		events.append({"kind": "revived", "target": entity.id, "hp": DictUtil.to_int(result.get("hp", sheet.current_hp), sheet.current_hp)})
-	if typeof(result.get("healed")) == TYPE_DICTIONARY:
-		var healed: Dictionary = result["healed"]
-		for key: Variant in healed.keys():
-			events.append({"kind": "heal", "target": entity.id, "amount": DictUtil.to_int(healed[key], 0), "hp_after": sheet.current_hp})
-	if result.has("temp_hp"):
-		events.append({"kind": "temp_hp", "target": entity.id, "amount": DictUtil.to_int(result["temp_hp"], 0), "temp_hp_after": sheet.temp_hp})
-	if result.has("exhaustion"):
-		var removed: Array = []
-		for cond in conditions_before:
-			if not sheet.conditions.has(cond):
-				removed.append(cond)
-		events.append({"kind": "restored", "target": entity.id, "conditions_removed": removed, "exhaustion": sheet.exhaustion})
-	if result.has("ac"):
-		events.append({"kind": "buff", "target": entity.id, "buff": spell.buff, "ac": DictUtil.to_int(result["ac"], sheet.armor_class())})
+	var events: Array = []
+	for ev_v: Variant in (res.get("events", []) as Array):
+		var ev: Dictionary = (ev_v as Dictionary).duplicate(true)
+		if str(ev.get("kind", "")) == "cast":
+			# "ritual" = the spell has the ritual tag (as before); "as_ritual" = cast as one (no slot).
+			ev["as_ritual"] = ev.get("ritual", false) == true
+			ev["ritual"] = spell.ritual
+		events.append(ev)
 	_transport.send_result(peer_id, Messages.make_result(Messages.OUT_OF_COMBAT_EVENTS, {
 		"entity_id": entity.id, "spell": spell_id, "slot_level": slot, "result": result, "events": events,
 	}))
-	_send_character_state(entity, {"spell_cast": spell_id})
+	_teleported.clear()
+	var light_before := entity.light_level
+	for ev_v: Variant in events:
+		var ev: Dictionary = ev_v
+		if str(ev.get("kind", "")) == "exploration_effect":
+			_resolve_exploration(entity, ev)
+	var extra := {"spell_cast": spell_id}
+	if entity.light_level != light_before:
+		extra["light_level"] = entity.light_level
+	_send_character_state(entity, extra)
+	_after_teleports()
+
+
+## Players moved by teleport / recall hooks: EXPLORE_STATE, then hidden
+## chests near them and the zones they landed in.
+func _after_teleports() -> void:
+	if _teleported.is_empty():
+		return
+	var moved := _teleported.duplicate()
+	_teleported.clear()
+	_broadcast_explore_state()
+	for e: ServerEntity in moved:
+		_reveal_chests_near(e)
+		_check_zone_entry(e)
 
 
 ## Removes a companion (by its server id) from the player's sheet.
@@ -832,14 +921,22 @@ func _handle_open_chest(peer_id: int, entity: ServerEntity, chest_id: String) ->
 	if not entity.sheet.is_conscious():
 		_send_error(peer_id, "%s cannot open a chest now" % entity.display_name)
 		return
+	if is_chest_locked(chest_id):
+		_send_error(peer_id, "chest '%s' is locked" % chest_id)
+		return
 	entity.path.clear()
-	_opened_chests[chest_id] = true
-	_revealed_chests[chest_id] = true
+	_open_chest_for(entity, chest)
+
+
+## Opens a chest for e: CHEST_OPENED (broadcast), LOOT_GAINED, CHARACTER_STATE.
+func _open_chest_for(entity: ServerEntity, chest: ChestData) -> void:
+	_opened_chests[chest.id] = true
+	_revealed_chests[chest.id] = true
 	var items := _roll_loot(chest.table_id)
 	_transport.broadcast_result(Messages.make_result(Messages.CHEST_OPENED, {
-		"chest_id": chest_id, "entity_id": entity.id,
+		"chest_id": chest.id, "entity_id": entity.id,
 	}))
-	_give_loot(entity, items, Messages.LOOT_SOURCE_CHEST, {"chest_id": chest_id})
+	_give_loot(entity, items, Messages.LOOT_SOURCE_CHEST, {"chest_id": chest.id})
 	_send_character_state(entity)
 
 
@@ -913,14 +1010,17 @@ func _reveal_chests_near(e: ServerEntity) -> void:
 		}))
 
 
-## The wire form of a chest: {id, position, hidden, opened} (no loot table).
+## The wire form of a chest: {id, position, hidden, opened, locked?} (no loot table).
 func _chest_state(chest: ChestData) -> Dictionary:
-	return {
+	var out := {
 		"id": chest.id,
 		"position": GridMath.vec_to_arr(chest.position),
 		"hidden": chest.hidden,
 		"opened": _opened_chests.has(chest.id),
 	}
+	if is_chest_locked(chest.id):
+		out["locked"] = true
+	return out
 
 
 ## Chests clients may know about (see is_chest_revealed), in floor order.
@@ -958,8 +1058,8 @@ func _advance_exploration() -> void:
 ## Moves e one tile along its path, re-pathing if a creature blocks the next
 ## tile. Returns false (and stops) if no way forward exists.
 func _step_entity(e: ServerEntity) -> bool:
-	var walk_map := _floor.walk_map
-	var occupied := _occupied(e.id)
+	var walk_map := explore_map()
+	var occupied := _blocked(e.id)
 	var next := e.path[0]
 	if not walk_map.can_step(e.position, next, occupied):
 		var repath := walk_map.path_to(e.position, e.target, occupied)
@@ -983,15 +1083,17 @@ func _occupied(except_id: String = "") -> Dictionary:
 	return out
 
 
-## p if it is free and walkable, else the nearest free walkable tile (BFS).
-func _free_tile_near(p: Vector2i) -> Vector2i:
-	var occupied := _occupied()
-	if _floor.walk_map.is_walkable(p) and not occupied.has(p):
+## p if it is free and walkable (doors and props composed in), else the
+## nearest free walkable tile (BFS). except_id's own tile counts as free.
+func _free_tile_near(p: Vector2i, except_id: String = "") -> Vector2i:
+	var occupied := _blocked(except_id)
+	var wm := explore_map()
+	if wm.is_walkable(p) and not occupied.has(p):
 		return p
-	var costs := _floor.walk_map.reachable(p, _floor.walk_map.width + _floor.walk_map.height, {})
+	var costs := wm.reachable(p, wm.width + wm.height, {})
 	for key: Variant in costs.keys():
 		var cell: Vector2i = key
-		if not occupied.has(cell) and _floor.walk_map.is_walkable(cell):
+		if not occupied.has(cell) and wm.is_walkable(cell):
 			return cell
 	push_error("InstanceServer: no free tile near %s" % str(p))
 	return p
@@ -1023,7 +1125,9 @@ func _start_session(zone: EncounterZoneData) -> void:
 	_zone_attempts[zone.id] = attempt + 1
 	var rng := _floor_rng.fork(zone_index + attempt * ZONE_ATTEMPT_STRIDE)
 	var session_id := zone.id if attempt == 0 else "%s#%d" % [zone.id, attempt + 1]
-	var enc := Encounter.new(session_id, rng, _floor.walk_map, zone.rect)
+	var enc := Encounter.new(session_id, rng, _encounter_map(), zone.rect)
+	if floor_light() != Encounter.LIGHT_BRIGHT:
+		enc.set_light(floor_light())
 	var session := EncounterSession.new(session_id, zone, enc)
 	var joined: Array[ServerEntity] = []
 	for value: Variant in _entities.values():
@@ -1045,7 +1149,7 @@ func _start_session(zone: EncounterZoneData) -> void:
 			if e.is_monster():
 				monsters_left = true
 		if not monsters_left:
-			_cleared_zones[zone.id] = true
+			_mark_cleared(zone.id)
 		return
 	for e in joined:
 		_enter_combat(session, e)
@@ -1140,7 +1244,7 @@ func _finish_session(session: EncounterSession) -> void:
 	var drops: Array[Dictionary] = []
 	var looter: ServerEntity = null
 	if players_won:
-		_cleared_zones[session.zone.id] = true
+		_mark_cleared(session.zone.id)
 		xp_share = _xp_share(session)
 		drops = _roll_monster_drops(session)
 		looter = _first_living_player(session)
@@ -1247,23 +1351,29 @@ func _check_game_over() -> void:
 
 func _spawn_monsters() -> void:
 	for zone in _floor.encounter_zones:
-		for i in range(mini(zone.monster_ids.size(), zone.spawn_points.size())):
-			var monster_id := zone.monster_ids[i]
-			if not _monster_defs.has(monster_id):
-				push_error("InstanceServer: unknown monster '%s' in zone %s" % [monster_id, zone.id])
-				continue
-			var def: MonsterDefinition = _monster_defs[monster_id]
-			var proto := Combatant.from_monster("", def, Combatant.TEAM_MONSTERS, null, false)
-			var e := ServerEntity.new()
-			e.id = "%s_%s_%d" % [zone.id, monster_id, i]
-			e.kind = ServerEntity.KIND_MONSTER
-			e.sheet = proto.sheet
-			e.attacks = proto.attacks
-			e.display_name = def.display_name
-			e.monster_id = def.id
-			e.zone_id = zone.id
-			e.position = zone.spawn_points[i]
-			_entities[e.id] = e
+		_spawn_zone(zone, "")
+
+
+## Spawns a zone's monsters at their spawn points; id "<zone>_<monster>_<i>"
+## + suffix (respawns add "_r<n>").
+func _spawn_zone(zone: EncounterZoneData, suffix: String) -> void:
+	for i in range(mini(zone.monster_ids.size(), zone.spawn_points.size())):
+		var monster_id := zone.monster_ids[i]
+		if not _monster_defs.has(monster_id):
+			push_error("InstanceServer: unknown monster '%s' in zone %s" % [monster_id, zone.id])
+			continue
+		var def: MonsterDefinition = _monster_defs[monster_id]
+		var proto := Combatant.from_monster("", def, Combatant.TEAM_MONSTERS, null, false)
+		var e := ServerEntity.new()
+		e.id = "%s_%s_%d%s" % [zone.id, monster_id, i, suffix]
+		e.kind = ServerEntity.KIND_MONSTER
+		e.sheet = proto.sheet
+		e.attacks = proto.attacks
+		e.display_name = def.display_name
+		e.monster_id = def.id
+		e.zone_id = zone.id
+		e.position = zone.spawn_points[i]
+		_entities[e.id] = e
 
 
 # --- results ------------------------------------------------------------------------
@@ -1293,9 +1403,25 @@ func _send_floor_loaded(e: ServerEntity) -> void:
 	var chests := _visible_chests()
 	var floor_dict := _floor.to_dict()
 	floor_dict["chests"] = chests  # never leak hidden chests or loot tables
+	var doors: Array = []
+	for d in _floor.doors:
+		doors.append(_door_wire(d))
+	var props: Array = []
+	for p in _floor.props:
+		props.append(_prop_wire(p))
+	floor_dict["doors"] = doors  # current states, never key items
+	floor_dict["props"] = props  # never loot tables
+	var landings: Array = []
+	for l in _floor.get_landings():
+		landings.append(l.to_dict())
 	_transport.send_result(e.peer_id, Messages.make_result(Messages.FLOOR_LOADED, {
 		"floor": floor_dict,
 		"chests": chests,
+		"doors": doors,
+		"props": props,
+		"landings": landings,
+		"landing_id": e.landing_id,
+		"light": floor_light(),
 		"entity_id": e.id,
 		"cleared_zones": cleared,
 		"set_id": _set_id,
@@ -1314,3 +1440,599 @@ func _send_character_state(e: ServerEntity, extra: Dictionary = {}) -> void:
 
 func _send_error(peer_id: int, message: String) -> void:
 	_transport.send_result(peer_id, Messages.make_error(message))
+
+
+# --- floor objects: landings, doors, props, light (Round D) ---------------------------
+
+## Forgets the floor visit's door / prop / chest-lock / respawn state and
+## rebuilds the exploration map from the floor's authored states.
+func _reset_floor_runtime() -> void:
+	_door_states.clear()
+	_door_dcs.clear()
+	_destroyed_props.clear()
+	_unlocked_chests.clear()
+	_arcane_locked_chests.clear()
+	_cleared_at.clear()
+	_zone_respawns.clear()
+	_landing_counter = 0
+	_landing_base = 0
+	_explore_map = null
+	_prop_block = {}
+	if _floor == null:
+		return
+	for d in _floor.doors:
+		_door_states[d.id] = d.state
+	var landings := _floor.get_landings()
+	if landings.size() > 1:
+		var rng := _floor_rng.fork(LANDING_STREAM)
+		_landing_base = rng.next_int(0, landings.size() - 1)
+	_rebuild_floor_maps()
+
+
+## _explore_map = the floor's walk map with closed / locked doors as walls;
+## _prop_block = intact blocking props (tile -> prop id).
+func _rebuild_floor_maps() -> void:
+	_explore_map = _floor.walk_map.copy()
+	for d in _floor.doors:
+		if door_state(d.id) != DoorData.STATE_OPEN and _explore_map.in_bounds(d.position):
+			_explore_map.set_walkable(d.position, false)
+	_prop_block = {}
+	for p in _floor.props:
+		if p.blocks and not _destroyed_props.has(p.id):
+			_prop_block[p.position] = p.id
+
+
+## The walk map exploration uses right now (doors composed in).
+func explore_map() -> WalkMap:
+	if _explore_map == null and _floor != null:
+		_rebuild_floor_maps()
+	return _explore_map
+
+
+## The map copy a new encounter gets: closed doors and intact blocking props
+## are walls (the core has no "solid but see-through" tile, so a blocking prop
+## also blocks line of sight inside a fight).
+func _encounter_map() -> WalkMap:
+	var m := explore_map().copy()
+	for key: Variant in _prop_block.keys():
+		var p: Vector2i = key
+		m.set_walkable(p, false)
+	return m
+
+
+## Living entities (except except_id) and intact blocking props, as an
+## `occupied` set for exploration path finding.
+func _blocked(except_id: String = "") -> Dictionary:
+	var out := _occupied(except_id)
+	for key: Variant in _prop_block.keys():
+		out[key] = _prop_block[key]
+	return out
+
+
+## Current state of a door ("" for an unknown id).
+func door_state(door_id: String) -> String:
+	if _door_states.has(door_id):
+		return str(_door_states[door_id])
+	var d := _floor.get_door(door_id) if _floor != null else null
+	return d.state if d != null else ""
+
+
+func is_prop_destroyed(prop_id: String) -> bool:
+	return _destroyed_props.has(prop_id)
+
+
+## The landing a player arrived at on this floor ("" before add_player).
+func landing_of(entity_id: String) -> String:
+	var e := get_entity(entity_id)
+	return e.landing_id if e != null else ""
+
+
+## The floor's ambient light: theme_style "light" ("bright" | "dim" | "dark"),
+## default bright. FloorData has no light field yet (see the D2 report).
+func floor_light() -> String:
+	if _floor == null:
+		return Encounter.LIGHT_BRIGHT
+	var l := str(_floor.theme_style.get("light", Encounter.LIGHT_BRIGHT))
+	return l if Encounter.LIGHT_LEVELS.has(l) else Encounter.LIGHT_BRIGHT
+
+
+## Landing for the next player added to this floor: the seeded base landing,
+## then round robin (offline the instance seed picks it; online this becomes
+## least-recently-used).
+func _next_landing() -> LandingData:
+	var landings := _floor.get_landings()
+	var l := landings[(_landing_base + _landing_counter) % landings.size()]
+	_landing_counter += 1
+	return l
+
+
+func _landing_position(e: ServerEntity) -> Vector2i:
+	var l := _floor.get_landing(e.landing_id)
+	return l.position if l != null else _floor.arrival
+
+
+## The wire form of a door: {id, position, state, dc?, keyed?} (never key_item).
+func _door_wire(d: DoorData) -> Dictionary:
+	var out := {"id": d.id, "position": GridMath.vec_to_arr(d.position), "state": door_state(d.id)}
+	var dc := _door_dc(d)
+	if dc > 0:
+		out["dc"] = dc
+	if not d.key_item.is_empty():
+		out["keyed"] = true
+	return out
+
+
+## The wire form of a prop: {id, kind, position, hp, blocks, destroyed} (never loot_table).
+func _prop_wire(p: PropData) -> Dictionary:
+	return {"id": p.id, "kind": p.kind, "position": GridMath.vec_to_arr(p.position), "hp": p.hp, "blocks": p.blocks,
+		"destroyed": _destroyed_props.has(p.id)}
+
+
+func _door_dc(d: DoorData) -> int:
+	return DictUtil.to_int(_door_dcs.get(d.id, d.dc), d.dc)
+
+
+func _set_door_state(d: DoorData, state: String, by: String, method: String, spell: String = "") -> void:
+	_door_states[d.id] = state
+	_rebuild_floor_maps()
+	var fields := {"door_id": d.id, "state": state, "by": by, "method": method}
+	if not spell.is_empty():
+		fields["spell"] = spell
+	_transport.broadcast_result(Messages.make_result(Messages.DOOR_CHANGED, fields))
+
+
+## Common checks for door / prop intents: the object exists, the player is
+## conscious and within `reach` tiles. "" when fine.
+func _object_problem(entity: ServerEntity, pos: Vector2i, what: String, reach: int = 1) -> String:
+	if not entity.sheet.is_conscious():
+		return "%s cannot do that now" % entity.display_name
+	if GridMath.distance_tiles(entity.position, pos) > reach:
+		return "%s is not next to the %s" % [entity.display_name, what]
+	return ""
+
+
+func _handle_open_door(peer_id: int, entity: ServerEntity, door_id: String) -> void:
+	var d := _floor.get_door(door_id)
+	if d == null:
+		_send_error(peer_id, "there is no door '%s' on this floor" % door_id)
+		return
+	var problem := _object_problem(entity, d.position, "door")
+	if not problem.is_empty():
+		_send_error(peer_id, problem)
+		return
+	match door_state(door_id):
+		DoorData.STATE_OPEN:
+			_send_error(peer_id, "door '%s' is already open" % door_id)
+		DoorData.STATE_LOCKED:
+			_send_error(peer_id, "door '%s' is locked" % door_id)
+		_:
+			entity.path.clear()
+			_set_door_state(d, DoorData.STATE_OPEN, entity.id, "hand")
+
+
+func _handle_close_door(peer_id: int, entity: ServerEntity, door_id: String) -> void:
+	var d := _floor.get_door(door_id)
+	if d == null:
+		_send_error(peer_id, "there is no door '%s' on this floor" % door_id)
+		return
+	var problem := _object_problem(entity, d.position, "door")
+	if not problem.is_empty():
+		_send_error(peer_id, problem)
+		return
+	if door_state(door_id) != DoorData.STATE_OPEN:
+		_send_error(peer_id, "door '%s' is not open" % door_id)
+		return
+	if _occupied().has(d.position):
+		_send_error(peer_id, "something stands in the doorway")
+		return
+	_set_door_state(d, DoorData.STATE_CLOSED, entity.id, "hand")
+
+
+## unlock_door: key (carried, kept), tools (thieves' tools: d20 + DEX +
+## proficiency when the class has the tool proficiency, against the door's
+## dc; a failure may be retried) or spell (casts the spell, Knock by default,
+## at the door through the out-of-combat cast; the exploration_effect opens
+## the lock). A key or a successful check leaves the door closed (unlocked).
+func _handle_unlock_door(peer_id: int, entity: ServerEntity, intent: Dictionary) -> void:
+	var door_id := str(intent["door_id"])
+	var d := _floor.get_door(door_id)
+	if d == null:
+		_send_error(peer_id, "there is no door '%s' on this floor" % door_id)
+		return
+	var method := str(intent["method"])
+	if method == Messages.UNLOCK_SPELL:
+		var spell_id := str(intent.get("spell", "knock"))
+		_handle_cast_out_of_combat(peer_id, entity, Messages.make_intent(Messages.CAST, {
+			"actor": entity.id, "spell": spell_id, "target_kind": "door", "target_id": door_id,
+		}))
+		return
+	var problem := _object_problem(entity, d.position, "door")
+	if not problem.is_empty():
+		_send_error(peer_id, problem)
+		return
+	if door_state(door_id) != DoorData.STATE_LOCKED:
+		_send_error(peer_id, "door '%s' is not locked" % door_id)
+		return
+	entity.path.clear()
+	if method == Messages.UNLOCK_KEY:
+		if d.key_item.is_empty() or not entity.sheet.has_item(d.key_item):
+			_send_error(peer_id, "%s has no key for this door" % entity.display_name)
+			return
+		_set_door_state(d, DoorData.STATE_CLOSED, entity.id, Messages.UNLOCK_KEY)
+		_send_character_state(entity, {"door_unlocked": {"door_id": door_id, "method": Messages.UNLOCK_KEY}})
+		return
+	var dc := _door_dc(d)
+	if dc <= 0:
+		_send_error(peer_id, "this lock cannot be picked")
+		return
+	if not entity.sheet.has_item(THIEVES_TOOLS):
+		_send_error(peer_id, "%s carries no thieves' tools" % entity.display_name)
+		return
+	var check := InstanceServer.tools_check_bonus(entity.sheet)
+	var roll := D20.roll(_tools_rng)
+	var total := roll.natural + check
+	if total >= dc:
+		_set_door_state(d, DoorData.STATE_CLOSED, entity.id, Messages.UNLOCK_TOOLS)
+		_send_character_state(entity, {"door_unlocked": {"door_id": door_id, "method": Messages.UNLOCK_TOOLS, "natural": roll.natural, "total": total, "dc": dc}})
+	else:
+		_send_character_state(entity, {"unlock_failed": {"door_id": door_id, "natural": roll.natural, "total": total, "dc": dc}})
+
+
+## Thieves' tools check modifier: DEX, + proficiency when the class has the
+## thieves' tools proficiency (the sheet has no tool proficiencies yet).
+static func tools_check_bonus(sheet: CharacterSheet) -> int:
+	var bonus := sheet.ability_modifier(Ability.Type.DEX)
+	var cls := sheet.class_definition({})
+	if cls != null and cls.tool_proficiencies.has(THIEVES_TOOLS):
+		bonus += sheet.proficiency_bonus()
+	return bonus
+
+
+## interact {prop_id}: breaks an adjacent intact prop (no roll), rolls its
+## loot table: PROP_DESTROYED is broadcast, the breaker gets LOOT_GAINED
+## (source "prop", only when the prop has a table) and CHARACTER_STATE.
+func _handle_interact(peer_id: int, entity: ServerEntity, prop_id: String) -> void:
+	var p := _floor.get_prop(prop_id)
+	if p == null:
+		_send_error(peer_id, "there is no prop '%s' on this floor" % prop_id)
+		return
+	if _destroyed_props.has(prop_id):
+		_send_error(peer_id, "the %s is already broken" % p.kind)
+		return
+	var problem := _object_problem(entity, p.position, p.kind)
+	if not problem.is_empty():
+		_send_error(peer_id, problem)
+		return
+	entity.path.clear()
+	_destroy_prop(p, entity)
+
+
+func _destroy_prop(p: PropData, by: ServerEntity) -> void:
+	_destroyed_props[p.id] = true
+	_rebuild_floor_maps()
+	_transport.broadcast_result(Messages.make_result(Messages.PROP_DESTROYED, {"prop_id": p.id, "by": by.id, "kind": p.kind}))
+	if not p.loot_table.is_empty() and by.is_player():
+		_give_loot(by, _roll_loot(p.loot_table), Messages.LOOT_SOURCE_PROP, {"prop_id": p.id})
+		_send_character_state(by)
+
+
+# --- respawns ------------------------------------------------------------------------
+
+## Seconds before a cleared zone comes back: boss zones (boss or kind "boss")
+## use the floor's boss timer, packs the pack timer; 0 = never.
+func _respawn_seconds(zone: EncounterZoneData) -> int:
+	if zone.boss or zone.kind == EncounterZoneData.KIND_BOSS:
+		return _floor.respawn_boss_seconds
+	return _floor.respawn_pack_seconds
+
+
+## Respawns every cleared zone (schema 2 floors, zones with respawns) whose
+## timer ran out, unless a living player stands inside its rect or a fight
+## runs there. The respawned pack re-arms the zone (ZONE_RESPAWNED, then
+## EXPLORE_STATE).
+func _check_respawns() -> void:
+	if _floor.schema_version < 2 or _game_over or _set_cleared or _cleared_at.is_empty():
+		return
+	var spawned := false
+	for zone in _floor.encounter_zones:
+		if not zone.respawns or not _cleared_zones.has(zone.id) or not _cleared_at.has(zone.id):
+			continue
+		var secs := _respawn_seconds(zone)
+		if secs <= 0 or tick - DictUtil.to_int(_cleared_at[zone.id], tick) < secs * TICKS_PER_SECOND:
+			continue
+		if _player_in_rect(zone.rect) or _zone_in_fight(zone.id):
+			continue
+		_respawn_zone(zone)
+		spawned = true
+	if spawned:
+		_broadcast_explore_state()
+
+
+func _player_in_rect(rect: Rect2i) -> bool:
+	for e in _players():
+		if e.is_alive() and rect.has_point(e.position):
+			return true
+	return false
+
+
+func _zone_in_fight(zone_id: String) -> bool:
+	for value: Variant in _sessions.values():
+		var session: EncounterSession = value
+		if session.zone.id == zone_id:
+			return true
+	return false
+
+
+func _respawn_zone(zone: EncounterZoneData) -> void:
+	var count: int = DictUtil.to_int(_zone_respawns.get(zone.id, 0), 0) + 1
+	_zone_respawns[zone.id] = count
+	_cleared_zones.erase(zone.id)
+	_cleared_at.erase(zone.id)
+	_spawn_zone(zone, "_r%d" % count)
+	_transport.broadcast_result(Messages.make_result(Messages.ZONE_RESPAWNED, {"zone_id": zone.id}))
+
+
+## Marks a zone cleared now (its respawn timer starts).
+func _mark_cleared(zone_id: String) -> void:
+	_cleared_zones[zone_id] = true
+	_cleared_at[zone_id] = tick
+
+
+# --- exploration effects (round C hooks resolved here) ------------------------------
+
+## Range in tiles of an exploration spell aimed at an object (its effect's
+## range_ft; touch / 0 = adjacent).
+static func _exploration_reach(spell: SpellDefinition) -> int:
+	var ft := DictUtil.to_int(spell.raw_effect.get("range_ft", spell.range_ft), spell.range_ft)
+	return maxi(1, GridMath.feet_to_tiles(ft))
+
+
+## Why an out-of-combat exploration cast cannot work here ("" when it can):
+## the object it names exists, is known, in range and in a state the effect
+## changes. Checked before the cast so a failed aim spends nothing.
+func _exploration_problem(entity: ServerEntity, spell: SpellDefinition, intent: Dictionary) -> String:
+	var effect := str(spell.raw_effect.get("exploration", "reveal"))
+	var kind := str(intent.get("target_kind", ""))
+	var target_id := str(intent.get("target_id", ""))
+	match effect:
+		"unlock", "lock", "open":
+			if kind != "door" and kind != "chest":
+				return "%s needs a door or a chest (target_kind / target_id)" % spell.display_name
+			var pos := Vector2i.ZERO
+			if kind == "door":
+				var d := _floor.get_door(target_id)
+				if d == null:
+					return "there is no door '%s' on this floor" % target_id
+				pos = d.position
+				var st := door_state(target_id)
+				if effect == "unlock" and st != DoorData.STATE_LOCKED:
+					return "door '%s' is not locked" % target_id
+				if effect == "lock" and st == DoorData.STATE_OPEN:
+					return "door '%s' must be closed first" % target_id
+				if effect == "lock" and st == DoorData.STATE_LOCKED and _door_dcs.has(target_id):
+					return "door '%s' is already magically locked" % target_id
+				if effect == "open" and st != DoorData.STATE_CLOSED:
+					return "door '%s' is %s" % [target_id, st]
+			else:
+				var c := _floor.get_chest(target_id)
+				if c == null or not is_chest_revealed(target_id):
+					return "there is no chest '%s' on this floor" % target_id
+				pos = c.position
+				if _opened_chests.has(target_id):
+					return "chest '%s' is already open" % target_id
+				if effect == "unlock" and not is_chest_locked(target_id):
+					return "chest '%s' is not locked" % target_id
+				if effect == "open" and is_chest_locked(target_id):
+					return "chest '%s' is locked" % target_id
+			if GridMath.distance_tiles(entity.position, pos) > InstanceServer._exploration_reach(spell):
+				return "the %s is out of range of %s" % [kind, spell.display_name]
+		"reveal":
+			if kind == "zone" and _floor.get_zone(target_id) == null:
+				return "there is no zone '%s' on this floor" % target_id
+		"teleport":
+			if kind != "landmark" or target_id.is_empty():
+				return "%s needs a landmark (target_kind \"landmark\", target_id)" % spell.display_name
+	return ""
+
+
+## Applies one exploration_effect event of `caster` (out of combat or in a
+## fight): sends DOOR_CHANGED, CHEST_REVEALED, CHEST_OPENED / LOOT_GAINED and
+## REVEAL as it goes; teleports are collected in _teleported (the caller
+## broadcasts EXPLORE_STATE and checks zone entry).
+func _resolve_exploration(caster: ServerEntity, ev: Dictionary) -> void:
+	var spell_id := str(ev.get("spell", ""))
+	var effect := str(ev.get("effect", ""))
+	var kind := str(ev.get("target_kind", ""))
+	var target_id := str(ev.get("target_id", ""))
+	match effect:
+		"unlock", "lock", "open":
+			if kind == "door":
+				var d := _floor.get_door(target_id)
+				if d == null:
+					return
+				var st := door_state(target_id)
+				if effect == "unlock" and st == DoorData.STATE_LOCKED:
+					_door_dcs.erase(target_id)
+					_set_door_state(d, DoorData.STATE_CLOSED, caster.id, Messages.UNLOCK_SPELL, spell_id)
+				elif effect == "lock" and st != DoorData.STATE_OPEN:
+					_door_dcs[target_id] = maxi(10, d.dc) + 10  # Arcane Lock: the DC rises by 10
+					_set_door_state(d, DoorData.STATE_LOCKED, caster.id, Messages.UNLOCK_SPELL, spell_id)
+				elif effect == "open" and st == DoorData.STATE_CLOSED:
+					_set_door_state(d, DoorData.STATE_OPEN, caster.id, Messages.UNLOCK_SPELL, spell_id)
+					_open_door_in_fights(d)
+			elif kind == "chest":
+				var c := _floor.get_chest(target_id)
+				if c == null or _opened_chests.has(target_id):
+					return
+				if effect == "unlock":
+					_unlocked_chests[target_id] = true
+					_arcane_locked_chests.erase(target_id)
+					_transport.broadcast_result(Messages.make_result(Messages.CHEST_REVEALED, {"chest": _chest_state(c)}))
+				elif effect == "lock":
+					_arcane_locked_chests[target_id] = true
+					_unlocked_chests.erase(target_id)
+					_transport.broadcast_result(Messages.make_result(Messages.CHEST_REVEALED, {"chest": _chest_state(c)}))
+				elif effect == "open" and not is_chest_locked(target_id):
+					_open_chest_for(caster, c)
+		"reveal":
+			_send_reveal(caster, ev)
+		"light":
+			caster.light_level = Encounter.LIGHT_BRIGHT
+			_transport.send_result(caster.peer_id, Messages.make_result(Messages.REVEAL, {
+				"entity_id": caster.id, "reveal": "light", "spell": spell_id, "light": caster.light_level, "floor_light": floor_light(),
+			}))
+		"teleport", "recall":
+			if caster.in_combat():
+				_transport.send_result(caster.peer_id, Messages.make_result(Messages.REVEAL, {
+					"entity_id": caster.id, "reveal": "nothing", "spell": spell_id, "reason": "the fight holds you here"}))
+				return
+			var dest := _landing_position(caster)
+			var landmark := "arrival"
+			if effect == "teleport" and target_id == "stairs":
+				dest = _floor.stairs
+				landmark = "stairs"
+			var from := caster.position
+			caster.path.clear()
+			caster.position = _free_tile_near(dest, caster.id)
+			_transport.send_result(caster.peer_id, Messages.make_result(Messages.REVEAL, {
+				"entity_id": caster.id, "reveal": effect, "spell": spell_id, "from": GridMath.vec_to_arr(from),
+				"position": GridMath.vec_to_arr(caster.position), "landmark": landmark}))
+			_teleported.append(caster)
+
+
+## A door opened by magic while a fight runs over it: the fight's map opens too
+## (Encounter has no logged API for this; see the D2 report).
+func _open_door_in_fights(d: DoorData) -> void:
+	for value: Variant in _sessions.values():
+		var session: EncounterSession = value
+		var enc := session.encounter
+		if enc.region.has_point(d.position) and enc.walk_map.in_bounds(d.position):
+			enc.walk_map.set_walkable(d.position, true)
+
+
+## REVEAL for a reveal hook: monsters / creatures (zones within radius or the
+## targeted zone, with their living monsters), hidden_chests (CHEST_REVEALED
+## too), stairs, map (every zone, door and the stairs), threat (a zone's
+## danger: weal when no monster is left or the pack is weak, else woe),
+## traps / magic_items (none modelled: an empty answer).
+func _send_reveal(caster: ServerEntity, ev: Dictionary) -> void:
+	var reveal := str(ev.get("reveal", "monsters"))
+	var spell_id := str(ev.get("spell", ""))
+	var radius := -1
+	if ev.has("radius_ft"):
+		radius = GridMath.feet_to_tiles(DictUtil.to_int(ev["radius_ft"], 0))
+	elif ev.has("range_ft"):
+		radius = GridMath.feet_to_tiles(DictUtil.to_int(ev["range_ft"], 0))
+	var target_zone := str(ev.get("target_id", "")) if str(ev.get("target_kind", "")) == "zone" else ""
+	var fields := {"entity_id": caster.id, "reveal": reveal, "spell": spell_id}
+	match reveal:
+		"monsters", "creatures":
+			var types := DictUtil.to_string_array(ev.get("creature_types", []))
+			var zones: Array = []
+			for zone in _floor.encounter_zones:
+				if not target_zone.is_empty() and zone.id != target_zone:
+					continue
+				if target_zone.is_empty() and radius >= 0 and InstanceServer._rect_distance(zone.rect, caster.position) > radius:
+					continue
+				var monsters := _zone_monsters(zone.id, types)
+				if monsters.is_empty():
+					continue
+				zones.append({"zone_id": zone.id, "name": zone.name, "rect": GridMath.rect_to_arr(zone.rect), "monsters": monsters})
+			fields["zones"] = zones
+		"hidden_chests":
+			var ids: Array = []
+			for chest in _floor.chests:
+				if not chest.hidden or is_chest_revealed(chest.id):
+					continue
+				if radius >= 0 and GridMath.distance_tiles(caster.position, chest.position) > radius:
+					continue
+				_revealed_chests[chest.id] = true
+				ids.append(chest.id)
+				_transport.broadcast_result(Messages.make_result(Messages.CHEST_REVEALED, {"chest": _chest_state(chest)}))
+			fields["chests"] = ids
+		"stairs":
+			fields["stairs"] = GridMath.vec_to_arr(_floor.stairs)
+			var path := explore_map().path_to(caster.position, _floor.stairs, _prop_block)
+			fields["distance"] = path.size()
+		"map":
+			var zones: Array = []
+			for zone in _floor.encounter_zones:
+				zones.append({"zone_id": zone.id, "name": zone.name, "rect": GridMath.rect_to_arr(zone.rect),
+					"cleared": _cleared_zones.has(zone.id), "guards_stairs": zone.guards_stairs})
+			fields["zones"] = zones
+			fields["stairs"] = GridMath.vec_to_arr(_floor.stairs)
+		"threat":
+			var zone := _floor.get_zone(target_zone) if not target_zone.is_empty() else _nearest_uncleared_zone(caster.position)
+			if zone == null:
+				fields["threat"] = "cleared"
+			else:
+				fields["zone_id"] = zone.id
+				var xp := 0
+				for m in _zone_monsters(zone.id, []):
+					var def: MonsterDefinition = _monster_defs.get(str(m["monster_id"]), null)
+					xp += def.xp if def != null else 0
+				fields["xp"] = xp
+				fields["threat"] = "cleared" if xp == 0 else ("woe" if xp > 50 * maxi(1, caster.sheet.level) else "weal")
+		_:
+			fields["count"] = 0
+	_transport.send_result(caster.peer_id, Messages.make_result(Messages.REVEAL, fields))
+
+
+## Living monsters of a zone (creature_types filters by type when given).
+func _zone_monsters(zone_id: String, types: Array[String]) -> Array:
+	var out: Array = []
+	for value: Variant in _entities.values():
+		var e: ServerEntity = value
+		if not e.is_monster() or e.zone_id != zone_id or not e.is_alive():
+			continue
+		if not types.is_empty():
+			var def: MonsterDefinition = _monster_defs.get(e.monster_id, null)
+			if def == null or not types.has(def.creature_type):
+				continue
+		out.append({"id": e.id, "monster_id": e.monster_id, "position": GridMath.vec_to_arr(e.position)})
+	return out
+
+
+func _nearest_uncleared_zone(p: Vector2i) -> EncounterZoneData:
+	var best: EncounterZoneData = null
+	var best_d := 1 << 30
+	for zone in _floor.encounter_zones:
+		if _cleared_zones.has(zone.id):
+			continue
+		var d := InstanceServer._rect_distance(zone.rect, p)
+		if d < best_d:
+			best_d = d
+			best = zone
+	return best
+
+
+## Chebyshev distance from p to the nearest tile of rect (0 inside).
+static func _rect_distance(rect: Rect2i, p: Vector2i) -> int:
+	var cx := clampi(p.x, rect.position.x, rect.end.x - 1)
+	var cy := clampi(p.y, rect.position.y, rect.end.y - 1)
+	return GridMath.distance_tiles(p, Vector2i(cx, cy))
+
+
+## True while a chest cannot be opened by hand: authored locked (and not
+## unlocked by Knock) or Arcane Locked.
+func is_chest_locked(chest_id: String) -> bool:
+	if _arcane_locked_chests.has(chest_id):
+		return true
+	var c := _floor.get_chest(chest_id) if _floor != null else null
+	return c != null and c.locked and not _unlocked_chests.has(chest_id)
+
+
+## Exploration events of a fight (Knock, Mage Hand, Locate Object, ... cast
+## as an action): resolved like out-of-combat ones for the player who cast
+## them; their extra events go to the caster's log as OUT_OF_COMBAT_EVENTS.
+func _resolve_fight_exploration(events: Array) -> void:
+	for ev_v: Variant in events:
+		if typeof(ev_v) != TYPE_DICTIONARY:
+			continue
+		var ev: Dictionary = ev_v
+		if str(ev.get("kind", "")) != "exploration_effect":
+			continue
+		var caster := get_entity(str(ev.get("actor", "")))
+		if caster == null or not caster.is_player():
+			continue
+		_resolve_exploration(caster, ev)

@@ -32,6 +32,11 @@ var reaction_policy: Dictionary = {}
 ## Players: last number used for a companion id ("c<n>", see
 ## InstanceServer._stamp_companion_ids).
 var companion_serial: int = 0
+## Players: the landing they arrived at on the current floor.
+var landing_id: String = ""
+## Players: the light around them while exploring ("bright" | "dim" |
+## "dark"): the floor's light, bright after a light spell.
+var light_level: String = "bright"
 
 
 func is_player() -> bool:

@@ -82,6 +82,38 @@ extends RefCounted
 ##   ids "c<n>"); dismiss_companion_intent() removes one (exploring only).
 ## - Summons and companions in a fight (combatant_joined with "owner") are
 ##   KIND_ALLY entities: never hostile, never valid ally-spell targets.
+##
+## Floor objects (Round D):
+## - FLOOR_LOADED "doors" / "props" / "landing_id" / "light" fill door_states,
+##   destroyed_props, landing_id and floor_light; DOOR_CHANGED,
+##   PROP_DESTROYED and ZONE_RESPAWNED update them and log a line (views watch
+##   objects_serial). explore_map() is the floor with closed / locked doors
+##   as walls (what the server paths on); blocking props are obstacles
+##   (prop_blockers); in a fight movement_map() also walls the props and
+##   follows terrain_changed walls / floors.
+## - intent_for_click while exploring: a door within reach opens / closes (a
+##   locked one: thieves' tools, else its key, else Knock), a prop within
+##   reach breaks (interact), a chest opens; anything farther walks next to
+##   it. A tile behind a closed door walks to the door (and opens it once
+##   there: route_intent).
+## - Exploration spells (Knock, Mage Hand, Arcane Lock, Clairvoyance...)
+##   cast out of combat aim at a door, chest or zone with a click (targeting
+##   "object": true) or at a landmark (begin_cast extra "target_kind" /
+##   "target_id"); REVEAL results are logged and kept in last_reveal.
+##
+## Round C in fights: tile_effects (tile_effect_created / moved / ended:
+## tiles, terrain, darkness, lit, difficult from the spell's zone data),
+## terrain_walls / terrain_floors (terrain_changed), encounter_light
+## (encounter_started "light", light_changed), dominated creatures
+## (team_changed: `controlled`, controlled_creatures(), control_* intents),
+## absent creatures (banished / returned, blink), illusions (combatant_joined
+## "illusion"), hidden creatures (hidden / revealed): visibility_of(id) is
+## "shown", "ghost" (own side unseen, illusions) or "hidden" (unseen
+## hostiles, absent creatures). Spells: ritual casting out of combat (spell
+## entries "ritual_castable", cast extra "ritual"), declared no-effect spells
+## ("no_effect" reason: castable, free), Overchannel (cast_options), and the
+## attack options via_familiar (Pact of the Chain), quivering_palm and
+## hurl_through_hell.
 
 enum Mode { LOADING, EXPLORING, COMBAT, GAME_OVER, FLOOR_CLEARED, SET_CLEARED }
 
@@ -95,6 +127,19 @@ const TEAM_PLAYERS := 0
 const TARGET_CAST := "cast"
 const TARGET_FEATURE := "feature"
 const TARGET_ATTACK := "attack"
+## Targeting a dominated creature's order ({"mode", "creature", "order":
+## "move" | "attack"}).
+const TARGET_CONTROL := "control"
+## visibility_of() values.
+const VIS_SHOWN := "shown"
+const VIS_GHOST := "ghost"
+const VIS_HIDDEN := "hidden"
+const THIEVES_TOOLS := "thieves_tools"
+## Compass landing ids -> how the HUD names them.
+const LANDING_NAMES: Dictionary[String, String] = {
+	"n": "north", "s": "south", "e": "east", "w": "west", "ne": "north-east", "nw": "north-west",
+	"se": "south-east", "sw": "south-west", "north": "north", "south": "south", "east": "east", "west": "west",
+}
 const FEATURE_MARTIAL_ARTS_STRIKE := "martial_arts"
 ## Pseudo features of the Features list that are bonus-action attacks.
 const FEATURE_OFF_HAND_ATTACK := "off_hand_attack"
@@ -140,7 +185,8 @@ const FEATURE_NAMES: Dictionary[String, String] = {
 	"deflect_missiles": "Deflect Missiles", "uncanny_dodge": "Uncanny Dodge", "destroy_undead": "Destroy Undead",
 }
 const SLOT_NAMES: Dictionary[String, String] = {"main_hand": "Main hand", "off_hand": "Off hand", "armor": "Armor"}
-const LOOT_SOURCES: Dictionary[String, String] = {"chest": "from the chest", "monster": "from the fallen", "floor": "found on the floor"}
+const LOOT_SOURCES: Dictionary[String, String] = {"chest": "from the chest", "monster": "from the fallen", "floor": "found on the floor",
+	"prop": "from the wreckage"}
 ## Reaction policy triggers (Messages.REACTION_TRIGGERS) as the player reads them.
 const REACTION_TRIGGER_LABELS: Dictionary[String, String] = {
 	"creature_left_reach": "A creature leaves my reach",
@@ -211,7 +257,8 @@ var reaction_used: bool = false
 ## "reckless" (bool, first attack of a turn), "smite" (slot level, 0 = none;
 ## one-shot), "stun" (bool; one-shot), "technique" ("" / prone / push /
 ## no_reactions, Flurry of Blows strikes).
-var attack_options: Dictionary = {"reckless": false, "smite": 0, "stun": false, "technique": ""}
+var attack_options: Dictionary = {"reckless": false, "smite": 0, "stun": false, "technique": "",
+	"via_familiar": false, "quivering_palm": false, "hurl_through_hell": false}
 ## The player's reaction policy as the server last confirmed it (CHARACTER_STATE
 ## "reaction_policy"): trigger or reaction id -> "auto" | "never".
 var reaction_policy: Dictionary = {}
@@ -260,7 +307,44 @@ var log_lines: Array[String] = []
 ## Bumped by every apply(); scenes redraw when it changes.
 var revision: int = 0
 
+## Floor objects (Round D): door id -> "open" | "closed" | "locked"; door
+## id -> {"dc", "keyed"}; prop id -> true once broken.
+var door_states: Dictionary = {}
+var door_info: Dictionary = {}
+var destroyed_props: Dictionary = {}
+## Landing this character arrived at ("" / "arrival" on a v1 floor).
+var landing_id: String = ""
+## The floor's light level and the player's own (a light spell: bright).
+var floor_light: String = "bright"
+var light_level: String = "bright"
+## Light of the player's fight (encounter_started "light", light_changed).
+var encounter_light: String = "bright"
+## Bumped by every door / prop change (views resync their tiles).
+var objects_serial: int = 0
+## Tile effects of the player's fight: id -> {"id", "spell", "tiles":
+## Array[Vector2i], "terrain", "darkness", "lit", "opaque", "difficult", "barrier"}.
+var tile_effects: Dictionary = {}
+## terrain_changed: raised walls and opened floor tiles (Vector2i -> true).
+var terrain_walls: Dictionary = {}
+var terrain_floors: Dictionary = {}
+## Bumped when tile effects or terrain change (the terrain overlay redraws).
+var terrain_serial: int = 0
+## Creatures the player's side dominates: id -> controller id.
+var controlled: Dictionary = {}
+## Unseen (hidden events) and absent (banished, blinked away) combatants: id -> true.
+var hidden_ids: Dictionary = {}
+var absent_ids: Dictionary = {}
+## The latest REVEAL for this character ({} = none) and the zones it showed:
+## zone id -> [{"id", "monster_id", "position"}].
+var last_reveal: Dictionary = {}
+var revealed_zones: Dictionary = {}
+## Cast options: "overchannel" (bool: added to the next damaging 1st-5th
+## level wizard spell while the sheet has Overchannel).
+var cast_options: Dictionary = {"overchannel": false}
+
 var _unread_log: Array[String] = []
+var _map_cache: WalkMap = null
+var _map_cache_key: String = ""
 var _last_seen_order: Array[String] = []  # latest encounter_started order (any encounter)
 var _event_zone_id: String = ""  # "zone_id" of the ENCOUNTER_EVENTS being applied
 var _combat_attacks: Array[Dictionary] = []  # snapshot at the start of the encounter
@@ -338,9 +422,32 @@ func apply(result: Dictionary) -> void:
 		Messages.CHEST_REVEALED:
 			var raw: Dictionary = result["chest"]
 			var known := chests.has(str(raw["id"]))
+			var was_locked := known and bool((chests[str(raw["id"])] as Dictionary).get("locked", false))
 			_put_chest(raw)
 			if not known:
 				_log("You discover a hidden chest!")
+			elif was_locked and not DictUtil.to_bool(raw.get("locked", false), false):
+				_log("The chest's lock clicks open.")
+			elif not was_locked and DictUtil.to_bool(raw.get("locked", false), false):
+				_log("The chest is sealed shut.")
+		Messages.DOOR_CHANGED:
+			_apply_door_changed(result)
+		Messages.PROP_DESTROYED:
+			var prop_id := str(result["prop_id"])
+			destroyed_props[prop_id] = true
+			objects_serial += 1
+			_map_cache = null
+			var prop := floor_data.get_prop(prop_id) if floor_data != null else null
+			var what := prop.kind if prop != null else str(result.get("kind", "prop"))
+			_log("%s %s the %s." % [_who(str(result.get("by", ""))), "smash" if str(result.get("by", "")) == player_id else "smashes", what])
+		Messages.ZONE_RESPAWNED:
+			var zone_id := str(result["zone_id"])
+			var zone := floor_data.get_zone(zone_id) if floor_data != null else null
+			var where := zone.name if zone != null and not zone.name.is_empty() else "a cleared room"
+			_log("Monsters stir again in %s." % where)
+		Messages.REVEAL:
+			if str(result["entity_id"]) == player_id:
+				_apply_reveal(result)
 		Messages.LEVEL_UP_AVAILABLE:
 			if str(result["entity_id"]) == player_id:
 				var offered: Dictionary = result["choices"]
@@ -411,6 +518,18 @@ func _apply_character_state(result: Dictionary) -> void:
 		_log("No slots recovered: %s." % str(result["recovery_error"]))
 	if DictUtil.to_bool(result.get("long_rest", false), false):
 		_log("You take a long rest in the safe zone: HP and Hit Dice restored.")
+	if typeof(result.get("light_level")) == TYPE_STRING:
+		light_level = str(result["light_level"])
+		_log("Light surrounds you (%s)." % light_level)
+	if typeof(result.get("door_unlocked")) == TYPE_DICTIONARY:
+		var du: Dictionary = result["door_unlocked"]
+		if str(du.get("method", "")) == Messages.UNLOCK_TOOLS:
+			_log("%s picks the lock (%d vs DC %d)." % [who, DictUtil.to_int(du.get("total", 0), 0), DictUtil.to_int(du.get("dc", 0), 0)])
+		else:
+			_log("%s unlocks the door with the key." % who)
+	if typeof(result.get("unlock_failed")) == TYPE_DICTIONARY:
+		var uf: Dictionary = result["unlock_failed"]
+		_log("%s fails to pick the lock (%d vs DC %d)." % [who, DictUtil.to_int(uf.get("total", 0), 0), DictUtil.to_int(uf.get("dc", 0), 0)])
 	if entities.has(player_id):
 		var e: Dictionary = entities[player_id]
 		e["hp"] = sheet.current_hp
@@ -469,6 +588,7 @@ func _put_chest(raw: Dictionary) -> void:
 		"position": Messages.to_position(raw["position"]),
 		"hidden": DictUtil.to_bool(raw.get("hidden", false), false),
 		"opened": DictUtil.to_bool(raw.get("opened", false), false),
+		"locked": DictUtil.to_bool(raw.get("locked", false), false),
 	}
 
 
@@ -501,8 +621,32 @@ func _apply_floor_loaded(result: Dictionary) -> void:
 	else:
 		for c in floor_data.chests:
 			if not c.hidden:
-				chests[c.id] = {"id": c.id, "position": c.position, "hidden": false, "opened": false}
-	_log("You arrive on %s." % floor_label())
+				chests[c.id] = {"id": c.id, "position": c.position, "hidden": false, "opened": false, "locked": c.locked}
+	door_states.clear()
+	door_info.clear()
+	destroyed_props.clear()
+	revealed_zones.clear()
+	last_reveal = {}
+	objects_serial += 1
+	_map_cache = null
+	for d in floor_data.doors:
+		door_states[d.id] = d.state
+		door_info[d.id] = {"dc": d.dc, "keyed": not d.key_item.is_empty()}
+	if typeof(result.get("doors")) == TYPE_ARRAY:
+		for d_v: Variant in (result["doors"] as Array):
+			if typeof(d_v) == TYPE_DICTIONARY:
+				var dd: Dictionary = d_v
+				door_states[str(dd.get("id", ""))] = str(dd.get("state", "closed"))
+				door_info[str(dd.get("id", ""))] = {"dc": DictUtil.to_int(dd.get("dc", 0), 0), "keyed": dd.get("keyed", false) == true}
+	if typeof(result.get("props")) == TYPE_ARRAY:
+		for p_v: Variant in (result["props"] as Array):
+			if typeof(p_v) == TYPE_DICTIONARY and (p_v as Dictionary).get("destroyed", false) == true:
+				destroyed_props[str((p_v as Dictionary).get("id", ""))] = true
+	landing_id = str(result.get("landing_id", ""))
+	floor_light = str(result.get("light", "bright"))
+	light_level = floor_light
+	var where := landing_text()
+	_log("You arrive on %s%s." % [floor_label(), (" at " + where) if not where.is_empty() else ""])
 
 
 ## Log lines added since the last call (oldest first).
@@ -569,6 +713,9 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 			var id := str(ev.get("id", ""))
 			_apply_world_effect(ev)
 			_mark_ally(ev)
+			if DictUtil.to_bool(ev.get("illusion", false), false):
+				var ie := _entity_or_new(id)
+				ie["illusion"] = true
 			initiatives[id] = DictUtil.to_int(ev.get("initiative", 0), 0)
 			if in_encounter:
 				if not order.has(id):
@@ -589,7 +736,10 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 			_last_seen_order.assign(started)
 			if started.has(player_id):
 				_enter_encounter(started, enc_id)
+				encounter_light = str(ev.get("light", "bright"))
 				_log("Combat! Initiative: %s" % ", ".join(_names(order)))
+				if encounter_light != "bright":
+					_log("The fight begins in %s light." % encounter_light)
 		"round_started":
 			if in_encounter:
 				round_number = DictUtil.to_int(ev.get("round", round_number), round_number)
@@ -661,6 +811,9 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 				if attack_kind != "spell":
 					attack_options["smite"] = 0  # one-shot options
 					attack_options["stun"] = false
+					attack_options["quivering_palm"] = false
+					attack_options["hurl_through_hell"] = false
+					attack_options["via_familiar"] = false
 			var consumed := str(ev.get("consumed", ""))
 			if attacker == player_id and sheet != null and not consumed.is_empty():
 				sheet.remove_item(consumed, 1, _content())
@@ -794,7 +947,7 @@ func _apply_event(ev: Dictionary, enc_id: String) -> void:
 				else:
 					_log("The fight is over.")
 		_:
-			pass
+			_apply_round_c_event(ev)  # round C kinds (others are ignored)
 
 
 ## A combatant_joined with an "owner" (summons, companions) is an ally: it
@@ -857,6 +1010,12 @@ func _apply_out_of_combat(result: Dictionary) -> void:
 			"buff":
 				_log("%s is protected by %s (AC %d)." % [display_name(str(ev.get("target", ""))),
 					str(ev.get("buff", "")).replace("_", " ").capitalize(), DictUtil.to_int(ev.get("ac", 0), 0)])
+			"no_effect":
+				_log("%s has no effect in the delve: %s." % [spell_name(str(ev.get("spell", ""))), str(ev.get("reason", "nothing here answers it"))])
+			"lingering_added":
+				var n := DictUtil.to_int(ev.get("encounters", 1), 1)
+				_log("%s holds on %s for %s." % [spell_name(str(ev.get("spell", ""))), display_name(str(ev.get("target", player_id))),
+					"the rest of the delve" if n < 0 else ("the next fight" if n == 1 else "the next %d fights" % n)])
 
 
 ## Position / health changes that hold no matter whose encounter they belong to.
@@ -957,6 +1116,7 @@ func _enter_encounter(new_order: Array[String], enc_id: String) -> void:
 	bonus_action_used = false
 	attack_action_taken = false
 	_reset_progression_combat_state()
+	_reset_round_c_combat_state()
 	statuses.clear()
 	targeting = {}
 	_combat_attacks = _attacks_from_sheet()
@@ -980,6 +1140,7 @@ func _leave_encounter() -> void:
 	bonus_action_used = false
 	attack_action_taken = false
 	_reset_progression_combat_state()
+	_reset_round_c_combat_state()
 	statuses.clear()
 	targeting = {}
 	_combat_attacks.clear()
@@ -1370,8 +1531,8 @@ func movement_map() -> WalkMap:
 	if floor_data == null:
 		return null
 	if in_encounter and region.has_area():
-		return floor_data.walk_map.cropped_to(region)
-	return floor_data.walk_map
+		return fight_map()
+	return explore_map()
 
 
 ## Tiles the player can still move to this turn (start excluded): Vector2i -> steps.
@@ -1434,8 +1595,11 @@ func can_take_bonus_action() -> bool:
 	return is_my_turn() and not bonus_action_used
 
 
-## True when the selected attack can hit some hostile right now.
+## True when the selected attack can hit some hostile right now (or the
+## familiar can, when "via_familiar" is on).
 func can_attack() -> bool:
+	if bool(attack_options.get("via_familiar", false)) and "via_familiar" in attack_option_kinds():
+		return is_my_turn() and can_make_attack() and not familiar_targets().is_empty()
 	return is_my_turn() and not attack_targets().is_empty()
 
 
@@ -1550,12 +1714,23 @@ func intent_for_click(tile: Vector2i) -> Dictionary:
 	if mode == Mode.EXPLORING and not in_encounter:
 		if not is_player_conscious():
 			return {}
+		if is_targeting():
+			return _targeted_intent(tile)
+		var door := floor_data.door_at(tile)
+		if door != null:
+			return door_intent(door.id)
+		var prop := floor_data.prop_at(tile)
+		if prop != null and not destroyed_props.has(prop.id):
+			return prop_intent(prop.id)
 		var chest_id := chest_at(tile)
 		if not chest_id.is_empty() and can_open_chest(chest_id):
+			if bool((chests[chest_id] as Dictionary).get("locked", false)):
+				hint = "The chest is locked: Knock opens it."
+				return {}
 			return open_chest_intent(chest_id)
 		if not floor_data.walk_map.is_walkable(tile) or tile == player_position():
 			return {}
-		return Messages.make_intent(Messages.EXPLORE_MOVE, {"actor": player_id, "target": GridMath.vec_to_arr(tile)})
+		return route_intent(tile)
 	if not is_my_turn():
 		return {}
 	if is_targeting():
@@ -1577,7 +1752,7 @@ func step_intent(dir: Vector2i) -> Dictionary:
 		return {}
 	var tile := player_position() + dir
 	if mode == Mode.EXPLORING and not in_encounter:
-		if not is_player_conscious() or not floor_data.walk_map.is_walkable(tile):
+		if not is_player_conscious() or not explore_map().is_walkable(tile) or prop_blockers().has(tile):
 			return {}
 		return Messages.make_intent(Messages.EXPLORE_MOVE, {"actor": player_id, "target": GridMath.vec_to_arr(tile)})
 	var path := move_path_to(tile)
@@ -1591,6 +1766,8 @@ func step_intent(dir: Vector2i) -> Dictionary:
 ## Off-hand attacks are always bonus attacks. attack_options that apply to
 ## this attack are added (see attack_option_fields).
 func attack_intent(target: String = "", attack_index: int = -1, bonus: bool = false) -> Dictionary:
+	if bool(attack_options.get("via_familiar", false)) and not bonus and "via_familiar" in attack_option_kinds():
+		return familiar_attack_intent(target)
 	var index := selected_attack if attack_index < 0 else attack_index
 	var b: bool = bonus or get_attack(index).get("off_hand", false) == true
 	var t := target
@@ -1625,12 +1802,20 @@ func short_rest_intent(hit_dice: int = 1, recover_slots: bool = false) -> Dictio
 func cast_intent(spell_id: String, target: String = "", slot_level: int = 0, extra: Dictionary = {}) -> Dictionary:
 	var fields := {"actor": player_id, "spell": spell_id,
 		"target": target if not target.is_empty() else player_id, "slot_level": slot_level}
-	for key: String in ["point", "metamagic", "twin_target", "sculpt", "form", "targets"]:
+	for key: String in ["point", "metamagic", "twin_target", "sculpt", "form", "targets", "mode", "target_kind", "target_id",
+			"invocation", "duplicate_mode"]:
 		if extra.has(key):
 			var v: Variant = extra[key]
 			if typeof(v) == TYPE_ARRAY and (v as Array).is_empty():
 				continue
+			if typeof(v) == TYPE_STRING and str(v).is_empty():
+				continue
 			fields[key] = v
+	for key: String in ["ritual", "spend_slot", "overchannel"]:
+		if extra.get(key, false) == true:
+			fields[key] = true
+	if not fields.has("overchannel") and _overchannel_applies(spell_id):
+		fields["overchannel"] = true
 	return Messages.make_intent(Messages.CAST, fields)
 
 
@@ -1898,6 +2083,8 @@ func attack_label(attack: Dictionary) -> String:
 
 ## "" when the player may attack target with attacks[attack_index] now, else why not.
 func attack_error(target: String, attack_index: int = -1, bonus: bool = false) -> String:
+	if bool(attack_options.get("via_familiar", false)) and not bonus and "via_familiar" in attack_option_kinds():
+		return familiar_attack_error(target)
 	var index := selected_attack if attack_index < 0 else attack_index
 	if not is_my_turn():
 		return "not your turn"
@@ -1924,7 +2111,7 @@ func attack_error(target: String, attack_index: int = -1, bonus: bool = false) -
 		return "" if dist >= 1 and dist <= maxi(1, r[1]) else "out of reach"
 	if dist > r[1]:
 		return "out of range (%d tiles, long range %d)" % [dist, r[1]]
-	if floor_data != null and not floor_data.walk_map.has_line_of_sight(player_position(), to):
+	if floor_data != null and not sight_map().has_line_of_sight(player_position(), to):
 		return "no line of sight"
 	return ""
 
@@ -1971,7 +2158,7 @@ func range_tiles() -> Dictionary:
 		return out
 	var me := player_position()
 	var area := region if region.has_area() else Rect2i(me - Vector2i(long, long), Vector2i(long * 2 + 1, long * 2 + 1))
-	var wm := floor_data.walk_map
+	var wm := sight_map()
 	for y in range(area.position.y, area.end.y):
 		for x in range(area.position.x, area.end.x):
 			var t := Vector2i(x, y)
@@ -1992,21 +2179,46 @@ func range_tiles() -> Dictionary:
 ##  "casting_time" (data id), "casting_time_text" ("1 hour (ritual)"),
 ##  "ritual", "out_of_combat" (OutOfCombat.cast resolves it),
 ##  "error": "" when castable right now (in or out of combat)}.
+##  round C: "prepared" (false for spellbook / Book of Ancient Secrets rituals
+##  and at-will invocations listed while exploring), "ritual_castable"
+##  (OutOfCombat.can_ritual_cast, exploring), "ritual_error" (cast_error as a
+##  ritual), "no_effect" (why it does nothing in the delve, "" otherwise),
+##  "target_kinds" (exploration spells: door / chest / zone / landmark),
+##  "landmarks", "invocation" (an at-will invocation casting it),
+##  "overchannel" (Overchannel would apply).
 func spell_entries() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if sheet == null:
 		return out
-	for id in sheet.spells_prepared:
+	var ids: Array[String] = []
+	ids.assign(sheet.spells_prepared)
+	if not in_encounter:
+		for id in sheet.spells_known + sheet.ritual_book:
+			var d := spell_def(id)
+			if d != null and not ids.has(id) and OutOfCombat.can_ritual_cast(sheet, d):
+				ids.append(id)
+	for inv: String in CharacterSheet.AT_WILL_INVOCATIONS.keys():
+		var sid: String = CharacterSheet.AT_WILL_INVOCATIONS[inv]
+		if sheet.invocations.has(inv) and not ids.has(sid) and spell_def(sid) != null:
+			ids.append(sid)
+	for id in ids:
 		var def := spell_def(id)
 		if def == null:
 			continue
+		var ritual: bool = def.raw.get("ritual", false) == true
+		var ritual_ok := not in_encounter and OutOfCombat.can_ritual_cast(sheet, def)
 		out.append({
-			"id": id, "name": def.display_name, "level": def.level, "supported": def.is_supported(),
+			"id": id, "name": def.display_name, "level": def.level, "supported": def.is_castable(),
 			"bonus": def.uses_bonus_action(), "target": def.target, "range_tiles": def.range_tiles(),
 			"slots": cast_slot_options(id), "error": cast_error(id),
-			"casting_time": def.casting_time, "ritual": def.raw.get("ritual", false) == true,
-			"casting_time_text": ClientState.casting_time_text(def.casting_time, def.raw.get("ritual", false) == true),
+			"casting_time": def.casting_time, "ritual": ritual,
+			"casting_time_text": ClientState.casting_time_text(def.casting_time, ritual),
 			"out_of_combat": ClientState.castable_out_of_combat(def),
+			"prepared": sheet.is_spell_prepared(id), "ritual_castable": ritual_ok,
+			"ritual_error": cast_error(id, 0, [] as Array[String], true) if ritual_ok else "not a ritual for you",
+			"no_effect": no_effect_reason(id), "target_kinds": DictUtil.to_string_array(def.raw_effect.get("target_kinds", [])),
+			"landmarks": DictUtil.to_string_array(def.raw_effect.get("landmarks", [])),
+			"invocation": sheet.at_will_invocation(id), "overchannel": _overchannel_possible(id),
 		})
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if int(a["level"]) != int(b["level"]):
@@ -2029,17 +2241,18 @@ func cast_slot_options(spell_id: String) -> Array[int]:
 
 ## "" when spell_id can be cast now (slot_level 0 = cantrip / lowest free
 ## slot) with the given metamagic options.
-func cast_error(spell_id: String, slot_level: int = 0, metamagic: Array[String] = []) -> String:
+func cast_error(spell_id: String, slot_level: int = 0, metamagic: Array[String] = [], ritual: bool = false) -> String:
 	var def := spell_def(spell_id)
 	if def == null or sheet == null:
 		return "unknown spell"
-	if not def.is_supported():
+	if not def.is_castable():
 		return "not supported yet"
 	if not in_encounter:
-		return _out_of_combat_cast_error(def, slot_level)
+		return _out_of_combat_cast_error(def, slot_level, ritual)
 	if not def.is_combat_castable():
 		return "takes too long to cast in combat"
-	if not sheet.is_spell_prepared(spell_id):
+	var at_will := sheet.at_will_invocation(spell_id)
+	if not sheet.is_spell_prepared(spell_id) and at_will.is_empty() and sheet.invocation_spell_use(spell_id).is_empty():
 		return "not prepared"
 	if not is_my_turn():
 		return "only on your turn in combat"
@@ -2053,17 +2266,51 @@ func cast_error(spell_id: String, slot_level: int = 0, metamagic: Array[String] 
 			return "bonus action already used"
 	elif action_used:
 		return "action already used"
-	if def.level > 0:
+	if def.level > 0 and at_will.is_empty() and def.effect_type != SpellDefinition.EFFECT_NO_EFFECT \
+			and not _free_cast(spell_id, slot_level):
 		var slot := slot_level if slot_level > 0 else sheet.lowest_available_slot(def.level)
 		if slot == 0 or slot < def.level or sheet.slots_left(slot) <= 0:
 			return "no spell slot left"
 	return ""
 
 
+## Spell Mastery (slot 0 or the spell's level) and Signature Spells (one free
+## cast per short rest) cast without a slot.
+func _free_cast(spell_id: String, slot_level: int) -> bool:
+	var def := spell_def(spell_id)
+	if def == null or sheet == null:
+		return false
+	if sheet.spell_mastery.has(spell_id) and (slot_level == 0 or slot_level == def.level):
+		return true
+	return sheet.signature_spells.has(spell_id) and sheet.class_resource(CharacterSheet.SIGNATURE_PREFIX + spell_id) > 0 \
+		and (slot_level == 0 or slot_level == def.level)
+
+
+## Why spell_id does nothing in the delve right now ("" when it does
+## something): its declared no-effect reason, or (exploring) why a
+## fight-only spell with a long casting time has no target here.
+func no_effect_reason(spell_id: String) -> String:
+	var def := spell_def(spell_id)
+	if def == null:
+		return ""
+	if def.effect_type == SpellDefinition.EFFECT_NO_EFFECT:
+		return def.no_effect_reason()
+	if not in_encounter:
+		return OutOfCombat.fight_only_reason(def)
+	return ""
+
+
 ## cast_error while exploring (OutOfCombat.cast's checks, the player as the
-## only target; no action economy, no real-time casting wait in M2).
-func _out_of_combat_cast_error(def: SpellDefinition, slot_level: int) -> String:
-	if not sheet.is_spell_prepared(def.id):
+## only target; no action economy, no real-time casting wait in M2). A
+## ritual cast needs Ritual Casting (or the spellbook / Book of Ancient
+## Secrets) and no slot; declared no-effect spells and at-will invocations
+## need no slot either.
+func _out_of_combat_cast_error(def: SpellDefinition, slot_level: int, ritual: bool = false) -> String:
+	var at_will := sheet.at_will_invocation(def.id)
+	if ritual:
+		if not OutOfCombat.can_ritual_cast(sheet, def):
+			return "you cannot cast it as a ritual"
+	elif not sheet.is_spell_prepared(def.id) and at_will.is_empty() and sheet.invocation_spell_use(def.id).is_empty():
 		return "not prepared"
 	if mode != Mode.EXPLORING:
 		return "not now"
@@ -2071,6 +2318,8 @@ func _out_of_combat_cast_error(def: SpellDefinition, slot_level: int) -> String:
 		return "only in a fight"
 	if not sheet.is_conscious():
 		return "you cannot cast now"
+	if ritual or not at_will.is_empty() or not no_effect_reason(def.id).is_empty() or _free_cast(def.id, slot_level):
+		return ""
 	match def.effect_type:
 		SpellDefinition.EFFECT_REVIVE:
 			return "needs a fallen ally (not in this version)"
@@ -2090,20 +2339,12 @@ func _out_of_combat_cast_error(def: SpellDefinition, slot_level: int) -> String:
 ## Spells OutOfCombat.cast resolves: lasting companions (Find Familiar,
 ## Animate Dead, ...), revives other than Spare the Dying, heals, temporary
 ## hit points, restorations and Mage Armor.
+## Round C: also exploration hooks, lingering spells and declared no-effect
+## spells (OutOfCombat.castable).
 static func castable_out_of_combat(def: SpellDefinition) -> bool:
-	if def == null or not def.is_supported():
+	if def == null or not def.is_castable():
 		return false
-	match def.effect_type:
-		SpellDefinition.EFFECT_SUMMON:
-			return def.raw_effect.get("companion", false) == true
-		SpellDefinition.EFFECT_REVIVE:
-			return def.raw_effect.get("stabilize", false) != true
-		SpellDefinition.EFFECT_HEAL, SpellDefinition.EFFECT_AREA_HEAL, SpellDefinition.EFFECT_HEAL_POOL, \
-				SpellDefinition.EFFECT_TEMP_HP, SpellDefinition.EFFECT_DISPEL:
-			return true
-		SpellDefinition.EFFECT_BUFF:
-			return def.buff == SpellDefinition.BUFF_MAGE_ARMOR
-	return false
+	return OutOfCombat.castable(def)
 
 
 ## "1 action", "1 bonus action", "1 reaction", "1 minute", "10 minutes",
@@ -2142,7 +2383,7 @@ func cast_target_error(spell_id: String, target: String) -> String:
 		var to: Vector2i = e["position"]
 		if GridMath.distance_tiles(player_position(), to) > reach:
 			return "out of range"
-		if floor_data != null and not floor_data.walk_map.has_line_of_sight(player_position(), to):
+		if floor_data != null and not sight_map().has_line_of_sight(player_position(), to):
 			return "no line of sight"
 	return ""
 
@@ -2155,32 +2396,55 @@ func cast_target_error(spell_id: String, target: String) -> String:
 ## targeting with "area": true (the click picks the point). Twinned Spell
 ## asks for a second target after the first.
 func begin_cast(spell_id: String, slot_level: int = 0, metamagic: Array[String] = [], extra_fields: Dictionary = {}) -> Dictionary:
-	hint = cast_error(spell_id, slot_level, metamagic)
+	hint = cast_error(spell_id, slot_level, metamagic, extra_fields.get("ritual", false) == true)
 	if not hint.is_empty():
 		return {}
 	var def := spell_def(spell_id)
 	var slot := 0 if def.level == 0 else (slot_level if slot_level > 0 else sheet.lowest_available_slot(def.level))
+	if not sheet.at_will_invocation(spell_id).is_empty() or def.effect_type == SpellDefinition.EFFECT_NO_EFFECT or _free_cast(spell_id, slot_level):
+		slot = 0
 	if not in_encounter:
-		# Out of combat the player is the only target (M2): cast at once.
+		# Out of combat the player is the only creature target (M2): cast at once,
+		# unless an exploration spell aims at a door, chest or zone (a click).
 		targeting = {}
 		var fields := {}
-		if extra_fields.has("form"):
-			fields["form"] = extra_fields["form"]
+		for key: String in ["form", "mode", "target_kind", "target_id", "invocation", "ritual", "spend_slot"]:
+			if extra_fields.has(key):
+				fields[key] = extra_fields[key]
+		if fields.get("ritual", false) == true or not no_effect_reason(spell_id).is_empty() or not sheet.at_will_invocation(spell_id).is_empty():
+			slot = 0
+		var kinds := DictUtil.to_string_array(def.raw_effect.get("target_kinds", []))
+		var object_kinds: Array[String] = []
+		for k in kinds:
+			if k != "landmark":
+				object_kinds.append(k)
+		if not object_kinds.is_empty() and not fields.has("target_kind"):
+			targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot, "object": true, "kinds": object_kinds, "fields": fields}
+			hint = "%s: click a %s." % [def.display_name, " or ".join(object_kinds)]
+			revision += 1
+			return {}
+		if kinds.has("landmark") and not fields.has("target_kind"):
+			var marks := DictUtil.to_string_array(def.raw_effect.get("landmarks", ["arrival"]))
+			fields["target_kind"] = "landmark"
+			fields["target_id"] = marks[0] if not marks.is_empty() else "arrival"
 		return cast_intent(spell_id, player_id, slot, fields)
 	var extra := {"metamagic": metamagic.duplicate()}
+	for key: String in ["mode", "invocation", "overchannel", "target_kind", "target_id"]:
+		if extra_fields.has(key):
+			extra[key] = extra_fields[key]
 	var warning := concentration_warning(spell_id)
 	if def.is_area():
 		if ClientState.is_self_centred(def):
 			targeting = {}
 			extra["sculpt"] = sculpt_ids(def, area_preview_tiles(def, player_position()))
 			return cast_intent(spell_id, player_id, slot, extra)
-		targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot, "area": true, "metamagic": metamagic.duplicate()}
+		targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot, "area": true, "metamagic": metamagic.duplicate(), "fields": extra.duplicate()}
 		hint = "%s: click %s." % [def.display_name, "a direction to aim the %s" % def.area_shape if def.range_ft == 0 else "the point at the centre of the %s" % def.area_shape]
 	elif def.target == SpellDefinition.TARGET_SELF:
 		targeting = {}
 		return cast_intent(spell_id, player_id, slot, extra)
 	else:
-		targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot, "metamagic": metamagic.duplicate()}
+		targeting = {"mode": TARGET_CAST, "spell": spell_id, "slot_level": slot, "metamagic": metamagic.duplicate(), "fields": extra.duplicate()}
 		hint = "%s: click a target%s%s." % [def.display_name, "" if def.is_harmful() else " (yourself or an ally)",
 			" (Twinned: then a second one)" if metamagic.has("twinned_spell") else ""]
 	if not warning.is_empty():
@@ -2502,6 +2766,10 @@ func creature_at(tile: Vector2i) -> String:
 
 
 func _targeted_intent(tile: Vector2i) -> Dictionary:
+	if str(targeting.get("mode", "")) == TARGET_CAST and bool(targeting.get("object", false)):
+		return _object_cast_intent(tile)
+	if str(targeting.get("mode", "")) == TARGET_CONTROL:
+		return _control_click_intent(tile)
 	if str(targeting.get("mode", "")) == TARGET_CAST and bool(targeting.get("area", false)):
 		var area_spell := str(targeting["spell"])
 		var def := spell_def(area_spell)
@@ -2510,8 +2778,9 @@ func _targeted_intent(tile: Vector2i) -> Dictionary:
 			return {}
 		var meta: Array[String] = []
 		meta.assign(targeting.get("metamagic", []))
-		return cast_intent(area_spell, player_id, int(targeting.get("slot_level", 0)), {"point": GridMath.vec_to_arr(tile),
-			"metamagic": meta, "sculpt": sculpt_ids(def, area_preview_tiles(def, tile))})
+		var area_extra: Dictionary = (targeting.get("fields", {}) as Dictionary).duplicate()
+		area_extra.merge({"point": GridMath.vec_to_arr(tile), "metamagic": meta, "sculpt": sculpt_ids(def, area_preview_tiles(def, tile))}, true)
+		return cast_intent(area_spell, player_id, int(targeting.get("slot_level", 0)), area_extra)
 	var target := creature_at(tile)
 	if target.is_empty():
 		hint = "No creature there."
@@ -2524,7 +2793,8 @@ func _targeted_intent(tile: Vector2i) -> Dictionary:
 				return {}
 			var meta: Array[String] = []
 			meta.assign(targeting.get("metamagic", []))
-			var extra := {"metamagic": meta}
+			var extra: Dictionary = (targeting.get("fields", {}) as Dictionary).duplicate()
+			extra["metamagic"] = meta
 			if meta.has("twinned_spell"):
 				var first := str(targeting.get("first_target", ""))
 				if first.is_empty():
@@ -2879,6 +3149,12 @@ func attack_option_kinds() -> Array[String]:
 		out.append("stun")
 	if sheet.has_feature("open_hand_technique"):
 		out.append("technique")
+	if sheet.has_feature("pact_of_the_chain") and not familiar_id().is_empty():
+		out.append("via_familiar")
+	if sheet.has_feature("quivering_palm"):
+		out.append("quivering_palm")
+	if sheet.has_feature("hurl_through_hell"):
+		out.append("hurl_through_hell")
 	return out
 
 
@@ -2886,7 +3162,7 @@ func set_attack_option(key: String, value: Variant) -> void:
 	if not attack_options.has(key):
 		return
 	match key:
-		"reckless", "stun":
+		"reckless", "stun", "via_familiar", "quivering_palm", "hurl_through_hell":
 			attack_options[key] = value == true
 		"smite":
 			attack_options[key] = clampi(DictUtil.to_int(value, 0), 0, Messages.MAX_SLOT_LEVEL)
@@ -2928,6 +3204,12 @@ func attack_option_fields(index: int, bonus: bool) -> Dictionary:
 	if not technique.is_empty() and sheet.has_feature("open_hand_technique") and bonus \
 			and bonus_attacks_remaining > 0 and bonus_attack_source == "flurry_of_blows":
 		out["technique"] = technique
+	if bool(attack_options.get("quivering_palm", false)) and sheet.has_feature("quivering_palm") and not bonus \
+			and str(attack.get("name", "")).to_lower().contains("unarmed") and sheet.class_resource("ki") >= 3:
+		out["quivering_palm"] = true
+	if bool(attack_options.get("hurl_through_hell", false)) and sheet.has_feature("hurl_through_hell") \
+			and sheet.class_resource("hurl_through_hell") > 0:
+		out["hurl_through_hell"] = true
 	return out
 
 
@@ -3011,7 +3293,7 @@ func area_point_error(spell_id: String, tile: Vector2i) -> String:
 		return "aim away from yourself" if tile == me else ""
 	if GridMath.distance_tiles(me, tile) > def.range_tiles():
 		return "out of range"
-	if floor_data != null and not floor_data.walk_map.has_line_of_sight(me, tile):
+	if floor_data != null and not sight_map().has_line_of_sight(me, tile):
 		return "no line of sight"
 	return ""
 
@@ -3173,3 +3455,680 @@ func has_level_up_offer() -> bool:
 func can_level_up() -> bool:
 	return has_level_up_offer() and not in_encounter and sheet != null and not sheet.dead \
 		and mode in [Mode.EXPLORING, Mode.FLOOR_CLEARED, Mode.SET_CLEARED]
+
+
+# --- floor objects (Round D) -----------------------------------------------------------
+
+var _explore_cache: WalkMap = null
+var _explore_cache_key: String = ""
+
+
+## "You" for this character, else its display name.
+func _who(id: String) -> String:
+	return "You" if id == player_id else display_name(id)
+
+
+func _apply_door_changed(result: Dictionary) -> void:
+	var door_id := str(result["door_id"])
+	var state := str(result["state"])
+	var before := str(door_states.get(door_id, ""))
+	door_states[door_id] = state
+	objects_serial += 1
+	var by := str(result.get("by", ""))
+	var who := _who(by)
+	var you := by == player_id
+	var method := str(result.get("method", "hand"))
+	var verb := ""
+	match state:
+		DoorData.STATE_OPEN:
+			verb = "open" if you else "opens"
+		DoorData.STATE_CLOSED:
+			if before == DoorData.STATE_LOCKED:
+				verb = "unlock" if you else "unlocks"
+			else:
+				verb = "close" if you else "closes"
+		DoorData.STATE_LOCKED:
+			verb = "lock" if you else "locks"
+	var how := ""
+	if method == Messages.UNLOCK_SPELL and result.has("spell"):
+		how = " with %s" % spell_name(str(result["spell"]))
+	_log("%s %s the door%s." % [who, verb, how])
+
+
+## The door's current state ("" for an unknown id).
+func door_state(door_id: String) -> String:
+	return str(door_states.get(door_id, ""))
+
+
+## The floor's walk map with closed and locked doors as walls (what the
+## server paths on while exploring). Cached per floor and door change.
+func explore_map() -> WalkMap:
+	if floor_data == null:
+		return null
+	var key := "%d|%d" % [floor_serial, objects_serial]
+	if _explore_cache != null and _explore_cache_key == key:
+		return _explore_cache
+	var m := floor_data.walk_map.copy()
+	for d in floor_data.doors:
+		if door_state(d.id) != DoorData.STATE_OPEN and m.in_bounds(d.position):
+			m.set_walkable(d.position, false)
+	_explore_cache = m
+	_explore_cache_key = key
+	return m
+
+
+## The map line of sight is judged on: the fight's map (doors, props and
+## raised walls, as the server's encounter copy) or, exploring, explore_map.
+func sight_map() -> WalkMap:
+	if in_encounter and region.has_area():
+		return fight_map()
+	return explore_map()
+
+
+## Intact blocking props: Vector2i -> prop id.
+func prop_blockers() -> Dictionary:
+	var out := {}
+	if floor_data == null:
+		return out
+	for p in floor_data.props:
+		if p.blocks and not destroyed_props.has(p.id):
+			out[p.position] = p.id
+	return out
+
+
+## occupied_cells(except_id) plus the blocking props (exploration paths).
+func explore_blocked(except_id: String = "") -> Dictionary:
+	var out := occupied_cells(except_id)
+	out.merge(prop_blockers())
+	return out
+
+
+## The fight's map as the server built it: explore_map with blocking props
+## as walls, terrain_changed walls / floors applied, cropped to the region.
+func fight_map() -> WalkMap:
+	var key := "%d|%d|%s|%d" % [floor_serial, objects_serial, str(region), terrain_serial]
+	if _map_cache != null and _map_cache_key == key:
+		return _map_cache
+	var m := explore_map().copy()
+	for p: Vector2i in prop_blockers().keys():
+		m.set_walkable(p, false)
+	for p: Vector2i in terrain_walls.keys():
+		if m.in_bounds(p):
+			m.set_walkable(p, false)
+	for p: Vector2i in terrain_floors.keys():
+		if m.in_bounds(p):
+			m.set_walkable(p, true)
+	_map_cache = m.cropped_to(region) if region.has_area() else m
+	_map_cache_key = key
+	return _map_cache
+
+
+## "the north-west landing" ("" on a v1 floor's single arrival).
+func landing_text() -> String:
+	if landing_id.is_empty() or landing_id == LandingData.ARRIVAL_ID:
+		return ""
+	if LANDING_NAMES.has(landing_id):
+		return "the %s landing" % LANDING_NAMES[landing_id]
+	return "landing %s" % landing_id
+
+
+## The HUD's floor line: "Floor 1 — The Barrow Warrens, arrived at the north landing".
+func floor_hud_text() -> String:
+	var where := landing_text()
+	return floor_label() + (", arrived at %s" % where if not where.is_empty() else "")
+
+
+## What a click on a door within reach does now: open / close it, or try
+## thieves' tools, then its key, then Knock on a locked one (hint says why
+## not). Farther away: walk next to it.
+func door_intent(door_id: String) -> Dictionary:
+	var d := floor_data.get_door(door_id) if floor_data != null else null
+	if d == null or not has_player_entity():
+		return {}
+	var me := player_position()
+	if GridMath.distance_tiles(me, d.position) > 1:
+		return _walk_next_to(d.position, "the door")
+	match door_state(door_id):
+		DoorData.STATE_OPEN:
+			if not creature_at(d.position).is_empty():
+				hint = "Step out of the doorway to close the door."
+				return {}
+			return Messages.make_intent(Messages.CLOSE_DOOR, {"actor": player_id, "door_id": door_id})
+		DoorData.STATE_LOCKED:
+			var method := unlock_method(door_id)
+			if method.is_empty():
+				var info: Dictionary = door_info.get(door_id, {})
+				var dc := DictUtil.to_int(info.get("dc", 0), 0)
+				hint = "The door is locked%s: thieves' tools, its key or Knock open it." % (" (DC %d)" % dc if dc > 0 else "")
+				return {}
+			return Messages.make_intent(Messages.UNLOCK_DOOR, {"actor": player_id, "door_id": door_id, "method": method})
+	return Messages.make_intent(Messages.OPEN_DOOR, {"actor": player_id, "door_id": door_id})
+
+
+## How the player would try a locked door: "tools" (thieves' tools, the lock
+## has a DC), "key" (a keyed door), "spell" (Knock castable), or "".
+func unlock_method(door_id: String) -> String:
+	if sheet == null:
+		return ""
+	var info: Dictionary = door_info.get(door_id, {})
+	if sheet.has_item(THIEVES_TOOLS) and DictUtil.to_int(info.get("dc", 0), 0) > 0:
+		return Messages.UNLOCK_TOOLS
+	if info.get("keyed", false) == true:
+		return Messages.UNLOCK_KEY
+	if sheet.is_spell_prepared("knock") and cast_error("knock").is_empty():
+		return Messages.UNLOCK_SPELL
+	return ""
+
+
+## A click on a prop: break it when within reach, else walk next to it.
+func prop_intent(prop_id: String) -> Dictionary:
+	var p := floor_data.get_prop(prop_id) if floor_data != null else null
+	if p == null or destroyed_props.has(prop_id) or not has_player_entity():
+		return {}
+	if GridMath.distance_tiles(player_position(), p.position) > 1:
+		return _walk_next_to(p.position, "the %s" % p.kind)
+	return Messages.make_intent(Messages.INTERACT, {"actor": player_id, "prop_id": prop_id})
+
+
+## explore_move to the nearest reachable tile next to `tile` ({} with a hint
+## when there is none).
+func _walk_next_to(tile: Vector2i, what: String) -> Dictionary:
+	var blocked := explore_blocked(player_id)
+	blocked[tile] = true
+	var path := explore_map().path_to(player_position(), tile, blocked)
+	if path.is_empty():
+		hint = "No way to reach %s." % what
+		return {}
+	return Messages.make_intent(Messages.EXPLORE_MOVE, {"actor": player_id, "target": GridMath.vec_to_arr(path[path.size() - 1])})
+
+
+## Exploring toward tile: walk there when a path exists; when only closed
+## doors are in the way, walk up to the first one, and open it once there.
+## {} (hint set) when nothing leads there.
+func route_intent(tile: Vector2i) -> Dictionary:
+	var me := player_position()
+	var blocked := explore_blocked(player_id)
+	var walk := Messages.make_intent(Messages.EXPLORE_MOVE, {"actor": player_id, "target": GridMath.vec_to_arr(tile)})
+	if blocked.has(tile) or not explore_map().path_to(me, tile, blocked).is_empty():
+		return walk
+	var through := floor_data.walk_map.copy()
+	for d in floor_data.doors:
+		if door_state(d.id) == DoorData.STATE_LOCKED:
+			through.set_walkable(d.position, false)
+	var path := through.path_to(me, tile, blocked)
+	if path.is_empty():
+		hint = "No way there."
+		return {}
+	var before := me
+	for step in path:
+		var d := floor_data.door_at(step)
+		if d != null and door_state(d.id) != DoorData.STATE_OPEN:
+			if before == me:
+				return Messages.make_intent(Messages.OPEN_DOOR, {"actor": player_id, "door_id": d.id})
+			hint = "A closed door is in the way."
+			return Messages.make_intent(Messages.EXPLORE_MOVE, {"actor": player_id, "target": GridMath.vec_to_arr(before)})
+		before = step
+	return walk
+
+
+## The door / prop within reach and what a click does ("" when none).
+func nearby_object_hint() -> String:
+	if floor_data == null or not has_player_entity() or in_encounter:
+		return ""
+	var me := player_position()
+	for d in floor_data.doors:
+		if GridMath.distance_tiles(me, d.position) <= 1:
+			match door_state(d.id):
+				DoorData.STATE_OPEN:
+					return "An open door: click it to close it."
+				DoorData.STATE_LOCKED:
+					var how := unlock_method(d.id)
+					return "A locked door: click it to %s." % ("pick the lock" if how == Messages.UNLOCK_TOOLS else
+						("use the key" if how == Messages.UNLOCK_KEY else ("cast Knock" if how == Messages.UNLOCK_SPELL else "try it")))
+				_:
+					return "A closed door: click it to open it."
+	for p in floor_data.props:
+		if not destroyed_props.has(p.id) and GridMath.distance_tiles(me, p.position) <= 1:
+			return "A %s: click it to break it open." % p.kind
+	return ""
+
+
+## An exploration cast aimed by a click: the door, chest or zone on the tile.
+func _object_cast_intent(tile: Vector2i) -> Dictionary:
+	var spell_id := str(targeting.get("spell", ""))
+	var kinds := DictUtil.to_string_array(targeting.get("kinds", []))
+	var fields: Dictionary = (targeting.get("fields", {}) as Dictionary).duplicate()
+	var door := floor_data.door_at(tile)
+	var chest := chest_at(tile)
+	var zone := floor_data.zone_at(tile)
+	if door != null and kinds.has("door"):
+		fields["target_kind"] = "door"
+		fields["target_id"] = door.id
+	elif not chest.is_empty() and kinds.has("chest"):
+		fields["target_kind"] = "chest"
+		fields["target_id"] = chest
+	elif zone != null and kinds.has("zone"):
+		fields["target_kind"] = "zone"
+		fields["target_id"] = zone.id
+	else:
+		hint = "%s: click a %s." % [spell_name(spell_id), " or ".join(kinds)]
+		return {}
+	return cast_intent(spell_id, player_id, int(targeting.get("slot_level", 0)), fields)
+
+
+func _apply_reveal(r: Dictionary) -> void:
+	last_reveal = r.duplicate(true)
+	var spell := spell_name(str(r.get("spell", "")))
+	match str(r["reveal"]):
+		"monsters", "creatures":
+			var parts: PackedStringArray = []
+			for z_v: Variant in (r.get("zones", []) as Array):
+				var z: Dictionary = z_v
+				var zid := str(z.get("zone_id", ""))
+				var ms: Array = z.get("monsters", [])
+				revealed_zones[zid] = ms.duplicate(true)
+				var counts := {}
+				for m_v: Variant in ms:
+					var mid := str((m_v as Dictionary).get("monster_id", ""))
+					counts[mid] = DictUtil.to_int(counts.get(mid, 0), 0) + 1
+				var names: PackedStringArray = []
+				for mid: String in counts.keys():
+					names.append(ClientState.quantity_text(monster_name(mid), int(counts[mid])))
+				var zn := str(z.get("name", ""))
+				parts.append("%s: %s" % [zn if not zn.is_empty() else zid, ", ".join(names)])
+			_log("%s reveals %s." % [spell, "; ".join(parts) if not parts.is_empty() else "no creatures nearby"])
+		"hidden_chests":
+			var n := (r.get("chests", []) as Array).size()
+			_log("%s: %s." % [spell, "%d hidden chest%s found" % [n, "" if n == 1 else "s"] if n > 0 else "nothing hidden nearby"])
+		"stairs":
+			_log("%s: the stairs lie %d steps away." % [spell, DictUtil.to_int(r.get("distance", 0), 0)])
+		"map":
+			var zones: Array = r.get("zones", [])
+			var cleared := 0
+			for z_v: Variant in zones:
+				if (z_v as Dictionary).get("cleared", false) == true:
+					cleared += 1
+			_log("%s: the floor unfolds before you: %d guarded rooms, %d cleared." % [spell, zones.size(), cleared])
+		"threat":
+			match str(r.get("threat", "")):
+				"weal":
+					_log("%s: weal. The way ahead looks manageable." % spell)
+				"woe":
+					_log("%s: woe. Danger waits ahead." % spell)
+				_:
+					_log("%s: nothing threatens you here." % spell)
+		"teleport", "recall":
+			_log("You vanish and reappear at %s." % ("the stairs" if str(r.get("landmark", "")) == "stairs" else (landing_text() if not landing_text().is_empty() else "your arrival")))
+		"light":
+			pass  # the CHARACTER_STATE light_level line says it
+		"nothing":
+			_log("%s: %s." % [spell, str(r.get("reason", "nothing happens"))])
+		_:
+			_log("%s: nothing of note here." % spell)
+
+
+# --- round C in fights ---------------------------------------------------------------
+
+func _reset_round_c_combat_state() -> void:
+	tile_effects.clear()
+	terrain_walls.clear()
+	terrain_floors.clear()
+	controlled.clear()
+	hidden_ids.clear()
+	absent_ids.clear()
+	encounter_light = "bright"
+	terrain_serial += 1
+	for k: String in ["via_familiar", "quivering_palm", "hurl_through_hell"]:
+		attack_options[k] = false
+
+
+func _apply_round_c_event(ev: Dictionary) -> void:
+	var kind := str(ev.get("kind", ""))
+	match kind:
+		"exploration_effect":
+			pass  # the server's door / chest / reveal results describe the outcome
+		"no_effect":
+			_log("%s has no effect in the delve: %s." % [spell_name(str(ev.get("spell", ""))), str(ev.get("reason", "nothing here answers it"))])
+		"light_changed":
+			encounter_light = str(ev.get("light", "bright"))
+			_log("The light turns %s." % encounter_light)
+		"terrain_changed":
+			for p_v: Variant in (ev.get("walls", []) as Array):
+				if Messages.is_position(p_v):
+					var p := Messages.to_position(p_v)
+					terrain_walls[p] = true
+					terrain_floors.erase(p)
+			for p_v: Variant in (ev.get("floors", []) as Array):
+				if Messages.is_position(p_v):
+					var p := Messages.to_position(p_v)
+					terrain_floors[p] = true
+					terrain_walls.erase(p)
+			terrain_serial += 1
+		"tile_effect_created":
+			var id := str(ev.get("id", ""))
+			var spell := spell_def(str(ev.get("spell", "")))
+			var fx := {"id": id, "spell": str(ev.get("spell", "")), "tiles": GridMath.arr_to_vec_list(ev.get("tiles", [])),
+				"terrain": str(ev.get("terrain", "")), "darkness": ev.get("darkness", false) == true, "lit": ev.get("lit", false) == true,
+				"opaque": ev.get("opaque", false) == true, "barrier": str(ev.get("barrier", "")),
+				"difficult": spell != null and spell.zone.get("difficult", false) == true}
+			tile_effects[id] = fx
+			terrain_serial += 1
+		"tile_effect_moved":
+			var id := str(ev.get("id", ""))
+			if tile_effects.has(id):
+				(tile_effects[id] as Dictionary)["tiles"] = GridMath.arr_to_vec_list(ev.get("tiles", []))
+				terrain_serial += 1
+		"tile_effect_ended":
+			tile_effects.erase(str(ev.get("id", "")))
+			terrain_serial += 1
+		"team_changed":
+			var target := str(ev.get("target", ""))
+			var by := str(ev.get("controlled_by", ""))
+			var e := _entity_or_new(target)
+			if not by.is_empty():
+				controlled[target] = by
+				if not e.has("orig_kind"):
+					e["orig_kind"] = str(e["kind"])
+				if DictUtil.to_int(ev.get("team", -1), -1) == TEAM_PLAYERS:
+					e["kind"] = KIND_ALLY
+					e["owner"] = by
+				_log("%s is now under %s's control." % [display_name(target), display_name(by)])
+			else:
+				controlled.erase(target)
+				if e.has("orig_kind"):
+					e["kind"] = str(e["orig_kind"])
+					e.erase("orig_kind")
+					e.erase("owner")
+				_log("%s breaks free of control." % display_name(target))
+		"control":
+			_log("%s commands %s." % [display_name(str(ev.get("actor", ""))), display_name(str(ev.get("target", "")))])
+		"compelled":
+			_log("%s is compelled to move." % display_name(str(ev.get("actor", ""))))
+		"redirected":
+			_log("%s redirects %s." % [display_name(str(ev.get("actor", ""))), spell_name(str(ev.get("spell", "")))])
+		"banished":
+			var target := str(ev.get("target", ""))
+			absent_ids[target] = true
+			var rounds := DictUtil.to_int(ev.get("rounds", 0), 0)
+			_log("%s is banished%s." % [display_name(target), " for good" if ev.get("permanent", false) == true else (" (%d rounds)" % rounds if rounds > 0 else "")])
+		"returned":
+			var target := str(ev.get("target", ""))
+			absent_ids.erase(target)
+			if Messages.is_position(ev.get("position")):
+				_entity_or_new(target)["position"] = Messages.to_position(ev["position"])
+			_log("%s returns." % display_name(target))
+		"possessed":
+			_log("%s possesses %s." % [display_name(str(ev.get("actor", ""))), display_name(str(ev.get("target", "")))])
+		"blink":
+			var actor := str(ev.get("actor", ""))
+			if ev.get("vanished", false) == true:
+				absent_ids[actor] = true
+				_log("%s blinks out of sight." % display_name(actor))
+			else:
+				absent_ids.erase(actor)
+		"disbelieved":
+			_log("%s sees through the illusion." % display_name(str(ev.get("actor", ""))))
+		"hidden":
+			hidden_ids[str(ev.get("actor", ""))] = true
+			_log("%s hides." % display_name(str(ev.get("actor", ""))))
+		"revealed":
+			var actor := str(ev.get("actor", ""))
+			if hidden_ids.has(actor):
+				hidden_ids.erase(actor)
+				_log("%s is revealed." % display_name(actor))
+		"time_stop":
+			_log("%s stops time (%d turns)." % [display_name(str(ev.get("actor", ""))), DictUtil.to_int(ev.get("turns", 0), 0)])
+		"extra_turn":
+			var actor := str(ev.get("actor", ""))
+			if actor == player_id and current_actor == player_id:
+				movement_remaining = 0 if is_immobilized(player_id) else speed_tiles()
+				action_used = false
+				bonus_action_used = false
+				attack_action_taken = false
+				attacks_remaining = 0
+			_log("%s takes another turn." % display_name(actor))
+		"time_stop_ended":
+			_log("Time flows again.")
+		"lingering_added":
+			_log("%s lingers on %s." % [spell_name(str(ev.get("spell", ""))), display_name(str(ev.get("target", "")))])
+		"lingering_ended":
+			_log("%s fades from %s." % [spell_name(str(ev.get("spell", ""))), display_name(str(ev.get("target", "")))])
+		"teleported":
+			var actor := str(ev.get("actor", ""))
+			if Messages.is_position(ev.get("to")):
+				_entity_or_new(actor)["position"] = Messages.to_position(ev["to"])
+			_log("%s teleports." % display_name(actor))
+		"slots_restored":
+			_log("%s regains spell slots." % display_name(str(ev.get("actor", ""))))
+		"prismatic_ray":
+			_log("A prismatic ray (%s) strikes %s." % [str(ev.get("layer", "")), display_name(str(ev.get("target", "")))])
+		"save_track_ended":
+			_log("%s: %s %s." % [display_name(str(ev.get("target", ""))), str(ev.get("condition", "")).replace("_", " "),
+				"passes" if str(ev.get("outcome", "")) == "recovered" else "takes hold"])
+		"check_modified":
+			_log("%s turns a failed check with %s." % [display_name(str(ev.get("actor", ""))), ClientState.feature_name(str(ev.get("feature", "")))])
+
+
+## How the player sees a creature now: VIS_SHOWN, VIS_GHOST (its own side
+## while hidden or invisible, and illusions) or VIS_HIDDEN (unseen hostiles:
+## hidden or invisible; banished / blinked away creatures).
+func visibility_of(id: String) -> String:
+	var e := get_entity(id)
+	if e.is_empty() or absent_ids.has(id):
+		return VIS_HIDDEN
+	if bool(e.get("illusion", false)):
+		return VIS_GHOST
+	var unseen := hidden_ids.has(id) or has_condition(id, "invisible")
+	if not unseen:
+		return VIS_SHOWN
+	var own := id == player_id or str(e.get("kind", "")) in [KIND_PLAYER, KIND_ALLY]
+	return VIS_GHOST if own else VIS_HIDDEN
+
+
+## Tiles the terrain overlay paints: Vector2i -> "wall" | "darkness" | "fog"
+## | "difficult" | "zone" | "lit" | "opened" (strongest first).
+func terrain_cells() -> Dictionary:
+	var rank := {"wall": 6, "darkness": 5, "fog": 4, "difficult": 3, "zone": 2, "lit": 1, "opened": 0}
+	var out := {}
+	var put := func(p: Vector2i, k: String) -> void:
+		if not out.has(p) or int(rank[k]) > int(rank[out[p]]):
+			out[p] = k
+	for p: Vector2i in terrain_floors.keys():
+		put.call(p, "opened")
+	for p: Vector2i in terrain_walls.keys():
+		put.call(p, "wall")
+	for fx_v: Variant in tile_effects.values():
+		var fx: Dictionary = fx_v
+		var k := "zone"
+		if str(fx.get("terrain", "")) == "solid":
+			k = "wall"
+		elif fx.get("darkness", false) == true:
+			k = "darkness"
+		elif fx.get("opaque", false) == true:
+			k = "fog"
+		elif fx.get("difficult", false) == true:
+			k = "difficult"
+		elif fx.get("lit", false) == true:
+			k = "lit"
+		for p: Vector2i in (fx.get("tiles", []) as Array):
+			put.call(p, k)
+	return out
+
+
+# --- Pact of the Chain, Overchannel ----------------------------------------------------
+
+## The player's familiar fighting in this encounter ("" if none).
+func familiar_id() -> String:
+	if not in_encounter or sheet == null:
+		return ""
+	var familiar_monsters: Array[String] = []
+	familiar_monsters.assign(CharacterSheet.CHAIN_FAMILIARS)
+	for c in sheet.companions:
+		if str(c.get("spell", "")) == "find_familiar":
+			familiar_monsters.append(str(c.get("monster", "")))
+	for id in order:
+		var e := get_entity(id)
+		if not e.is_empty() and str(e.get("owner", "")) == player_id and not bool(e["dead"]) \
+				and familiar_monsters.has(str(e.get("monster_id", ""))):
+			return id
+	return ""
+
+
+## Hostiles in the familiar's reach, in initiative order.
+func familiar_targets() -> Array[String]:
+	var out: Array[String] = []
+	var fam := familiar_id()
+	if fam.is_empty():
+		return out
+	var fp: Vector2i = get_entity(fam)["position"]
+	for id in order:
+		var e := get_entity(id)
+		if not e.is_empty() and str(e["kind"]) == KIND_MONSTER and not bool(e["dead"]) and GridMath.is_adjacent(fp, e["position"]) \
+				and visibility_of(id) != VIS_HIDDEN:
+			out.append(id)
+	return out
+
+
+func familiar_attack_error(target: String) -> String:
+	if not is_my_turn():
+		return "not your turn"
+	if not can_make_attack():
+		return "action already used"
+	if familiar_id().is_empty():
+		return "no familiar in this fight"
+	if not familiar_targets().has(target):
+		return "not in your familiar's reach"
+	return ""
+
+
+## Pact of the Chain: one attack of the Attack action made by the familiar
+## (its first attack) against a hostile in its reach.
+func familiar_attack_intent(target: String = "") -> Dictionary:
+	var t := target
+	if t.is_empty():
+		var near := familiar_targets()
+		if near.is_empty():
+			return {}
+		t = near[0]
+	if not familiar_attack_error(t).is_empty():
+		return {}
+	return Messages.make_intent(Messages.ATTACK, {"actor": player_id, "target": t, "attack_index": 0, "via_familiar": true})
+
+
+## Overchannel can apply: a wizard with the feature and a damaging spell of
+## 1st-5th level.
+func _overchannel_possible(spell_id: String) -> bool:
+	var def := spell_def(spell_id)
+	return sheet != null and def != null and sheet.has_feature("overchannel") and def.level >= 1 and def.level <= 5 \
+		and not def.damage.is_empty()
+
+
+func _overchannel_applies(spell_id: String) -> bool:
+	return bool(cast_options.get("overchannel", false)) and in_encounter and _overchannel_possible(spell_id)
+
+
+func set_cast_option(key: String, value: Variant) -> void:
+	if cast_options.has(key):
+		cast_options[key] = value == true
+		revision += 1
+
+
+# --- dominated creatures (control intent) ------------------------------------------------
+
+## Creatures the player dominates in this fight (alive, present).
+func controlled_creatures() -> Array[String]:
+	var out: Array[String] = []
+	for id: String in controlled.keys():
+		var e := get_entity(id)
+		if str(controlled[id]) == player_id and not e.is_empty() and not bool(e["dead"]) and order.has(id):
+			out.append(id)
+	return out
+
+
+## "" when orders can be given to creature now (on the player's turn).
+func control_error(creature: String) -> String:
+	if not is_my_turn():
+		return "only on your turn"
+	if not controlled_creatures().has(creature):
+		return "%s is not under your control" % display_name(creature)
+	return ""
+
+
+func control_intent(creature: String, orders: Array) -> Dictionary:
+	return Messages.make_intent(Messages.CONTROL, {"actor": player_id, "target": creature, "orders": orders})
+
+
+## Orders to hold still: its next turn ends at once.
+func control_hold_intent(creature: String) -> Dictionary:
+	if not control_error(creature).is_empty():
+		return {}
+	return control_intent(creature, [{"type": Messages.END_TURN}])
+
+
+## Starts picking a tile ("move") or a hostile ("attack") for a dominated creature.
+func begin_control(creature: String, order_kind: String) -> void:
+	hint = control_error(creature)
+	if not hint.is_empty():
+		return
+	targeting = {"mode": TARGET_CONTROL, "creature": creature, "order": order_kind}
+	hint = "%s: click %s." % [display_name(creature), "where it should go" if order_kind == "move" else "the hostile it should attack"]
+	revision += 1
+
+
+## Speed of a creature in tiles (stat block; 6 when unknown).
+func creature_speed_tiles(id: String) -> int:
+	var e := get_entity(id)
+	var monsters: Dictionary = _content().get("monsters", {})
+	var def: MonsterDefinition = monsters.get(str(e.get("monster_id", "")), null)
+	return GridMath.feet_to_tiles(def.speed) if def != null else 6
+
+
+## A move order (path within its speed) then end_turn; [] when unreachable.
+func control_move_orders(creature: String, tile: Vector2i) -> Array:
+	var e := get_entity(creature)
+	if e.is_empty():
+		return []
+	var path := fight_map().path_to(e["position"], tile, occupied_cells(creature))
+	if path.is_empty():
+		return []
+	path.resize(mini(path.size(), creature_speed_tiles(creature)))
+	return [{"type": Messages.MOVE, "path": GridMath.vec_list_to_arr(path)}, {"type": Messages.END_TURN}]
+
+
+## Walk next to target (within its speed) and attack it with its first attack.
+func control_attack_orders(creature: String, target: String) -> Array:
+	var e := get_entity(creature)
+	var t := get_entity(target)
+	if e.is_empty() or t.is_empty():
+		return []
+	var orders: Array = []
+	var from: Vector2i = e["position"]
+	if not GridMath.is_adjacent(from, t["position"]):
+		var path := fight_map().path_to(from, t["position"], occupied_cells(creature))
+		if path.is_empty():
+			return []
+		path.resize(mini(path.size(), creature_speed_tiles(creature)))
+		orders.append({"type": Messages.MOVE, "path": GridMath.vec_list_to_arr(path)})
+	orders.append({"type": Messages.ATTACK, "target": target, "attack_index": 0})
+	orders.append({"type": Messages.END_TURN})
+	return orders
+
+
+func _control_click_intent(tile: Vector2i) -> Dictionary:
+	var creature := str(targeting.get("creature", ""))
+	hint = control_error(creature)
+	if not hint.is_empty():
+		return {}
+	var orders: Array = []
+	if str(targeting.get("order", "")) == "attack":
+		var target := hostile_at(tile)
+		if target.is_empty() or controlled.has(target):
+			hint = "Click a hostile."
+			return {}
+		orders = control_attack_orders(creature, target)
+	else:
+		orders = control_move_orders(creature, tile)
+	if orders.is_empty():
+		hint = "%s cannot get there." % display_name(creature)
+		return {}
+	return control_intent(creature, orders)
