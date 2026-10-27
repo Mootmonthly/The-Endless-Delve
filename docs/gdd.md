@@ -119,6 +119,32 @@ pack it stays dead for that party for the rest of their visit, but other parties
 handcrafted floors consistent ("the same journey") with 100 players sharing them. Bosses respawn
 globally every 10 minutes after being killed.
 
+### 5.2.1 Level design philosophy (owner decision, 2026-10-27; implementation is Round D)
+
+The current floors were built for one player and are too small and empty for a shared instance where
+dozens of players may be on a floor at once. Every floor from Round D on follows this shape:
+
+- **Concentric layout.** A floor is roughly a circle or square. The staircase down sits at the centre.
+- **Edge spawns.** Players arrive at several arrival landings spread around the edge of the map and
+  work inward. Each landing has its own arrival protection and its own early rooms, so parties entering
+  at different times do not pile into the same corridor.
+- **Room to breathe.** Many more rooms and corridors than today, with multiple routes inward, wide
+  enough for several parties to move and fight without blocking each other. Floor size scales with the
+  expected population of the floor.
+- **Optional challenges near the middle.** Side areas like floor 1's crypt sit close to the centre (not
+  quite at it), so reaching them is a choice made after the player has committed to the descent.
+- **A guarded staircase.** Every staircase is blocked by an encounter: a boss where the floor has one,
+  otherwise a mob group. A chest stands at the staircase.
+- **Environmental objects.** Breakable barrels and crates (loot, cover), doors (open, closed, locked:
+  Knock and thieves' tools matter), hidden caches, traps as the systems arrive.
+- **Respawning packs.** Monster packs that die come back after a timer so later arrivals have a floor
+  to play; proposal: 10 minutes, bosses on their own longer timer, and a pack never respawns while a
+  player is inside its zone. The deepest-floor record and XP rules are unaffected.
+
+**Proposal (needs owner sign-off):** floor templates by population band (solo/offline: 64x48 with 2
+landings; instance: 128x96 with 4-6 landings), authored in the same JSON format with a generator
+for the first pass and hand-editing after.
+
 ### 5.3 Difficulty curve
 
 Deeper floors bring stronger monsters (higher challenge rating), larger and more complex layouts, and on

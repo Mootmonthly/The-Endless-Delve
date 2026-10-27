@@ -169,3 +169,9 @@ resolved by the owner on 2026-10-26 (GDD 5.4, 8.3, 9.3).
   - Closed beta of at least 50 players with no blocker bugs open.
   - Backups and restore of the persistence database tested.
 - **Key risks:** launch load; negative reviews from content gaps; trademark misuse on the store page.
+
+## Round D - Level design revamp (owner, 2026-10-27)
+
+Concentric floors with edge spawns and a central guarded staircase, many more rooms, environmental
+objects (barrels, doors, locks, caches), respawning packs on a timer, floor templates by population
+band. See GDD 5.2.1. Scheduled after progression round C.
