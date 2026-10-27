@@ -5,6 +5,6 @@
 	"class": "barbarian",
 	"level": 20,
 	"description": "At 20th level, you embody the power of the wilds. Your Strength and Constitution scores increase by 4. Your maximum for those scores is now 24.",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

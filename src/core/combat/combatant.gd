@@ -125,6 +125,13 @@ var illusion: Dictionary = {}
 var extra_turns: int = 0
 var extra_turn_source: String = ""
 var time_stopped: bool = false
+## Round C class features: whether a raging barbarian attacked a hostile or
+## took damage since its last turn started (else the rage ends, unless
+## Persistent Rage); the creature its Quivering Palm vibrations are in ("" =
+## none); the turn counter of its last Foe Slayer.
+var rage_kept: bool = false
+var quivering_target: String = ""
+var foe_slayer_turn: int = -1
 
 
 ## Player character: the sheet's weapon attacks, then an unarmed strike fallback.
@@ -278,6 +285,17 @@ func armor_class() -> int:
 		if floor_ac > ac:
 			ac = floor_ac
 	return ac
+
+
+## Darkvision in tiles: the sheet's (ancestry, stat block), a buff's
+## "darkvision_ft" (Darkvision spell) or Devil's Sight (120 ft); 0 = none.
+func darkvision_tiles() -> int:
+	var feet := sheet.darkvision_ft if sheet != null else 0
+	if sheet != null and sheet.invocations.has("devils_sight"):
+		feet = maxi(feet, 120)
+	for b in live_buffs():
+		feet = maxi(feet, DictUtil.to_int(b.get("darkvision_ft", 0), 0))
+	return GridMath.feet_to_tiles(feet)
 
 
 ## Fly speed in tiles (stat block, Fly, Dragon Wings; 0 = none).

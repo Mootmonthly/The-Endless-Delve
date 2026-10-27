@@ -15,7 +15,13 @@ extends RefCounted
 ##   can_ritual_cast), "caster_id" (the caster's id in events, default ""),
 ##   "target_ids" (ids of `targets` in order; events name a target by its id,
 ##   else by its index as a string), "mode" (spell variants),
-##   "spend_slot": true (a no_effect spell spends its slot anyway).
+##   "spend_slot": true (a no_effect spell spends its slot anyway),
+##   "target_kind" / "target_id" (exploration spells: "chest" | "door" |
+##   "zone" | "landmark" and its id), "invocation" (an at-will invocation id
+##   when the spell is also prepared). At-will invocations (Eldritch Sight,
+##   Mask of Many Faces, ...) cast without preparation or a slot;
+##   once-per-long-rest invocations (Minions of Chaos, Bewitching Whispers)
+##   cast an unprepared spell with a slot and spend their use.
 ## Events (same kinds the server sends in out_of_combat_events):
 ##   cast {actor, spell, target, slot_level, casting_time, ritual}
 ##   companion_summoned {caster, spell, monster, count, companion_ids}
@@ -24,6 +30,11 @@ extends RefCounted
 ##   revived {source, target, target_index, hp, hp_after, spell}
 ##   restored {source, target, target_index, conditions_removed, exhaustion}
 ##   buff {source, target, target_index, buff, ac?}
+## The cast event carries "invocation" when an invocation granted the cast.
+## exploration_effect {kind, actor, spell, effect, reveal?, range_ft?,
+## radius_ft?, creature_types?, dispel_darkness?, target_kind?, target_id?,
+## targets? [keys] (light, recall)}: see exploration_fields; light spells
+## also add a "light" lingering entry (lingering_added) to each target.
 ## Round C kinds: lingering_added {source, target, target_index, spell,
 ## lingering_kind, encounters} (spells whose effect holds for the next encounters, see
 ## CharacterSheet.lingering), no_effect {actor, spell, reason} (declared
@@ -88,11 +99,18 @@ static func fight_only_reason(spell: SpellDefinition) -> String:
 
 ## Whether `caster` may cast spell_id as a ritual: the spell has the ritual
 ## tag and the caster's class has Ritual Casting (prepared; a wizard's
-## spellbook is enough).
+## spellbook is enough), or a warlock's Book of Ancient Secrets holds it (or
+## it knows it), or Pact of the Chain's Find Familiar.
 static func can_ritual_cast(caster: CharacterSheet, spell: SpellDefinition) -> bool:
 	if caster == null or spell == null or not spell.ritual:
 		return false
 	if SPELLBOOK_RITUALS.has(caster.class_id) and caster.spells_known.has(spell.id):
+		return true
+	# Book of Ancient Secrets: the Book of Shadows' rituals and known warlock rituals.
+	if caster.invocations.has("book_of_ancient_secrets") and (caster.ritual_book.has(spell.id) or caster.spells_known.has(spell.id)):
+		return true
+	# Pact of the Chain: Find Familiar as a ritual.
+	if caster.has_feature("pact_of_the_chain") and spell.id == "find_familiar":
 		return true
 	return RITUAL_CASTERS.has(caster.class_id) and caster.is_spell_prepared(spell.id)
 
@@ -108,13 +126,17 @@ static func cast(caster: CharacterSheet, spell_id: String, content: Dictionary =
 	var ritual := DictUtil.to_bool(options.get("ritual", false), false)
 	if ritual and not OutOfCombat.can_ritual_cast(caster, spell):
 		return OutOfCombat._fail("%s cannot cast %s as a ritual" % [caster.name, spell.display_name])
-	if not ritual and not caster.is_spell_prepared(spell_id):
+	var at_will := caster.at_will_invocation(spell_id)
+	if not at_will.is_empty() and caster.is_spell_prepared(spell_id) and str(options.get("invocation", "")) != at_will:
+		at_will = ""
+	var inv_use := "" if caster.is_spell_prepared(spell_id) or ritual or not at_will.is_empty() else caster.invocation_spell_use(spell_id)
+	if not ritual and not caster.is_spell_prepared(spell_id) and at_will.is_empty() and inv_use.is_empty():
 		return OutOfCombat._fail("%s has not prepared %s" % [caster.name, spell.display_name])
 	if not spell.is_castable():
 		return OutOfCombat._fail("%s cannot be cast yet" % spell.display_name)
 	var fight_only := OutOfCombat.fight_only_reason(spell)
 	var no_effect := spell.effect_type == SpellDefinition.EFFECT_NO_EFFECT or not fight_only.is_empty()
-	var free := ritual or (no_effect and not DictUtil.to_bool(options.get("spend_slot", false), false))
+	var free := ritual or not at_will.is_empty() or (no_effect and not DictUtil.to_bool(options.get("spend_slot", false), false))
 	var slot := 0
 	if spell.level > 0 and not free:
 		slot = DictUtil.to_int(options.get("slot_level", 0), 0)
@@ -133,39 +155,29 @@ static func cast(caster: CharacterSheet, spell_id: String, content: Dictionary =
 	var events: Array[Dictionary] = []
 	events.append({"kind": "cast", "actor": caster_id, "spell": spell_id, "target": OutOfCombat._target_key(list, 0, ids),
 			"slot_level": slot, "casting_time": spell.casting_time, "ritual": ritual})
+	if not inv_use.is_empty():
+		events[0]["invocation"] = inv_use
+	elif not at_will.is_empty():
+		events[0]["invocation"] = at_will
 	if no_effect:
 		var reason := spell.no_effect_reason() if fight_only.is_empty() else fight_only
 		events.append({"kind": "no_effect", "actor": caster_id, "spell": spell_id, "reason": reason})
 		if slot > 0:
 			caster.use_spell_slot(slot)
+			OutOfCombat._spend_invocation(caster, inv_use)
 		return {"ok": true, "error": "", "slot_level": slot, "result": {"no_effect": reason}, "events": events}
 	if e.has("lingering"):
-		var lg_v: Variant = e["lingering"]
-		var lg: Dictionary = lg_v if typeof(lg_v) == TYPE_DICTIONARY else {}
 		if list.size() > spell.targets_at(effect_slot):
 			return OutOfCombat._fail("%s affects at most %d creatures" % [spell.display_name, spell.targets_at(effect_slot)])
-		var encounters := DictUtil.to_int(lg.get("encounters", SpellDefinition.encounters_for_duration(spell.duration_text)), 1)
-		if encounters == 0:
-			encounters = 1
+		var encounters := OutOfCombat.lingering_encounters(spell)
 		for i in range(list.size()):
 			var t := list[i]
-			var entry := {"spell": spell_id, "slot_level": effect_slot, "kind": str(lg.get("kind", "buff")), "encounters_left": encounters}
-			for key: String in ["effect", "modifiers", "feature", "condition"]:
-				if lg.has(key):
-					entry[key] = lg[key].duplicate(true) if typeof(lg[key]) == TYPE_DICTIONARY else lg[key]
-			if options.has("mode"):
-				entry["mode"] = str(options["mode"])
-			if options.has("creature_type"):
-				entry["creature_type"] = str(options["creature_type"])
-			var kept: Array[Dictionary] = []
-			for old in t.lingering:
-				if str(old.get("spell", "")) != spell_id:
-					kept.append(old)
-			kept.append(entry)
-			t.lingering = kept
+			var entry := OutOfCombat.lingering_entry(spell, effect_slot, options)
+			OutOfCombat.add_lingering(t, entry)
 			events.append(OutOfCombat._target_event("lingering_added", caster_id, list, i, ids, {"spell": spell_id, "lingering_kind": entry["kind"], "encounters": encounters}))
 		if slot > 0:
 			caster.use_spell_slot(slot)
+		OutOfCombat._spend_invocation(caster, inv_use)
 		return {"ok": true, "error": "", "slot_level": slot, "result": {"lingering": list.size(), "encounters": encounters}, "events": events}
 	match spell.effect_type:
 		SpellDefinition.EFFECT_SUMMON:
@@ -178,6 +190,8 @@ static func cast(caster: CharacterSheet, spell_id: String, content: Dictionary =
 			if custom.is_empty():
 				var form := str(options.get("form", e.get("monster", "")))
 				var forms := DictUtil.to_string_array(e.get("forms", []))
+				if e.get("familiar", false) == true and caster.has_feature("pact_of_the_chain"):
+					forms.append_array(CharacterSheet.CHAIN_FAMILIARS)
 				var monsters: Dictionary = c.get("monsters", {})
 				var def: MonsterDefinition = null
 				if forms.is_empty() and typeof(e.get("forms", null)) != TYPE_ARRAY:
@@ -241,7 +255,7 @@ static func cast(caster: CharacterSheet, spell_id: String, content: Dictionary =
 			if not t.is_dead():
 				return OutOfCombat._fail("%s is not dead" % t.name)
 			var max_rounds := DictUtil.to_int(e.get("max_rounds", -1), -1)
-			if max_rounds >= 0 and DictUtil.to_float(options.get("dead_minutes", 99.0), 99.0) > 1.0:
+			if max_rounds >= 0 and DictUtil.to_float(options.get("dead_minutes", 99.0), 99.0) > 1.0 and not OutOfCombat.has_lingering_feature(t, "gentle_repose"):
 				return OutOfCombat._fail("%s has been dead too long" % t.name)
 			var hp := DictUtil.to_int(e.get("hp", 1), 1)
 			t.dead = false
@@ -260,6 +274,7 @@ static func cast(caster: CharacterSheet, spell_id: String, content: Dictionary =
 					t.ancestry_id = anc.id
 					t.speed = anc.speed
 					t.size = anc.size
+					t.darkvision_ft = anc.darkvision_ft
 					result["ancestry"] = anc.id
 					revived["ancestry"] = anc.id
 			events.append(OutOfCombat._target_event("revived", caster_id, list, 0, ids, revived))
@@ -308,6 +323,29 @@ static func cast(caster: CharacterSheet, spell_id: String, content: Dictionary =
 				t.add_exhaustion(-DictUtil.to_int(e["exhaustion"], 0))
 			result = {"target": t.name, "exhaustion": t.exhaustion}
 			events.append(OutOfCombat._target_event("restored", caster_id, list, 0, ids, {"conditions_removed": removed, "exhaustion": t.exhaustion}))
+		SpellDefinition.EFFECT_EXPLORATION:
+			var err := OutOfCombat.exploration_error(spell, options)
+			if not err.is_empty():
+				return OutOfCombat._fail(err)
+			if list.size() > spell.targets_at(effect_slot):
+				return OutOfCombat._fail("%s affects at most %d creatures" % [spell.display_name, spell.targets_at(effect_slot)])
+			var ev := OutOfCombat.exploration_fields(spell, options)
+			ev["kind"] = "exploration_effect"
+			ev["actor"] = caster_id
+			if str(ev["effect"]) == "recall" or str(ev["effect"]) == "light":
+				var keys: Array = []
+				for i in range(list.size()):
+					keys.append(OutOfCombat._target_key(list, i, ids))
+				ev["targets"] = keys
+			events.append(ev)
+			result = {"exploration": ev["effect"]}
+			if str(ev["effect"]) == "light":
+				var encounters := DictUtil.to_int(e.get("encounters", 1), 1)
+				for i in range(list.size()):
+					var t := list[i]
+					OutOfCombat.add_lingering(t, {"spell": spell_id, "slot_level": effect_slot, "kind": "light", "radius_ft": DictUtil.to_int(e.get("radius_ft", 20), 20),
+							"encounters_left": encounters})
+					events.append(OutOfCombat._target_event("lingering_added", caster_id, list, i, ids, {"spell": spell_id, "lingering_kind": "light", "encounters": encounters}))
 		SpellDefinition.EFFECT_BUFF:
 			if spell.buff != SpellDefinition.BUFF_MAGE_ARMOR:
 				return OutOfCombat._fail("%s only lasts within a fight" % spell.display_name)
@@ -322,7 +360,87 @@ static func cast(caster: CharacterSheet, spell_id: String, content: Dictionary =
 			return OutOfCombat._fail("%s has no effect outside a fight" % spell.display_name)
 	if slot > 0:
 		caster.use_spell_slot(slot)
+	OutOfCombat._spend_invocation(caster, inv_use)
 	return {"ok": true, "error": "", "slot_level": slot, "result": result, "events": events}
+
+
+## The fields of an exploration_effect event for an exploration spell:
+## {spell, effect ("unlock" | "lock" | "open" | "reveal" | "light" |
+## "teleport" | "recall"), reveal? ("traps" | "magic_items" | "hidden_chests"
+## | "monsters" | "creatures" | "stairs" | "map" | "threat"), range_ft?,
+## radius_ft?, creature_types?, dispel_darkness? (spell level), target_kind?
+## ("chest" | "door" | "zone" | "landmark"), target_id?} with target_kind /
+## target_id from `options` (the cast intent). See SpellDefinition.EFFECT_EXPLORATION.
+static func exploration_fields(spell: SpellDefinition, options: Dictionary) -> Dictionary:
+	var e := spell.raw_effect
+	var ev := {"spell": spell.id, "effect": str(e.get("exploration", "reveal"))}
+	for key: String in ["reveal", "range_ft", "creature_types", "radius_ft", "dispel_darkness"]:
+		if e.has(key):
+			ev[key] = e[key].duplicate() if typeof(e[key]) == TYPE_ARRAY else e[key]
+	for key: String in ["target_kind", "target_id"]:
+		if options.has(key):
+			ev[key] = str(options[key])
+	return ev
+
+
+## Why an exploration cast's options do not fit the spell ("" when they do):
+## "target_kind" must be one of the spell's "target_kinds", and a teleport's
+## landmark "target_id" one of its "landmarks".
+static func exploration_error(spell: SpellDefinition, options: Dictionary) -> String:
+	var e := spell.raw_effect
+	var kinds := DictUtil.to_string_array(e.get("target_kinds", []))
+	if options.has("target_kind"):
+		var kind := str(options["target_kind"])
+		if not kinds.has(kind):
+			return "%s cannot target a %s" % [spell.display_name, kind] if not kinds.is_empty() else "%s takes no target_kind" % spell.display_name
+	var landmarks := DictUtil.to_string_array(e.get("landmarks", []))
+	if not landmarks.is_empty() and options.has("target_id") and str(options.get("target_kind", "landmark")) == "landmark" \
+			and not landmarks.has(str(options["target_id"])):
+		return "%s can only reach %s" % [spell.display_name, " or ".join(landmarks)]
+	return ""
+
+
+## Encounters a lingering spell holds: its "lingering" "encounters", else by
+## its SRD duration (see SpellDefinition.encounters_for_duration; at least 1).
+static func lingering_encounters(spell: SpellDefinition) -> int:
+	var lg_v: Variant = spell.raw_effect.get("lingering", {})
+	var lg: Dictionary = lg_v if typeof(lg_v) == TYPE_DICTIONARY else {}
+	var encounters := DictUtil.to_int(lg.get("encounters", SpellDefinition.encounters_for_duration(spell.duration_text)), 1)
+	return 1 if encounters == 0 else encounters
+
+
+## A CharacterSheet.lingering entry for a lingering spell cast at slot
+## (options: "mode", "creature_type").
+static func lingering_entry(spell: SpellDefinition, slot: int, options: Dictionary = {}) -> Dictionary:
+	var lg_v: Variant = spell.raw_effect.get("lingering", {})
+	var lg: Dictionary = lg_v if typeof(lg_v) == TYPE_DICTIONARY else {}
+	var entry := {"spell": spell.id, "slot_level": slot, "kind": str(lg.get("kind", "buff")), "encounters_left": OutOfCombat.lingering_encounters(spell)}
+	for key: String in ["effect", "modifiers", "feature", "condition"]:
+		if lg.has(key):
+			entry[key] = lg[key].duplicate(true) if typeof(lg[key]) == TYPE_DICTIONARY else lg[key]
+	if options.has("mode"):
+		entry["mode"] = str(options["mode"])
+	if options.has("creature_type"):
+		entry["creature_type"] = str(options["creature_type"])
+	return entry
+
+
+## Adds a lingering entry to a sheet, replacing one of the same spell.
+static func add_lingering(sheet: CharacterSheet, entry: Dictionary) -> void:
+	var kept: Array[Dictionary] = []
+	for old in sheet.lingering:
+		if str(old.get("spell", "")) != str(entry.get("spell", "")):
+			kept.append(old)
+	kept.append(entry)
+	sheet.lingering = kept
+
+
+## Whether a sheet carries a lingering feature (Gentle Repose, Magic Jar).
+static func has_lingering_feature(sheet: CharacterSheet, feature: String) -> bool:
+	for entry in sheet.lingering:
+		if str(entry.get("kind", "")) == "feature" and str(entry.get("feature", "")) == feature:
+			return true
+	return false
 
 
 ## A target's key in events: its id from target_ids, else its index.
@@ -336,6 +454,12 @@ static func _target_event(kind: String, caster_id: String, list: Array[Character
 	var ev := {"kind": kind, "source": caster_id, "target": OutOfCombat._target_key(list, i, ids), "target_index": i}
 	ev.merge(fields)
 	return ev
+
+
+## Spends a once-per-long-rest invocation use (Minions of Chaos, ...).
+static func _spend_invocation(caster: CharacterSheet, inv: String) -> void:
+	if not inv.is_empty():
+		caster.spend_class_resource(CharacterSheet.INVOCATION_PREFIX + inv, 1)
 
 
 static func _fail(reason: String) -> Dictionary:

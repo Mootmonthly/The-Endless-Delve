@@ -3,6 +3,6 @@
 	"id": "beast_speech",
 	"display_name": "Beast Speech",
 	"description": "You can cast speak with animals at will, without expending a spell slot.",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

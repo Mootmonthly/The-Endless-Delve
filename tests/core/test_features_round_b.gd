@@ -412,8 +412,8 @@ func test_features_implemented_list_is_exact() -> void:
 	for id: String in ["mindless_rage", "countercharm", "blessed_healer", "wild_shape", "indomitable", "evasion", "aura_of_protection",
 			"volley", "reliable_talent", "elemental_affinity", "mystic_arcanum", "potent_cantrip", "cutting_words", "jack_of_all_trades"]:
 		assert_true(Features.is_implemented(id), id)
-	for id: String in ["quivering_palm", "stroke_of_luck", "overchannel", "hurl_through_hell", "slow_fall"]:
-		assert_false(Features.is_implemented(id), "%s is round C" % id)
+	for id: String in ["slow_fall", "pact_of_the_chain", "pact_of_the_tome"]:
+		assert_true(Features.is_implemented(id), "%s arrived in round C" % id)
 	assert_eq(Features.IMPLEMENTED_METAMAGIC.size(), 8)
 
 

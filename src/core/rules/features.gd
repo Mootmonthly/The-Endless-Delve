@@ -13,11 +13,11 @@ const IMPLEMENTED: Array[String] = [
 	# Barbarian
 	"rage", "unarmored_defense_con", "reckless_attack", "danger_sense", "primal_path", "fast_movement",
 	"frenzy", "mindless_rage", "feral_instinct", "brutal_critical", "intimidating_presence",
-	"relentless_rage", "retaliation",
+	"relentless_rage", "retaliation", "persistent_rage", "indomitable_might", "primal_champion",
 	# Bard
 	"bardic_inspiration", "song_of_rest", "bard_college", "bonus_proficiencies", "font_of_inspiration",
 	"jack_of_all_trades", "cutting_words", "countercharm", "additional_magical_secrets", "magical_secrets",
-	"superior_inspiration",
+	"superior_inspiration", "peerless_skill",
 	# Cleric
 	"divine_domain", "turn_undead", "destroy_undead", "domain_spells", "bonus_proficiency",
 	"disciple_of_life", "preserve_life", "blessed_healer", "divine_strike", "divine_intervention",
@@ -36,21 +36,21 @@ const IMPLEMENTED: Array[String] = [
 	"step_of_the_wind", "unarmored_movement", "monastic_tradition", "deflect_missiles",
 	"open_hand_technique", "stunning_strike", "ki_empowered_strikes", "wholeness_of_body",
 	"stillness_of_mind", "purity_of_body", "tranquility", "tongue_of_the_sun_and_moon", "diamond_soul",
-	"empty_body", "perfect_self",
+	"empty_body", "perfect_self", "slow_fall", "quivering_palm",
 	# Paladin
 	"divine_sense", "lay_on_hands", "divine_smite", "divine_health", "sacred_oath", "oath_spells",
 	"sacred_weapon", "turn_the_unholy", "aura_of_protection", "aura_of_devotion", "aura_of_courage",
-	"improved_divine_smite", "cleansing_touch", "aura_improvements", "purity_of_spirit",
+	"improved_divine_smite", "cleansing_touch", "aura_improvements", "purity_of_spirit", "holy_nimbus",
 	# Ranger
 	"favored_enemy", "natural_explorer", "ranger_archetype", "hunters_prey", "colossus_slayer",
 	"giant_killer", "horde_breaker", "primeval_awareness", "defensive_tactics", "escape_the_horde",
 	"multiattack_defense", "steel_will", "hide_in_plain_sight", "multiattack", "volley", "whirlwind_attack",
 	"vanish", "superior_hunters_defense", "superior_hunters_defense_evasion", "stand_against_the_tide",
-	"superior_hunters_defense_uncanny_dodge", "feral_senses",
+	"superior_hunters_defense_uncanny_dodge", "feral_senses", "foe_slayer",
 	# Rogue
 	"sneak_attack", "thieves_cant", "cunning_action", "roguish_archetype", "fast_hands",
 	"second_story_work", "uncanny_dodge", "supreme_sneak", "reliable_talent", "use_magic_device",
-	"blindsense", "slippery_mind", "elusive",
+	"blindsense", "slippery_mind", "elusive", "thiefs_reflexes", "stroke_of_luck",
 	# Sorcerer
 	"sorcerous_origin", "dragon_ancestor", "dragon_ancestor_black", "dragon_ancestor_blue",
 	"dragon_ancestor_brass", "dragon_ancestor_bronze", "dragon_ancestor_copper", "dragon_ancestor_gold",
@@ -60,20 +60,26 @@ const IMPLEMENTED: Array[String] = [
 	# Warlock
 	"otherworldly_patron", "expanded_spell_list", "dark_ones_blessing", "pact_magic",
 	"eldritch_invocations", "pact_boon", "pact_of_the_blade", "dark_ones_own_luck", "fiendish_resilience",
-	"mystic_arcanum",
+	"mystic_arcanum", "pact_of_the_chain", "pact_of_the_tome", "hurl_through_hell", "eldritch_master",
 	# Wizard
 	"arcane_recovery", "arcane_tradition", "evocation_savant", "sculpt_spells", "potent_cantrip",
-	"empowered_evocation",
+	"empowered_evocation", "overchannel", "spell_mastery", "signature_spell",
 ]
 ## Invocations, metamagic options and fighting styles the engine models
 ## (data/invocations, data/metamagic, data/fighting_styles). Eyes of the Rune
-## Keeper is flavour; invocations that cast a spell the engine cannot cast
-## (beast speech, eldritch sight, ...) stay unsupported.
+## Keeper and Voice of the Chain Master are flavour; invocations that cast a
+## declared no_effect spell (Beast Speech, Whispers of the Grave) cast it.
 const IMPLEMENTED_INVOCATIONS: Array[String] = [
 	"agonizing_blast", "armor_of_shadows", "repelling_blast", "eldritch_spear", "fiendish_vigor",
 	"thirsting_blade", "lifedrinker", "ascendant_step", "beguiling_influence", "devils_sight",
 	"thief_of_five_fates", "mire_the_mind", "sign_of_ill_omen", "dreadful_word", "sculptor_of_flesh",
 	"eyes_of_the_rune_keeper",
+	# round C: at will (CharacterSheet.AT_WILL_INVOCATIONS / AT_WILL_SELF_INVOCATIONS), once per long rest
+	# (INVOCATION_SPELLS), use_feature (one_with_shadows, gaze_of_two_minds), pacts and senses
+	"beast_speech", "eldritch_sight", "mask_of_many_faces", "master_of_myriad_forms", "misty_visions",
+	"visions_of_distant_realms", "whispers_of_the_grave", "chains_of_carceri", "otherworldly_leap",
+	"bewitching_whispers", "minions_of_chaos", "one_with_shadows", "gaze_of_two_minds", "witch_sight",
+	"book_of_ancient_secrets", "voice_of_the_chain_master",
 ]
 const IMPLEMENTED_METAMAGIC: Array[String] = [
 	"careful_spell", "distant_spell", "empowered_spell", "extended_spell", "heightened_spell",

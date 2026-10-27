@@ -49,6 +49,21 @@ static func roll(attacker: Combatant, target: Combatant, attack: Dictionary, rng
 	result.target_hp_after = target.sheet.current_hp
 	if not result.hit and not half_on_miss:
 		return result
+	AttackResolver._roll_damage(result, target, attack, rng, extra_damage)
+	return result
+
+
+## Round C: turns a missed attack into a hit (Stroke of Luck, Foe Slayer) and
+## rolls its damage (not a critical). The result's d20 stays as rolled.
+static func force_hit(result: AttackResult, target: Combatant, attack: Dictionary, rng: Rng, extra_damage: Array[Dictionary] = []) -> void:
+	result.hit = true
+	result.fumble = false
+	result.critical = false
+	result.extras.clear()
+	AttackResolver._roll_damage(result, target, attack, rng, extra_damage)
+
+
+static func _roll_damage(result: AttackResult, target: Combatant, attack: Dictionary, rng: Rng, extra_damage: Array[Dictionary]) -> void:
 	var formula := DiceFormula.parse(str(attack.get("damage", "0")))
 	if not formula.valid:
 		push_error("AttackResolver: invalid damage expression: %s" % formula.error)
@@ -81,7 +96,6 @@ static func roll(attacker: Combatant, target: Combatant, attack: Dictionary, rng
 			result.extras.append({"source": str(extra.get("source", "")), "amount": adjusted, "type": extra_type})
 			total += adjusted
 	result.damage_total = total
-	return result
 
 
 ## Applies `amount` to the target and records the outcome on the result.

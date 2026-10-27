@@ -22,7 +22,7 @@ extends RefCounted
 ##  "features_detail": [{"id", "implemented": bool, "subclass": bool}],
 ##  "skills_to_choose": int,
 ##  "choices": [{"type": "subclass"|"fighting_style"|"expertise"|"invocations"|
-##               "metamagic"|"feature_option"|"skills", "count": int,
+##               "metamagic"|"feature_option"|"skills" (+ round B / C types below), "count": int,
 ##               "options": Array[String], "default": Array[String] (the first
 ##               count options), "feature": id (feature_option only)}]}
 ## Every entry of "choices" is answered in apply(); an answer that is omitted
@@ -40,6 +40,13 @@ extends RefCounted
 ## (Fiendish Resilience: one of CharacterSheet.DAMAGE_TYPES; answer
 ## "damage_type": "fire"). Answers: "magical_secrets": [ids],
 ## "mystic_arcanum": [id], "damage_type": id.
+## Round C choice types: "tome_cantrips" (count 3: cantrips of any class,
+## Pact of the Tome) and "ritual_book" (count 2: 1st-level ritual spells of
+## any class, Book of Ancient Secrets); an entry with "requires" (the boon or
+## invocation id) is offered alongside the choice that grants it and applies
+## only when that is picked (answer [] when it is not). Pact of the Chain adds
+## find_familiar to the known and prepared spells. Answers: "tome_cantrips":
+## [ids], "ritual_book": [ids].
 ##
 ## apply(sheet, made, content, rng) with made =
 ## {"hp": "average"|"roll", "asi": {"STR": 2} or {"STR": 1, "DEX": 1},
@@ -68,6 +75,22 @@ const CHOICE_SKILLS := "skills"
 const CHOICE_MAGICAL_SECRETS := "magical_secrets"
 const CHOICE_MYSTIC_ARCANUM := "mystic_arcanum"
 const CHOICE_DAMAGE_TYPE := "damage_type"
+## Round C: Pact of the Tome's three cantrips (any class) and Book of Ancient
+## Secrets' two 1st-level rituals (any class). Each is offered when the boon /
+## invocation is already the sheet's or can be picked in the same level-up;
+## its picks apply only once the sheet has it (an answer of [] is accepted
+## when the boon / invocation is not picked).
+const CHOICE_TOME_CANTRIPS := "tome_cantrips"
+const CHOICE_RITUAL_BOOK := "ritual_book"
+## Spell Mastery (wizard 18): a 1st- and a 2nd-level spellbook spell (count 2,
+## one of each level); Signature Spells (wizard 20): two 3rd-level spellbook
+## spells. Answers: "spell_mastery": [ids], "signature_spells": [ids].
+const CHOICE_SPELL_MASTERY := "spell_mastery"
+const CHOICE_SIGNATURE_SPELLS := "signature_spells"
+const TOME_CANTRIPS := 3
+const RITUAL_BOOK_SPELLS := 2
+## Pact of the Chain teaches Find Familiar.
+const CHAIN_SPELL := "find_familiar"
 const MAGICAL_SECRETS_COUNT := 2
 ## Warlock level -> Mystic Arcanum spell level.
 const ARCANUM_LEVELS: Dictionary[int, int] = {11: 6, 13: 7, 15: 8, 17: 9}
@@ -243,6 +266,50 @@ static func _choice_entries(sheet: CharacterSheet, cls: ClassDefinition, level: 
 			out.append({"type": CHOICE_MYSTIC_ARCANUM, "count": 1, "options": opts, "spell_level": ARCANUM_LEVELS[level]})
 	if gained.has("fiendish_resilience"):
 		out.append({"type": CHOICE_DAMAGE_TYPE, "count": 1, "options": CharacterSheet.DAMAGE_TYPES.duplicate(), "feature": "fiendish_resilience"})
+	var tome_possible := sheet.has_feature("pact_of_the_tome") or (gained.has("pact_boon") and LevelUp.feature_options("pact_boon", cls).has("pact_of_the_tome"))
+	if tome_possible and sheet.tome_cantrips.is_empty():
+		var opts: Array[String] = []
+		for key: Variant in content.get("spells", {}).keys():
+			var spell: SpellDefinition = content["spells"][key]
+			if spell.level == 0 and not sheet.spells_known.has(spell.id):
+				opts.append(spell.id)
+		opts.sort()
+		if not opts.is_empty():
+			var entry := {"type": CHOICE_TOME_CANTRIPS, "count": mini(TOME_CANTRIPS, opts.size()), "options": opts, "feature": "pact_of_the_tome"}
+			if not sheet.has_feature("pact_of_the_tome"):
+				entry["requires"] = "pact_of_the_tome"
+			out.append(entry)
+	var book_possible := sheet.invocations.has("book_of_ancient_secrets") or (invocations > 0 and LevelUp._invocation_options(sheet, level, gained, content).has("book_of_ancient_secrets")) \
+			or (tome_possible and invocations > 0 and LevelUp._records(content, "invocations").has("book_of_ancient_secrets"))
+	if book_possible and sheet.ritual_book.is_empty():
+		var opts: Array[String] = []
+		for key: Variant in content.get("spells", {}).keys():
+			var spell: SpellDefinition = content["spells"][key]
+			if spell.level == 1 and spell.ritual:
+				opts.append(spell.id)
+		opts.sort()
+		if not opts.is_empty():
+			var entry := {"type": CHOICE_RITUAL_BOOK, "count": mini(RITUAL_BOOK_SPELLS, opts.size()), "options": opts, "feature": "book_of_ancient_secrets"}
+			if not sheet.invocations.has("book_of_ancient_secrets"):
+				entry["requires"] = "book_of_ancient_secrets"
+			out.append(entry)
+	if gained.has("spell_mastery") and sheet.spell_mastery.is_empty():
+		var by_level := LevelUp._known_of_levels(sheet, [1, 2], content)
+		var firsts: Array[String] = by_level[1]
+		var seconds: Array[String] = by_level[2]
+		if not firsts.is_empty() and not seconds.is_empty():
+			# The first two options are a valid pair (one of each level), then the rest sorted.
+			var rest: Array[String] = []
+			rest.append_array(firsts.slice(1))
+			rest.append_array(seconds.slice(1))
+			rest.sort()
+			var opts: Array[String] = [firsts[0], seconds[0]]
+			opts.append_array(rest)
+			out.append({"type": CHOICE_SPELL_MASTERY, "count": 2, "options": opts, "feature": "spell_mastery", "per_level": {"1": 1, "2": 1}})
+	if gained.has("signature_spell") and sheet.signature_spells.is_empty():
+		var thirds: Array[String] = LevelUp._known_of_levels(sheet, [3], content)[3]
+		if not thirds.is_empty():
+			out.append({"type": CHOICE_SIGNATURE_SPELLS, "count": mini(2, thirds.size()), "options": thirds, "feature": "signature_spell"})
 	if gained.has("bonus_proficiencies"):
 		var skills: Array[String] = []
 		for skill in range(Skill.COUNT):
@@ -253,6 +320,20 @@ static func _choice_entries(sheet: CharacterSheet, cls: ClassDefinition, level: 
 	for entry in out:
 		var opts: Array = entry["options"]
 		entry["default"] = opts.slice(0, DictUtil.to_int(entry["count"]))
+	return out
+
+
+## Known spells of each level in `levels` ({level: sorted ids}).
+static func _known_of_levels(sheet: CharacterSheet, levels: Array[int], content: Dictionary) -> Dictionary:
+	var out := {}
+	for lvl in levels:
+		var ids: Array[String] = []
+		for spell_id in sheet.spells_known:
+			var spell := LevelUp._spell(spell_id, content)
+			if spell != null and spell.level == lvl:
+				ids.append(spell_id)
+		ids.sort()
+		out[lvl] = ids
 	return out
 
 
@@ -356,6 +437,14 @@ static func apply(sheet: CharacterSheet, made: Dictionary, content: Dictionary =
 	var err_p := LevelUp.check_choices(choice_list, made, picks)
 	if not err_p.is_empty():
 		return err_p
+	if picks.has(CHOICE_SPELL_MASTERY):
+		var levels: Array[int] = []
+		for v: Variant in picks[CHOICE_SPELL_MASTERY]:
+			var spell := LevelUp._spell(str(v), c)
+			levels.append(spell.level if spell != null else 0)
+		levels.sort()
+		if levels.size() != 2 or levels[0] != 1 or levels[1] != 2:
+			return "Spell Mastery takes one 1st-level and one 2nd-level spell"
 	# --- spells
 	var options: Array[String] = []
 	for id_v: Variant in ch["spell_options"]:
@@ -474,6 +563,9 @@ static func check_choices(choice_list: Array, made: Dictionary, picks: Dictionar
 		var answered := made.has(kind) if kind != CHOICE_FEATURE_OPTION else feature_answers.has(str(entry["feature"]))
 		if not answered:
 			given = DictUtil.to_string_array(entry.get("default", []))
+		if entry.has("requires") and answered and given.is_empty():
+			picks[key] = given
+			continue
 		if given.size() != count:
 			return "choose %d %s option%s, got %d" % [count, label, "" if count == 1 else "s", given.size()]
 		var seen: Array[String] = []
@@ -533,9 +625,41 @@ static func apply_picks(sheet: CharacterSheet, picks: Dictionary) -> void:
 				CHOICE_METAMAGIC:
 					if not sheet.metamagic.has(id):
 						sheet.metamagic.append(id)
+				CHOICE_TOME_CANTRIPS, CHOICE_RITUAL_BOOK:
+					pass  # below, once the boon / invocation is the sheet's
+				CHOICE_SPELL_MASTERY:
+					if not sheet.spell_mastery.has(id):
+						sheet.spell_mastery.append(id)
+				CHOICE_SIGNATURE_SPELLS:
+					if not sheet.signature_spells.has(id):
+						sheet.signature_spells.append(id)
+					LevelUp._learn_always(sheet, id)
+					sheet.class_resources[CharacterSheet.SIGNATURE_PREFIX + id] = 1
 				_:
 					if kind.begins_with(CHOICE_FEATURE_OPTION + ":"):
 						sheet.gain_feature(id)
+						if id == "pact_of_the_chain":
+							LevelUp._learn_always(sheet, CHAIN_SPELL)
+	if picks.has(CHOICE_TOME_CANTRIPS) and sheet.has_feature("pact_of_the_tome"):
+		for v: Variant in picks[CHOICE_TOME_CANTRIPS]:
+			var id := str(v)
+			if not sheet.tome_cantrips.has(id):
+				sheet.tome_cantrips.append(id)
+			LevelUp._learn_always(sheet, id)
+	if picks.has(CHOICE_RITUAL_BOOK) and sheet.invocations.has("book_of_ancient_secrets"):
+		for v: Variant in picks[CHOICE_RITUAL_BOOK]:
+			if not sheet.ritual_book.has(str(v)):
+				sheet.ritual_book.append(str(v))
+
+
+## Adds a spell to known, prepared and always-prepared (Magical Secrets-style grants).
+static func _learn_always(sheet: CharacterSheet, id: String) -> void:
+	if not sheet.spells_known.has(id):
+		sheet.spells_known.append(id)
+	if not sheet.spells_prepared.has(id):
+		sheet.spells_prepared.append(id)
+	if not sheet.always_prepared.has(id):
+		sheet.always_prepared.append(id)
 
 
 ## Adds the subclass's always-prepared spells up to the sheet's level (domain,

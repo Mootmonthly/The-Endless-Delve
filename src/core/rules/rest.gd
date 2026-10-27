@@ -120,6 +120,7 @@ static func long_rest(sheet: CharacterSheet) -> void:
 	sheet.exhaustion = maxi(0, sheet.exhaustion - 1)
 	sheet.resurrection_penalty = maxi(0, sheet.resurrection_penalty - 1)
 	sheet.relentless_rage_uses = 0
+	sheet.overchannel_uses = 0
 	var kept: Array[Dictionary] = []
 	for entry in sheet.companions:
 		if entry.get("until_long_rest", false) != true and entry.get("dead", false) != true:
@@ -137,3 +138,16 @@ static func long_rest(sheet: CharacterSheet) -> void:
 	sheet.lingering.clear()
 	if sheet.has_feature("tranquility"):
 		sheet.active_buffs.append("tranquility")
+
+
+## Eldritch Master (warlock 20): after a minute entreating the patron, every
+## expended Pact Magic slot comes back, once per long rest. "" or an error
+## (nothing changes).
+static func eldritch_master(sheet: CharacterSheet) -> String:
+	if sheet == null or not sheet.has_feature("eldritch_master"):
+		return "no Eldritch Master"
+	if sheet.class_resource("eldritch_master") <= 0:
+		return "Eldritch Master needs a long rest first"
+	sheet.restore_spell_slots()
+	sheet.spend_class_resource("eldritch_master", 1)
+	return ""

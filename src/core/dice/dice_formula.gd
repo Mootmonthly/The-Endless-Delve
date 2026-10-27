@@ -105,3 +105,18 @@ static func plus(base: String, per: String, times: int) -> String:
 	for _i in range(times):
 		out += "+" + per
 	return out
+
+
+## Round C (Overchannel): the formula with every die at its maximum, as text
+## ("8d6+3" -> "51", "1d8+MOD" -> "8+MOD"); the text itself when invalid.
+static func maximized(text: String) -> String:
+	var f := DiceFormula.parse(text)
+	if not f.valid:
+		return text
+	var total := f.constant
+	for d in f.dice:
+		total += d.count * d.sides
+	var out := str(total)
+	for _i in range(absi(f.mod_count)):
+		out += "+MOD" if f.mod_count > 0 else "-MOD"
+	return out

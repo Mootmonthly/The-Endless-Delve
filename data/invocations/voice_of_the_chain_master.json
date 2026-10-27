@@ -4,6 +4,6 @@
 	"display_name": "Voice of the Chain Master",
 	"description": "You can communicate telepathically with your familiar and perceive through your familiar's senses as long as you are on the same plane of existence.\nAdditionally, while perceiving through your familiar's senses, you can also speak through your familiar in your own voice, even if your familiar is normally incapable of speech.",
 	"prerequisites": { "pact": "pact_of_the_chain" },
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

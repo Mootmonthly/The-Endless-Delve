@@ -3,6 +3,6 @@
 	"id": "mask_of_many_faces",
 	"display_name": "Mask of Many Faces",
 	"description": "You can cast disguise self at will, without expending a spell slot.",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

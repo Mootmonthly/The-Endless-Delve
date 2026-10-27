@@ -40,6 +40,7 @@ static func create(character_name: String, cls: ClassDefinition, ancestry: Ances
 	if ancestry != null:
 		sheet.ancestry_id = ancestry.id
 		sheet.speed = ancestry.speed
+		sheet.darkvision_ft = ancestry.darkvision_ft
 		for ability in range(Ability.COUNT):
 			var bonus := ancestry.bonus_for(ability)
 			if bonus != 0:

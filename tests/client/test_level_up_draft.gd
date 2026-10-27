@@ -172,7 +172,7 @@ func test_choice_sections_labels_and_feature_cards() -> void:
 	assert_eq(wd.choice_count(inv), 2)
 	assert_eq(wd.option_label(inv, "agonizing_blast"), "Agonizing Blast")
 	assert_true(wd.option_implemented(inv, "agonizing_blast"))
-	assert_false(wd.option_implemented(inv, "beast_speech"))
+	assert_true(wd.option_implemented(inv, "beast_speech"), "every invocation is modelled since round C")
 	var auto := LevelUpDraft.first_valid(wd.offer, w)
 	for p in auto.picks_for(inv):
 		assert_true(Features.IMPLEMENTED_INVOCATIONS.has(p), "%s: modelled invocations first" % p)

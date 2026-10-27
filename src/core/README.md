@@ -12,13 +12,13 @@ Deterministic 5e SRD rules shared by the authoritative server, offline mode and 
 | Folder | Contents |
 |---|---|
 | `rng/` | `Rng`: seeded wrapper (`next_int` inclusive, `next_float`, `fork`, `state`/`set_state`) |
-| `dice/` | `DiceExpr` ("2d6+3", "4d6kh3"), `DiceFormula` (sums such as "2d6+1d8+MOD"; crit doubling, Great Weapon Fighting rerolls, Empowered Spell), `DiceRoll`, `D20` (advantage/disadvantage), `D20Result` |
-| `rules/` | `Ability`, `AbilityScores`, `Skill`, `Proficiency`, `Experience`, `ClassDefinition` (starting gear + kit, `features`, `spellcasting` slot table, level-up tables), `AncestryDefinition`, `WeaponDefinition` (thrown / ranged, `range_ft`, `ammo_id`), `CharacterSheet` (armor, `attacks`, inventory / equipment, spell slots, class resources, buffs), `CharacterBuilder` (kits, starting gear as equipped items, level-1 subclass and `creation_choices`), `LevelUp` (interactive level-up `choices` / `apply` with subclass, fighting style, expertise, invocations, metamagic, option features, skills, magical_secrets, mystic_arcanum, damage_type), `Rest` (slots, resources, Song of Rest, Arcane / Natural Recovery, `default_slot_recovery`, exhaustion / companions / Tranquility at a long rest, Sorcerous Restoration), `Features` (`IMPLEMENTED` feature ids, implemented invocations / metamagic / fighting styles, `FEATURE_OPTIONS`), `Progression` (SRD fallback numbers when a class has no table), `DamageOutcome`, `DeathSaveOutcome` |
+| `dice/` | `DiceExpr` ("2d6+3", "4d6kh3"), `DiceFormula` (sums such as "2d6+1d8+MOD"; crit doubling, Great Weapon Fighting rerolls, Empowered Spell), `DiceRoll`, `D20` (advantage/disadvantage), `D20Result`; round C `DiceFormula.maximized` (Overchannel) |
+| `rules/` | `Ability`, `AbilityScores`, `Skill`, `Proficiency`, `Experience`, `ClassDefinition` (starting gear + kit, `features`, `spellcasting` slot table, level-up tables), `AncestryDefinition` (+ `darkvision_ft`), `WeaponDefinition` (thrown / ranged, `range_ft`, `ammo_id`), `CharacterSheet` (armor, `attacks`, inventory / equipment, spell slots, class resources, buffs), `CharacterBuilder` (kits, starting gear as equipped items, level-1 subclass and `creation_choices`), `LevelUp` (interactive level-up `choices` / `apply` with subclass, fighting style, expertise, invocations, metamagic, option features, skills, magical_secrets, mystic_arcanum, damage_type, tome_cantrips, ritual_book, spell_mastery, signature_spells), `Rest` (slots, resources, Song of Rest, Arcane / Natural Recovery, `default_slot_recovery`, exhaustion / companions / Tranquility / lingering effects at a long rest, Sorcerous Restoration, `eldritch_master`), `Features` (`IMPLEMENTED` feature ids, implemented invocations / metamagic / fighting styles, `FEATURE_OPTIONS`), `Progression` (SRD fallback numbers when a class has no table), `DamageOutcome`, `DeathSaveOutcome` |
 | `items/` | `ItemDefinition` (weapon / armor / shield / consumable / ammo / gold / misc), `LootTable` (weighted, deterministic `roll(rng)`) |
-| `spells/` | `SpellDefinition` (spell_attack / auto_hit / save / heal / buff / mark / area_save / area_attack + round B temp_hp / area_heal / heal_pool / summon / teleport / zone / sleep / revive / dispel / threshold / transform / reaction effects, riders, conditions, buff modifiers, modes, damage over time, sustain, concentration, areas, `damage_by_slot` / `heal_by_slot` / `damage_by_character_level`, casting times), `SpellEffects` (`OVERRIDES`: rules effects for data spells still marked unsupported), `OutOfCombat` (`cast`: Find Familiar / Animate Dead companions, Raise Dead, heals, restorations outside fights) |
+| `spells/` | `SpellDefinition` (spell_attack / auto_hit / save / heal / buff / mark / area_save / area_attack + round B temp_hp / area_heal / heal_pool / summon / teleport / zone / sleep / revive / dispel / threshold / transform / reaction effects, round C no_effect / exploration / forced_move / banish / lingering / weapon_attack / wish / time_stop, riders, conditions, buff modifiers, modes, damage over time, sustain, concentration, areas, `damage_by_slot` / `heal_by_slot` / `damage_by_character_level`, casting times), `SpellEffects` (`OVERRIDES`: rules effects for data spells still marked unsupported), `OutOfCombat` (`cast`: companions, revives, heals, restorations, lingering effects, exploration hooks and no_effect spells outside fights, with per-target `events`; `castable`, `fight_only_reason`, ritual casting `can_ritual_cast`, `exploration_fields`) |
 | `grid/` | `GridMath` (Chebyshev distance, adjacency, `[x, y]` <-> `Vector2i`), `WalkMap` (walkable tiles, `can_step` without corner cutting, BFS `reachable` / `path_to`, Bresenham `has_line_of_sight`), `AreaOfEffect` (sphere / cylinder / cube / line / cone tiles) |
-| `floors/` | `FloorData` (walk map, arrival, stairs, zones, chests, `validate(loot_tables)`), `EncounterZoneData`, `ChestData` |
-| `combat/` | `Combatant` (grid position, per-turn resources incl. `attacks_per_action` / `attacks_remaining`, encounter effects: rage, marks, inspiration, `conditions`, `concentration`, `buffs`, `hidden`, summon fields, `form`, `reaction_policy`), `Conditions` (SRD conditions and durations), `MonsterDefinition` (+ `loot_table`, `creature_type`, `multiattack`), `InitiativeTracker`, `AttackResolver` (+ extra damage dice, crit range, `roll` / `apply_damage`), `AttackResult`, `Encounter` (intent-driven FORMING → ACTIVE → ENDED, events, intent log, `replay`), `MonsterBrain` (deterministic AI: melee, shoots when it cannot reach, Multiattack, honours conditions, searches for hidden foes, familiars Help) |
+| `floors/` | `FloorData` (walk map, arrival, stairs, zones, chests, `validate(loot_tables)`), `EncounterZoneData`, `ChestData` (round C: `locked`, opened by Knock's `exploration_effect`) |
+| `combat/` | `Reactions` (round C: `BY_TRIGGER` reaction ids per trigger, `SOURCES`, `for_sheet`), `Combatant` (grid position, per-turn resources incl. `attacks_per_action` / `attacks_remaining`, encounter effects: rage, marks, inspiration, `conditions`, `concentration`, `buffs`, `hidden`, summon fields, `form`, `reaction_policy`), `Conditions` (SRD conditions and durations), `MonsterDefinition` (+ `loot_table`, `creature_type`, `multiattack`), `InitiativeTracker`, `AttackResolver` (+ extra damage dice, crit range, `roll` / `apply_damage`), `AttackResult`, `Encounter` (intent-driven FORMING → ACTIVE → ENDED, events, intent log, `replay`), `MonsterBrain` (deterministic AI: melee, shoots when it cannot reach, Multiattack, honours conditions, searches for hidden foes, familiars Help) |
 | `content/` | `ContentLoader` (data/*.json → definitions: classes, monsters, ancestries, weapons, items, spells, loot tables; records: features, invocations, metamagic, fighting_styles; `cache()`, `load_all()`, `validate_references()`), `DictUtil` (JSON-safe readers) |
 
 ## Grid conventions
@@ -69,7 +69,33 @@ paralyzed, incapacitated) may only `move` / `stand` / `end_turn`; a turned one (
 | `escape_grapple` | – | action: Athletics or Acrobatics against the grappler's Athletics |
 | `help` | `target` | action: the next attack roll an ally makes against the adjacent hostile `target` before your next turn has advantage |
 | `move_effect` | `effect` (tile effect id), `point` | moves a movable tile effect of the actor (Moonbeam: action, 60 ft; Flaming Sphere: bonus action, 30 ft) so it is centred on `point` |
+| `control` | `target`, `orders: [intent, ...]` (≤ 12, no `control`) | round C, free: queues the dominated creature's intents for its next turn (only its controller; MonsterBrain fills the rest) |
 | `end_turn` | – | – |
+
+Round C intent fields (all optional and additive; the shapes above are unchanged):
+- `cast`: `mode` also names Wish's choice (a spell id of 8th level or lower to duplicate, `"restore_slots"`,
+  `"instant_health"`; `duplicate_mode` is the duplicated spell's own `mode`), Contagion's disease
+  (`blinding_sickness`, `filth_fever`, `flesh_rot`, `mindfire`, `seizure`, `slimy_doom`), Move Earth `lower`/`raise`,
+  Stone Shape `open`/`wall`, Antipathy/Sympathy; `target_kind` (`"chest"` | `"door"` | `"zone"` | `"landmark"`) and
+  `target_id` (exploration spells: Knock, Arcane Lock, Mage Hand, Clairvoyance, Teleport, ...; must fit the spell's
+  `target_kinds` / `landmarks`); `invocation` (an at-will invocation id, needed only when the spell is also
+  prepared); `overchannel: true` (Overchannel: a damaging wizard spell of 1st-5th level deals maximum damage).
+  Spell Mastery / Signature Spells casts need no field: `slot_level` 0 or the spell's level casts free
+  (`cast {.., free_cast}`). Declared no-effect spells cost the action but no slot.
+- `attack`: `via_familiar: true` (Pact of the Chain: one attack of the Attack action is forgone and the
+  familiar attacks with its reaction; `attack_index` is the familiar's attack, `target` must be in its reach),
+  `quivering_palm: true` (unarmed hit, 3 ki: vibrations set), `hurl_through_hell: true` (once per long rest,
+  on a hit). Temporary weapons (Flame Blade, Shillelagh) are new attack entries; a spent one is `disabled`.
+- `use_feature`: `magic_jar` (action, `target` a humanoid within 20 tiles: CHA save or possessed),
+  `end_spell` (free, `mode` = spell id: ends the actor's own effects of it, e.g. Etherealness),
+  `one_with_shadows` (action, dim light or darkness: invisible until it moves, acts or reacts), `gaze_of_two_minds`
+  (action, an adjacent willing ally: blinded and deafened to its own surroundings until the end of its next turn,
+  it sees through the ally's eyes), `quivering_palm` (action: CON save vs ki DC or 0 hp, else 10d10 necrotic),
+  `holy_nimbus` (action, 1 / long rest: 10 rounds of a 30-ft sunlit aura, 10 radiant to hostiles starting their
+  turn in it, advantage on saves against fiends and undead).
+- `Encounter.set_light(level)` (`"bright"` default, `"dim"`, `"dark"`): the server sets the fight's ambient light
+  before `start()` (logged first with `"setup": true`) or at any time (a replay-only `light` log entry,
+  `light_changed {light}`).
 
 ## Events (`kind` + fields; JSON-safe)
 `combatant_joined {id, name, team, initiative, position, hp, max_hp, ac}`, `combatant_removed {id}`,
@@ -135,6 +161,37 @@ Round A shapes are unchanged; round B adds fields and kinds:
   `exhaustion {target, level, source}`, `confusion_roll {actor, roll}`, `divine_intervention {actor, roll, success}`.
 - `transformed {target, form, kind ("wild_shape"|"polymorph"), hp, source}`, `reverted {target, reason, hp_after}`.
 
+Round C adds fields and kinds (all earlier shapes stand):
+- Added fields: `combatant_joined {.., owner, monster, illusion?}` for summons; `encounter_started {.., light?}` (not
+  bright); `cast {.., duplicate? (Wish), free_cast? ("spell_mastery"|"signature_spell"), overchannel?}`;
+  `effect_ended {.., reason? ("inactive": a rage with no attack or damage since the barbarian's last turn)}`;
+  `effect_applied {.., attack_index}` for Flame Blade / Shillelagh; `damage {.., feature? ("quivering_palm"|
+  "overchannel"|"hurl_through_hell"), fall?}`; `feature_used {.., mode? ("attack"|"damage" for foe_slayer /
+  stroke_of_luck)}` (also for quivering_palm, hurl_through_hell, foe_slayer, stroke_of_luck, overchannel);
+  `reaction_used` reactions also include `feather_fall`, `slow_fall`, `familiar_attack` (`owner`, trigger
+  `owner_attack`); `revealed {.., reason: "detected"}` (Detect Thoughts, Detect Evil and Good);
+  `tile_effect_created {.., terrain?, barrier?, opaque?, wind?, antimagic?, darkness?, lit?, globe?}`;
+  `tile_effect_ended {.., reason: "dispelled"}` (Daylight); `attack_lost {.., reason ("wind_wall"|"illusion")}`.
+- Terrain: `terrain_changed {walls [[x, y]], floors [[x, y]]}` (walls raised / opened by Wall of Stone, Passwall,
+  Move Earth, ...).
+- Control: `team_changed {target, team, controlled_by}`, `control {actor, target, orders}`, `compelled {actor,
+  toward}`, `redirected {actor, spell, point}` (sustained Compulsion).
+- Planar: `banished {target, source, spell, rounds, permanent}`, `returned {target, position, reason ("expired"|
+  "escaped"|"concentration"|"released")}`, `possessed {actor, target}` (Magic Jar), `blink {actor, roll, vanished}`.
+- Illusions: `disbelieved {actor, illusion}` (then `summon_ended` reason "disbelieved").
+- Special outcomes: `save_track_ended {target, condition, outcome ("recovered"|"took_hold"), effect?, label?}`
+  (Contagion, Prismatic indigo), `prismatic_ray {caster, target, roll, layer}`, `slots_restored {actor, source,
+  levels}` (Wish), `time_stop {actor, turns}`, `extra_turn {actor, source ("time_stop"|"thiefs_reflexes"),
+  turns_left}`, `time_stop_ended {actor, reason ("affected_other"|"expired")}`.
+- Exploration: `exploration_effect {actor, spell, effect ("unlock"|"lock"|"open"|"reveal"|"light"|"teleport"|
+  "recall"), reveal? ("traps"|"magic_items"|"hidden_chests"|"monsters"|"creatures"|"stairs"|"map"|"threat"),
+  range_ft?, radius_ft?, creature_types?, dispel_darkness?, target_kind?, target_id?, targets? [ids]}` for the
+  server to resolve; `no_effect {actor, spell, reason}`; `light_changed {light}`.
+- Lingering: `lingering_added {source, target, spell, lingering_kind, encounters}` (a lingering spell cast in a
+  fight: Gentle Repose), `lingering_ended {target, spell}` (its last encounter is over).
+- Checks: `check_modified {actor, feature ("peerless_skill"|"stroke_of_luck"), roll?, total, success}` after a
+  failed check.
+
 ## Conditions and concentration
 `Combatant.conditions` holds `{"condition", "source", "duration", "turns_left", "spell"?, "flee"?, "ends_on_damage"?}`
 entries (`sheet.conditions` strings, e.g. a lasting "poisoned", count too). Conditions: prone, stunned, paralyzed,
@@ -148,6 +205,10 @@ with it the conditions, buffs, marks, tile effects, summons and polymorph forms 
 Round B adds invisible, unconscious (Sleep), petrified and deafened, plus the tracked `turn_lost` (Command,
 confusion, Haste's lethargy: the next turn is skipped) and the duration `{"type": "until_target_turn_start"}`.
 Situational immunities: Mindless Rage, Aura of Devotion / Courage, Nature's Ward, buff `immune_conditions`.
+Round C adds the tracked `dominated`, `suggested`, `compelled` (charm effects) and `ethereal` (see `Conditions`),
+the duration `{"type": "save_track", "ability", "dc", "successes", "failures"}` (a save at each turn end: three
+successes end it, three failures make its `track_effect` take hold for the encounter: Contagion), and condition
+entry flags `ends_on_act` (One with Shadows) and `gaze` (Gaze of Two Minds).
 
 ## Round B systems
 - **Ability checks**: `Encounter.ability_check(c, ability, skill, dc, reason, adv, dis, bonus, contest_with)`,
@@ -185,9 +246,76 @@ Situational immunities: Mindless Rage, Aura of Devotion / Courage, Nature's Ward
   Phantasmal Killer), **forms** (`Combatant.form`: Wild Shape, Polymorph; revert at 0 hp with excess damage or at
   the end of the encounter), **nonmagical resistance** (stat-block "... from nonmagical weapons" entries; spells,
   magic weapons and Ki-Empowered Strikes beat them).
-- **Spells**: `SpellEffects.OVERRIDES` gives data spells still marked unsupported a real effect (157 of 320 SRD
-  spells are castable; the 163 left are utility / exploration, illusions, terrain the grid cannot hold, control
-  needing an AI ally, 1-minute conjurations and special outcomes).
+- **Spells**: `SpellEffects.OVERRIDES` gives data spells still marked unsupported a real effect (round B: 157 of
+  320; round C finishes the list, see the coverage table below).
+
+## Round C systems
+- **Terrain and walls** (the encounter owns `walk_map`; `_base_map` keeps the floor's): tile effects with
+  `terrain` `"solid"` block movement and sight (Wall of Force / Ice / Stone, Forcecage's ring, Prismatic Wall's
+  layers on entry), `"open"` makes walls walkable for the duration (Passwall, Move Earth, Stone Shape:
+  `terrain_changed`); `opaque`, `wind` (ranged weapon attacks through it are lost), `barrier` (Antilife Shell),
+  `globe` (Globe of Invulnerability), `antimagic` (Antimagic Field suppresses spell buffs, conditions and summons
+  inside), `fall` (Reverse Gravity), `phases` (Storm of Vengeance), `breaks_concentration` (Earthquake);
+  difficult terrain costs 2 tiles per step (`difficult_cost`, Plant Growth 4); Telekinesis is a contested forced
+  move that restrains; Resilient Sphere seals a creature (`sealed`).
+- **Light and darkness**: `Encounter.light` (`set_light`); `eyes_reach(viewer, tile)` decides sight in the dark:
+  blindsight / truesight in range, magical darkness (`darkness` tile effects: the Darkness spell) blocks all but
+  Devil's Sight, a dark fight needs a `lit` tile (Light, Daylight, Continual Flame, Dancing Lights, Holy Nimbus;
+  out-of-combat light spells become `light` lingering entries lit around their bearer) or darkvision
+  (`CharacterSheet.darkvision_ft` from the ancestry's Darkvision trait or a stat block's senses, the Darkvision
+  spell's buff, Devil's Sight 120 ft). `can_see` and hiding use it; Daylight dispels overlapping darkness of
+  3rd level or lower.
+- **Control and planar**: dominated creatures switch teams and take `control` orders; suggested ones take no
+  hostile action against the caster's side; compelled ones walk toward a point; banished / imprisoned / mazed /
+  plane-shifted / hurled creatures are absent (untargetable, no tile) until they return to their tile;
+  transformations (True Polymorph, Shapechange, Animal Shapes, Magic Jar's possession), Gaseous Form, Blink,
+  Etherealness.
+- **Illusions**: `Combatant.illusion` images (Silent / Major Image, Programmed Illusion, Project Image, Mislead,
+  Phantasmal Force / Killer, Weird) fool hostiles until an Investigation check against the caster's DC succeeds
+  when they interact (Witch Sight within 30 ft sees through); disguises and terrain illusions are lingering
+  `stealth` buffs (advantage on the first Stealth check of the next fight).
+- **Summons and companions**: 1-minute+ conjurations (Conjure Celestial / Elemental / Fey / Minor Elementals,
+  Planar Ally / Binding, Gate's ally, Simulacrum, Awaken, Unseen Servant, Faithful Hound, Animate Objects, Giant
+  Insect) are companions lasting a number of encounters (`encounters_left`, concentration starts with the fight);
+  Reincarnate revives with a random SRD ancestry; `OutOfCombat` mints `c<n>` companion ids.
+- **Lingering effects** (`CharacterSheet.lingering`, cleared by a long rest): kinds `buff`, `stealth`, `zone`,
+  `feature` (Magic Jar, Gentle Repose: the dead stay revivable) and `light`, applied when a fight starts and counted
+  down when it ends (Foresight, Heroes' Feast, Magic Circle, Pass without Trace, Darkvision, Antipathy/Sympathy,
+  Phantom Steed, ...).
+- **Special outcomes**: Contagion's save-track diseases, Prismatic Spray's ray table, Flame Blade / Shillelagh
+  temporary weapons, Wish (duplicate a spell of 8th level or lower, restore slots, instant health; exhaustion),
+  Time Stop (extra turns until it affects another creature), Foresight.
+- **Exploration** (`SpellDefinition.EFFECT_EXPLORATION`, `OutOfCombat.exploration_fields`): the event names the
+  hook and the server resolves it (unlock / lock / open chests and doors, reveal traps, magic items, hidden
+  chests, monsters, creature types, the stairs, the map or a zone's threat, teleport to a landmark, recall to
+  the arrival); in a fight light spells light tiles and Detect Thoughts / Detect Evil and Good reveal hidden
+  hostiles. Spells without a hook here are `no_effect` with a stated reason (castable; free unless the caster
+  asks to spend the slot).
+- **Pacts and invocations**: Pact of the Chain (Find Familiar as a ritual, imp / pseudodragon / quasit / sprite
+  forms, `via_familiar` attacks), Pact of the Tome (`tome_cantrips`), Book of Ancient Secrets (`ritual_book`
+  rituals), at-will invocations (`CharacterSheet.AT_WILL_INVOCATIONS`: no slot or preparation; Chains of
+  Carceri only on celestials, fiends and elementals, once per creature), once-per-long-rest invocation spells
+  out of combat too, One with Shadows, Gaze of Two Minds, Witch Sight; Voice of the Chain Master and Eyes of the
+  Rune Keeper are flavour.
+- **Levels 13-20**: Persistent Rage (a rage otherwise ends when the barbarian neither attacked a hostile nor took
+  damage since its last turn), Indomitable Might, Primal Champion (+4 STR / CON up to 24 at level 20), Peerless
+  Skill, Stroke of Luck (attacks and checks), Foe Slayer, Quivering Palm, Hurl Through Hell, Holy Nimbus,
+  Overchannel, Spell Mastery, Signature Spells, Thief's Reflexes, Eldritch Master (`Rest.eldritch_master`), on top
+  of round B's 13+ features (Superior Inspiration, Perfect Self, Empty Body, Elusive, Survivor, Archdruid, ...).
+  New sheet fields: `darkvision_ft`, `blindsight_ft`, `truesight_ft`, `tome_cantrips`, `ritual_book`,
+  `spell_mastery`, `signature_spells`, `overchannel_uses`; resources `holy_nimbus`, `hurl_through_hell`,
+  `eldritch_master` (long rest) and `signature:<spell>` (short rest).
+
+## Coverage (end of round C)
+| What | Count |
+|---|---|
+| Class and subclass features (data/features) | 192 of 192 in `Features.IMPLEMENTED` |
+| Spells (data/spells) | 320 castable: 268 with a mechanic, 52 declared `no_effect`, 0 left without one |
+| ... of the 268 | 228 castable in a fight, 77 out of one (42 both); reactions resolve through `Reactions`; Imprisonment (1 minute, banish) can only be cast outside a fight, where it says plainly that it has no target |
+| Effect types of the 268 | buff 48, zone 37, save 32, area_save 28, summon 27, exploration 27, spell_attack 13, lingering 8, heal 6, revive 6, banish 5, dispel 5, transform 4, reaction 3, threshold 3, heal_pool 2, mark 2, sleep 2, teleport 2, weapon_attack 2, area_heal 1, auto_hit 1, forced_move 1, temp_hp 1, time_stop 1, wish 1 |
+| `no_effect` groups | 12 talk to someone, 6 cosmetic, 3 items / poisons, 8 supplies and carrying, 5 shelters, 6 warded places, 2 hide from scrying, 7 no water / plants / sky / planes, Clone, Contingency, Geas |
+| Invocations (data/invocations) | 32 of 32 |
+| Metamagic / fighting styles | 8 of 8 / 6 of 6 |
 
 ## Items, spells, features
 - Inventory: `sheet.inventory` `[{"item", "qty"}]` (equipped items included), `sheet.equipped` (`main_hand`,
@@ -201,7 +329,8 @@ Situational immunities: Mindless Rage, Aura of Devotion / Courage, Nature's Ward
   magic). Spell attack bonus = proficiency + casting modifier; save DC = 8 + both. Class `spell_slots` tables cover
   1..20 (half casters from level 2, pact rows). Upcasting uses `damage_by_slot` / `heal_by_slot` (MOD = casting
   modifier), else `per_slot_level_above`; cantrips scale with `damage_by_character_level` / `scaling`.
-  `unsupported` spells and other casting times load as data but cannot be cast.
+  Every SRD spell is castable (round C): spells with casting times beyond action / bonus action resolve out of
+  combat through `OutOfCombat.cast` (or say why they do nothing there); `no_effect` spells state their reason.
 - Class resources (`class_resources`, sized from the class `tables` when present, else `Progression`):
   `second_wind`, `action_surge`, `ki`, `channel_divinity` (short rest); `rage`, `lay_on_hands`, `sorcery_points`,
   `arcane_recovery`, `natural_recovery` and `bardic_inspiration` (long rest; inspiration also on a short rest with
@@ -214,8 +343,12 @@ Situational immunities: Mindless Rage, Aura of Devotion / Courage, Nature's Ward
   `chosen_resistance` (Fiendish Resilience), `relentless_rage_uses`, `resurrection_penalty`.
 - Progression: `subclass_id`, `fighting_styles`, `expertise_skills`, `invocations`, `metamagic` and option
   features (`pact_of_the_blade`, `colossus_slayer`, `circle_of_the_land_<terrain>`, `dragon_ancestor_<colour>`)
-  live on the sheet. `Features.IMPLEMENTED` lists every feature id the engine models (data marks the rest
-  "unsupported"). Levels: `gain_xp` only banks XP (`pending_levels()`); `LevelUp.choices(sheet, content)` /
+  live on the sheet. `Features.IMPLEMENTED` lists every feature id the engine models (all 192 after round C;
+  the importer's `--sync-mechanics` writes it into data). Level-up choice types: subclass, fighting_style,
+  expertise, invocations, metamagic, feature_option, skills, magical_secrets, mystic_arcanum, damage_type and,
+  round C, tome_cantrips, ritual_book (both may carry `requires`: answer [] when that boon / invocation is not
+  picked), spell_mastery (one 1st- and one 2nd-level spell; the first two options are a valid pair) and
+  signature_spells. Levels: `gain_xp` only banks XP (`pending_levels()`); `LevelUp.choices(sheet, content)` /
   `LevelUp.apply(sheet, choices_made, content, rng)` raise one level (shapes in `level_up.gd`).
   `CharacterBuilder.create(..., choices)` / `creation_choices(cls, skills)` handle level-1 choices.
 - Rests: `Rest.short_rest(sheet, dice, rng, song_die)` (`Rest.song_of_rest_die(party)`),

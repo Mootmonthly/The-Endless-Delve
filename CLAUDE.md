@@ -188,3 +188,15 @@ Append one entry per working session (newest last).
   for round C: `OutOfCombat.castable`, event emission and per-target keys in
   OutOfCombat, ritual casting, core-owned companion ids, a core table of
   reactions per trigger. Suite: 689 green.
+- **2026-10-27 — Progression round C + Round D1.** Core round C: terrain
+  and walls, compulsion/control/banishment, illusions, remaining summons,
+  special-outcome spells, exploration hooks (`exploration_effect`,
+  `no_effect`, light/darkness, locked chests), pacts of the chain/tome and
+  all 32 invocations, every level 13-20 feature and capstone. Coverage:
+  192/192 features, 320/320 spells castable (268 with a mechanic, 52
+  declared no_effect), 32/32 invocations. Round D1: floor format v2
+  (landings, doors, props, respawn, zone flags), `tools/gen_floor.py`
+  concentric generator, set_01 regenerated at 112x80/128x96 with 4-6
+  landings, `tools/build_tiles.py` art refresh (autotiled walls, floor
+  variants, doors, props, torch lighting, vignette; CC0 Kenney pieces with
+  provenance). Suite: 831 green. Next: D2 + round C UI (one agent).

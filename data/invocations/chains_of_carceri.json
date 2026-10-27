@@ -4,6 +4,6 @@
 	"display_name": "Chains of Carceri",
 	"description": "You can cast hold monster at will--targeting a celestial, fiend, or elemental--without expending a spell slot or material components. You must finish a long rest before you can use this invocation on the same creature again.",
 	"prerequisites": { "level": 15, "pact": "pact_of_the_chain" },
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

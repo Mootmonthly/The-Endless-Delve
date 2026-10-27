@@ -14,6 +14,9 @@ var ability_bonuses: Dictionary[int, int] = {}  # Ability.Type -> bonus
 var size: String = "medium"
 var traits: Array[Dictionary] = []  # {"name", "description"}; descriptive only for now
 var description: String = ""
+## Darkvision range in feet: "darkvision_ft", else a "Darkvision" trait (its
+## "within N feet", default 60); 0 = none.
+var darkvision_ft: int = 0
 
 
 ## Returns null (and push_error) when a field is missing or invalid.
@@ -51,6 +54,12 @@ static func from_dict(d: Dictionary) -> AncestryDefinition:
 			return null
 		a.ability_bonuses[ability] = DictUtil.to_int(bonus_dict[key], 0)
 	a.traits = DictUtil.to_dict_array(d.get("traits", []))
+	a.darkvision_ft = DictUtil.to_int(d.get("darkvision_ft", 0), 0)
+	if a.darkvision_ft <= 0:
+		for t in a.traits:
+			if str(t.get("name", "")).to_lower() == "darkvision":
+				var ft := MonsterDefinition.sense_ft(str(t.get("description", "")).to_lower(), "within")
+				a.darkvision_ft = ft if ft > 0 else 60
 	return a
 
 

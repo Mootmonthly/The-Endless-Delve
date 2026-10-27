@@ -124,7 +124,11 @@ const USABLE_FEATURES: Array[String] = [
 	"divine_intervention", "cleansing_touch", "volley", "whirlwind_attack", "elemental_affinity",
 	"dragon_wings", "wild_shape", "revert_form", "empty_body", "draconic_presence",
 	"magic_jar", "end_spell",
+	# round C: invocations used as features, then class features 13-20
+	"one_with_shadows", "gaze_of_two_minds", "quivering_palm", "holy_nimbus",
 ]
+## Invocations used with use_feature (the sheet's invocations, not features).
+const INVOCATION_FEATURES: Array[String] = ["one_with_shadows", "gaze_of_two_minds"]
 ## Resource cost of a feature use when it is not 1.
 const FEATURE_SPEND: Dictionary[String, int] = {"empty_body": 4, "draconic_presence": 5}
 ## Replay-only intent_log entries recorded when the roster changes mid-fight.
@@ -132,6 +136,20 @@ const FEATURE_SPEND: Dictionary[String, int] = {"empty_body": 4, "draconic_prese
 const LOG_JOIN := "combatant_join"  # {"v", "type", "entry": setup dict}
 const LOG_REMOVE := "combatant_remove"  # {"v", "type", "id"}
 const LOG_POLICY := "reaction_policy"  # {"v", "type", "id", "policy"}
+const LOG_LIGHT := "light"  # {"v", "type", "light", "setup"?: true (logged by start())}
+## Round C: the fight's ambient light (set_light). In "dark" fights a creature
+## sees another only within its darkvision or when that creature stands in a
+## lit tile (Light, Daylight, ...); magical darkness (the Darkness spell)
+## stops darkvision too (Devil's Sight, blindsight and truesight see through).
+const LIGHT_BRIGHT := "bright"
+const LIGHT_DIM := "dim"
+const LIGHT_DARK := "dark"
+const LIGHT_LEVELS: Array[String] = [LIGHT_BRIGHT, LIGHT_DIM, LIGHT_DARK]
+const DEVILS_SIGHT_TILES := 24  # 120 ft
+const HOLY_NIMBUS_TILES := 6  # 30 ft
+const HOLY_NIMBUS_ROUNDS := 10
+const QUIVERING_PALM_KI := 3
+const HURL_SOURCE_TURNS := 2  # until the end of the warlock's next turn
 const MAX_AUTO_TURNS := 10000  # safety net for skipping turns at turn start
 
 var id: String = ""
@@ -150,6 +168,8 @@ var content: Dictionary = {}
 var turn_counter: int = 0  # turns started so far (Sneak Attack is once per turn)
 ## Lingering spell areas (grease, web, moonbeam, wall of fire, ...): see _create_tile_effect.
 var tile_effects: Array[Dictionary] = []
+## Ambient light (LIGHT_LEVELS); the server sets it before start() (set_light).
+var light: String = LIGHT_BRIGHT
 var _effect_counter: int = 0
 var _summon_counter: int = 0
 ## "feature:target id" pairs that are immune for the rest of the encounter
@@ -161,6 +181,9 @@ var _one_roll_bonus: int = 0  # Elemental Affinity / Empowered Evocation: added 
 var _one_roll_source: String = ""
 var _cast_intent: Dictionary = {}  # the cast intent being resolved (mode, heightened_target, form)
 var _blessed_healer_done: bool = false
+var _dup_slot: int = 0  # Wish: the slot level a duplicated spell is checked / cast at (0 = none)
+var _maximize: bool = false  # Overchannel: the cast's damage dice deal their maximum
+var _time_stop_reactions: Dictionary = {}  # Time Stop: reaction_used of the others before time stopped
 var _base_map: WalkMap = null  # walk_map before terrain effects (walls, passwall, ...)
 var _combatants: Dictionary = {}  # id -> Combatant, in join order
 var _setup: Array[Dictionary] = []
@@ -251,6 +274,8 @@ func start() -> bool:
 		var c: Combatant = value
 		_setup.append(c.to_setup_dict())
 	state = State.ACTIVE
+	if light != LIGHT_BRIGHT:
+		intent_log.append({"v": INTENT_VERSION, "type": LOG_LIGHT, "light": light, "setup": true})
 	for value: Variant in _combatants.values():
 		var owner: Combatant = value
 		if not owner.is_summon():
@@ -258,11 +283,18 @@ func start() -> bool:
 			_apply_lingering(owner)
 	for value: Variant in _combatants.values():
 		_on_initiative(value as Combatant)
+		var thief := value as Combatant
+		if thief.sheet.has_feature("thiefs_reflexes") and not thief.is_summon():
+			thief.extra_turns = 1  # lite: the second turn follows the first
+			thief.extra_turn_source = "thiefs_reflexes"
 	tracker.begin()
 	var order: Array = []
 	for c in tracker.order():
 		order.append(c.id)
-	_emit("encounter_started", {"order": order})
+	var started := {"order": order}
+	if light != LIGHT_BRIGHT:
+		started["light"] = light
+	_emit("encounter_started", started)
 	_emit("round_started", {"round": tracker.round_number})
 	_begin_turns()
 	_pending.clear()
@@ -286,7 +318,13 @@ func submit(intent: Dictionary) -> Dictionary:
 		return _rejected(error)
 
 	intent_log.append(intent.duplicate(true))
+	var breaks_time_stop := actor.time_stopped and _affects_others(actor, intent)
+	var shadows := intent_type == USE_FEATURE and str(intent.get("feature", "")) == "one_with_shadows"
 	_resolve(actor, intent)
+	if intent_type != END_TURN and not shadows:
+		_end_on_act(actor)
+	if breaks_time_stop:
+		_end_time_stop(actor, "affected_other")
 	# An actor knocked out during its own turn (opportunity attack) is done.
 	if intent_type != END_TURN and state == State.ACTIVE and current_actor() == actor and not actor.is_conscious():
 		_end_current_turn()
@@ -363,6 +401,7 @@ func _resolve(actor: Combatant, intent: Dictionary) -> void:
 			check_end()
 		CAST:
 			_do_cast(actor, intent)
+			_after_overchannel(actor, intent)
 			check_end()
 		USE_ITEM:
 			_do_use_item(actor, intent)
@@ -445,6 +484,22 @@ func set_reaction_policy(combatant_id: String, policy: Dictionary) -> bool:
 	c.reaction_policy = clean
 	if state == State.ACTIVE:
 		intent_log.append({"v": INTENT_VERSION, "type": LOG_POLICY, "id": combatant_id, "policy": clean.duplicate()})
+	return true
+
+
+## Sets the ambient light ("bright" | "dim" | "dark"; see LIGHT_LEVELS). Before
+## start() it is part of the setup (start() logs it first); while ACTIVE it
+## is a replay-only `light` log entry and emits light_changed {light}.
+## Returns false for an unknown level.
+func set_light(level: String) -> bool:
+	if not LIGHT_LEVELS.has(level) or state == State.ENDED:
+		return false
+	light = level
+	if state == State.ACTIVE:
+		intent_log.append({"v": INTENT_VERSION, "type": LOG_LIGHT, "light": level})
+		_pending.clear()
+		_emit("light_changed", {"light": level})
+		_pending.clear()
 	return true
 
 
@@ -533,10 +588,17 @@ static func replay(seed_value: int, source_map: WalkMap, battle_region: Rect2i, 
 	enc.content = content_set
 	for entry in setup:
 		enc.add_combatant(Combatant.from_setup_dict(entry))
+	var skip := 0
+	if not intents.is_empty() and str(intents[0].get("type", "")) == LOG_LIGHT and intents[0].get("setup", false) == true:
+		enc.light = str(intents[0].get("light", LIGHT_BRIGHT))
+		skip = 1
 	enc.start()
-	for intent in intents:
+	for i in range(skip, intents.size()):
+		var intent := intents[i]
 		var intent_type := str(intent.get("type", ""))
-		if intent_type == LOG_JOIN:
+		if intent_type == LOG_LIGHT:
+			enc.set_light(str(intent.get("light", LIGHT_BRIGHT)))
+		elif intent_type == LOG_JOIN:
 			var entry_v: Variant = intent.get("entry", {})
 			if typeof(entry_v) == TYPE_DICTIONARY:
 				var entry: Dictionary = entry_v
@@ -694,6 +756,8 @@ func _attack_target(actor: Combatant, intent: Dictionary) -> Combatant:
 
 
 func _check_attack(actor: Combatant, intent: Dictionary) -> String:
+	if DictUtil.to_bool(intent.get("via_familiar", false), false):
+		return _check_familiar_attack(actor, intent)
 	var bonus := DictUtil.to_bool(intent.get("bonus", false), false)
 	var index := DictUtil.to_int(intent.get("attack_index", 0), -1)
 	var attack: Dictionary = actor.attacks[index] if index >= 0 and index < actor.attacks.size() else {}
@@ -721,6 +785,8 @@ func _check_attack(actor: Combatant, intent: Dictionary) -> String:
 		return "%s cannot be attacked" % target.display_name
 	if attack.is_empty():
 		return "invalid attack_index"
+	if attack.get("disabled", false) == true:
+		return "%s is gone" % str(attack.get("name", "that attack"))
 	var sealed := _sealed_error(actor, target)
 	if not sealed.is_empty():
 		return sealed
@@ -768,6 +834,16 @@ func _check_attack(actor: Combatant, intent: Dictionary) -> String:
 			return "Stunning Strike needs a melee weapon attack"
 		if actor.sheet.class_resource("ki") < 1:
 			return "no ki points left"
+	if DictUtil.to_bool(intent.get("quivering_palm", false), false):
+		if not actor.sheet.has_feature("quivering_palm"):
+			return "%s does not know Quivering Palm" % actor.display_name
+		if attack.get("unarmed", false) != true:
+			return "Quivering Palm needs an unarmed strike"
+		if actor.sheet.class_resource("ki") < QUIVERING_PALM_KI:
+			return "Quivering Palm needs %d ki points" % QUIVERING_PALM_KI
+	if DictUtil.to_bool(intent.get("hurl_through_hell", false), false):
+		if not actor.sheet.has_feature("hurl_through_hell") or actor.sheet.class_resource("hurl_through_hell") <= 0:
+			return "%s cannot Hurl Through Hell now" % actor.display_name
 	var technique := str(intent.get("technique", ""))
 	if not technique.is_empty():
 		if not actor.sheet.has_feature("open_hand_technique"):
@@ -884,8 +960,13 @@ func _item_def(item_id: String) -> ItemDefinition:
 
 
 ## At-will invocations on the warlock itself without a slot (Armor of
-## Shadows: mage armor, Fiendish Vigor: false life, Ascendant Step: levitate).
+## Shadows: mage armor, Fiendish Vigor: false life, Ascendant Step: levitate,
+## Otherworldly Leap: jump), and round C at-will invocations on any target
+## (CharacterSheet.AT_WILL_INVOCATIONS) when the spell is not prepared or the
+## cast names the invocation ("invocation": id).
 func _free_mage_armor(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -> bool:
+	if not _at_will_invocation(actor, spell, intent).is_empty():
+		return true
 	var granted := false
 	for inv: String in CharacterSheet.AT_WILL_SELF_INVOCATIONS.keys():
 		if CharacterSheet.AT_WILL_SELF_INVOCATIONS[inv] == spell.id and actor.sheet.invocations.has(inv):
@@ -894,6 +975,49 @@ func _free_mage_armor(actor: Combatant, spell: SpellDefinition, intent: Dictiona
 		return false
 	var tid := str(intent.get("target", actor.id))
 	return tid.is_empty() or tid == actor.id
+
+
+## Spell Mastery / Signature Spells: a cast at the spell's own level (slot_level
+## 0 or that level) without a slot: "spell_mastery" (prepared 1st / 2nd-level
+## mastery spells), "signature_spell" (a 3rd-level signature spell with its
+## use left this short rest); "" = a normal cast.
+func _mastery_free(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -> String:
+	var wanted := DictUtil.to_int(intent.get("slot_level", 0), 0)
+	if wanted != 0 and wanted != spell.level:
+		return ""
+	if spell.level in [1, 2] and actor.sheet.spell_mastery.has(spell.id) and actor.sheet.is_spell_prepared(spell.id):
+		return "spell_mastery"
+	if spell.level == 3 and actor.sheet.signature_spells.has(spell.id) and actor.sheet.class_resource(CharacterSheet.SIGNATURE_PREFIX + spell.id) > 0:
+		return "signature_spell"
+	return ""
+
+
+## Overchannel (evocation 14), after the cast resolved: the first use per
+## long rest is free; each later one deals the caster (n + 1)d12 necrotic
+## per spell level, n = earlier uses (ignores resistance and immunity):
+## feature_used {actor, feature: "overchannel", target, remaining: uses} and
+## damage {.., feature: "overchannel"}.
+func _after_overchannel(actor: Combatant, intent: Dictionary) -> void:
+	if not _maximize:
+		return
+	_maximize = false
+	var spell := _spell_def(str(intent.get("spell", "")))
+	var uses := actor.sheet.overchannel_uses
+	actor.sheet.overchannel_uses += 1
+	_emit("feature_used", {"actor": actor.id, "feature": "overchannel", "target": actor.id, "remaining": actor.sheet.overchannel_uses})
+	if uses >= 1 and spell != null and actor.is_alive():
+		var amount := DiceExpr.parse("%dd12" % ((uses + 1) * spell.level)).roll(rng).total
+		_deal_effect_damage(actor, actor, amount, "necrotic", {"feature": "overchannel"})
+
+
+## The round C at-will invocation a cast uses ("" = none): see _free_mage_armor.
+func _at_will_invocation(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -> String:
+	var inv := actor.sheet.at_will_invocation(spell.id)
+	if inv.is_empty():
+		return ""
+	if actor.sheet.is_spell_prepared(spell.id) and str(intent.get("invocation", "")) != inv:
+		return ""
+	return inv
 
 
 ## Invocation that casts this spell once per long rest with a warlock slot
@@ -923,7 +1047,11 @@ func _sustaining(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -
 ## Arcanum; slot_level, or the lowest available slot >= the spell's level
 ## when 0 / absent.
 func _cast_slot(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -> int:
-	if spell.level == 0 or _free_mage_armor(actor, spell, intent):
+	if _dup_slot > 0:
+		return _dup_slot
+	if not _mastery_free(actor, spell, intent).is_empty():
+		return 0
+	if spell.level == 0 or _free_mage_armor(actor, spell, intent) or spell.effect_type == SpellDefinition.EFFECT_NO_EFFECT:
 		return 0
 	if _sustaining(actor, spell, intent):
 		return DictUtil.to_int(actor.concentration.get("slot_level", spell.level), spell.level)
@@ -990,7 +1118,7 @@ func _check_cast(actor: Combatant, intent: Dictionary) -> String:
 	var spell := _spell_def(spell_id)
 	if spell == null:
 		return "unknown spell '%s'" % spell_id
-	if not spell.is_supported():
+	if not spell.is_castable():
 		return "%s cannot be cast yet" % spell.display_name
 	if not spell.is_combat_castable():
 		return "%s takes %s to cast and cannot be cast in combat" % [spell.display_name, spell.casting_time.replace("_", " ")]
@@ -1044,8 +1172,15 @@ func _check_cast(actor: Combatant, intent: Dictionary) -> String:
 		var err := _action_error(actor)
 		if not err.is_empty():
 			return err
-	if spell.level == 0 or _free_mage_armor(actor, spell, intent):
-		if DictUtil.to_int(intent.get("slot_level", 0), 0) != 0:
+	var mastery := _mastery_free(actor, spell, intent)
+	if DictUtil.to_bool(intent.get("overchannel", false), false):
+		if not actor.sheet.has_feature("overchannel"):
+			return "%s cannot Overchannel" % actor.display_name
+		if spell.level < 1 or spell.level > 5 or not DictUtil.to_string_array(spell.raw.get("classes", [])).has("wizard") \
+				or (spell.damage.is_empty() and spell.damage_by_slot.is_empty()):
+			return "Overchannel needs a damaging wizard spell of 1st to 5th level"
+	if spell.level == 0 or _free_mage_armor(actor, spell, intent) or spell.effect_type == SpellDefinition.EFFECT_NO_EFFECT or not mastery.is_empty():
+		if DictUtil.to_int(intent.get("slot_level", 0), 0) != 0 and spell.effect_type != SpellDefinition.EFFECT_NO_EFFECT and mastery.is_empty():
 			return "cantrips do not use spell slots" if spell.level == 0 else "an at-will invocation needs no spell slot"
 	elif not sustain:
 		var slot := _cast_slot(actor, spell, intent)
@@ -1056,6 +1191,22 @@ func _check_cast(actor: Combatant, intent: Dictionary) -> String:
 			return "%s needs a slot of level %d or higher" % [spell.display_name, spell.level]
 		if actor.sheet.slots_left(slot) <= 0 and not arcanum:
 			return "%s has no level %d spell slots left" % [actor.display_name, slot]
+	match spell.effect_type:
+		SpellDefinition.EFFECT_WISH:
+			return _check_wish(actor, spell, intent)
+		SpellDefinition.EFFECT_NO_EFFECT, SpellDefinition.EFFECT_TIME_STOP:
+			return ""
+		SpellDefinition.EFFECT_WEAPON_ATTACK:
+			return _check_weapon_attack(actor, spell)
+	return _check_cast_effect(actor, spell, intent)
+
+
+## Target, area and metamagic-target rules of a cast (after the slot and
+## action checks): Sculpt / Careful / Heightened / Twinned Spell, teleport and
+## summon points, areas, targets per slot level, transformations and forced
+## moves. Also checks the spell a Wish duplicates.
+func _check_cast_effect(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -> String:
+	var meta := _cast_meta
 	var sculpt := DictUtil.to_string_array(intent.get("sculpt", []))
 	if not sculpt.is_empty():
 		if not actor.sheet.has_feature("sculpt_spells") or spell.school.to_lower() != "evocation" or not spell.is_area():
@@ -1112,7 +1263,27 @@ func _check_cast(actor: Combatant, intent: Dictionary) -> String:
 		return _check_transform(actor, spell, targets[0], intent)
 	if spell.effect_type == SpellDefinition.EFFECT_FORCED_MOVE:
 		return _check_forced_move(actor, spell, targets[0], intent)
+	if _at_will_invocation(actor, spell, intent) == "chains_of_carceri":
+		for t in targets:
+			if not t.creature_type in ["celestial", "fiend", "elemental"]:
+				return "Chains of Carceri holds only celestials, fiends and elementals"
+			if _feature_immunity.has("chains_of_carceri:" + t.id):
+				return "Chains of Carceri was already used on %s" % t.display_name
+	if spell.effect_type == SpellDefinition.EFFECT_EXPLORATION:
+		return OutOfCombat.exploration_error(spell, intent)
+	if spell.raw_effect.get("requires_wall", false) == true and not _next_to_wall(actor.position):
+		return "%s needs a stone wall next to %s" % [spell.display_name, actor.display_name]
 	return ""
+
+
+## Whether a wall (an unwalkable tile of the map) is adjacent to tile.
+func _next_to_wall(tile: Vector2i) -> bool:
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var n := tile + Vector2i(dx, dy)
+			if n != tile and not walk_map.is_walkable(n):
+				return true
+	return false
 
 
 ## Target rules of a single-target spell: range (Distant Spell), sight, team
@@ -1139,11 +1310,12 @@ func _check_spell_target(actor: Combatant, spell: SpellDefinition, target: Comba
 			if target.is_alive():
 				return "%s is not dead" % target.display_name
 			var max_rounds := DictUtil.to_int(spell.raw_effect.get("max_rounds", REVIVIFY_ROUNDS), REVIVIFY_ROUNDS)
-			if max_rounds >= 0 and (target.died_round < 0 or tracker.round_number - target.died_round > max_rounds):
+			if max_rounds >= 0 and (target.died_round < 0 or tracker.round_number - target.died_round > max_rounds) \
+					and not OutOfCombat.has_lingering_feature(target.sheet, "gentle_repose"):
 				return "%s has been dead too long" % target.display_name
 			if target.is_summon() or not target.sheet.uses_death_saves and target.is_monster():
 				return "%s cannot be revived" % target.display_name
-	elif not target.is_alive():
+	elif not target.is_alive() and spell.raw_effect.get("dead_ok", false) != true:
 		return "%s is dead" % target.display_name
 	if spell.is_harmful():
 		if target.team == actor.team:
@@ -1369,6 +1541,8 @@ func _has_usable_feature(actor: Combatant, feature: String) -> bool:
 		return _lingering_feature(actor, "magic_jar")
 	if feature == "end_spell":
 		return true
+	if INVOCATION_FEATURES.has(feature):
+		return actor.sheet.invocations.has(feature)
 	return false
 
 
@@ -1390,7 +1564,8 @@ static func _feature_cost(feature: String) -> String:
 	match feature:
 		"lay_on_hands", "turn_undead", "turn_the_unholy", "preserve_life", "sacred_weapon", "pact_weapon", \
 				"intimidating_presence", "countercharm", "wholeness_of_body", "stillness_of_mind", "divine_intervention", \
-				"cleansing_touch", "volley", "whirlwind_attack", "wild_shape", "empty_body", "draconic_presence", "magic_jar":
+				"cleansing_touch", "volley", "whirlwind_attack", "wild_shape", "empty_body", "draconic_presence", "magic_jar", \
+				"one_with_shadows", "gaze_of_two_minds", "quivering_palm", "holy_nimbus":
 			return "action"
 		"action_surge", "elemental_affinity", "end_spell":
 			return "free"
@@ -1640,7 +1815,7 @@ func _opportunity_attackers(mover: Combatant, from: Vector2i, to: Vector2i) -> A
 func _usable_melee_index(c: Combatant) -> int:
 	for i in range(c.attacks.size()):
 		var attack: Dictionary = c.attacks[i]
-		if Encounter.is_ranged_attack(attack) or attack.get("off_hand", false) == true:
+		if Encounter.is_ranged_attack(attack) or attack.get("off_hand", false) == true or attack.get("disabled", false) == true:
 			continue
 		var item := str(attack.get("item", ""))
 		if item.is_empty() or c.sheet.has_item(item):
@@ -1651,6 +1826,9 @@ func _usable_melee_index(c: Combatant) -> int:
 # --- attacks ---------------------------------------------------------------------
 
 func _do_attack(actor: Combatant, intent: Dictionary) -> void:
+	if DictUtil.to_bool(intent.get("via_familiar", false), false):
+		_do_familiar_attack(actor, intent)
+		return
 	var target := _attack_target(actor, intent)
 	var index := DictUtil.to_int(intent.get("attack_index", 0), 0)
 	var bonus := DictUtil.to_bool(intent.get("bonus", false), false)
@@ -1669,12 +1847,57 @@ func _do_attack(actor: Combatant, intent: Dictionary) -> void:
 	if DictUtil.to_bool(intent.get("reckless", false), false):
 		actor.reckless = true
 		_emit("effect_applied", {"source": actor.id, "target": actor.id, "effect": "reckless_attack"})
-	for key: String in ["smite", "stun", "technique"]:
+	for key: String in ["smite", "stun", "technique", "quivering_palm", "hurl_through_hell"]:
 		if intent.has(key):
 			opts[key] = intent[key]
 	_resolve_attack(actor, target, index, bonus, opts)
 	_horde_breaker(actor, target, index)
 	_after_own_attack(actor)
+
+
+## Pact of the Chain: the warlock forgoes one attack of its Attack action
+## and its familiar attacks with its reaction ("via_familiar": true;
+## "attack_index" is the familiar's attack; the target must be in the
+## familiar's reach / range).
+func _check_familiar_attack(actor: Combatant, intent: Dictionary) -> String:
+	if not actor.sheet.has_feature("pact_of_the_chain"):
+		return "%s has no Pact of the Chain" % actor.display_name
+	if DictUtil.to_bool(intent.get("bonus", false), false) or DictUtil.to_bool(intent.get("haste", false), false):
+		return "the familiar attacks in place of one attack of the Attack action"
+	if not (actor.attack_action_taken and actor.attacks_remaining > 0):
+		var err := _action_error(actor)
+		if not err.is_empty():
+			return err
+	var fam := _chain_familiar(actor)
+	if fam == null:
+		return "%s has no familiar ready to attack" % actor.display_name
+	var target := get_combatant(str(intent.get("target", "")))
+	if target == null or target.team == fam.team or not target.is_alive() or target.untargetable:
+		return "the familiar needs a hostile target"
+	var index := DictUtil.to_int(intent.get("attack_index", 0), -1)
+	if index < 0 or index >= fam.attacks.size():
+		return "invalid attack_index for the familiar"
+	var reach := attack_reach_error(fam.position, target.position, fam.attacks[index])
+	if not reach.is_empty():
+		return reach
+	return ""
+
+
+## actor's familiar that can attack now (alive, conscious, reaction free).
+func _chain_familiar(actor: Combatant) -> Combatant:
+	for c in _summons_of(actor.id):
+		if c.familiar and c.is_conscious() and c.can_react() and not c.is_incapacitated():
+			return c
+	return null
+
+
+func _do_familiar_attack(actor: Combatant, intent: Dictionary) -> void:
+	var fam := _chain_familiar(actor)
+	var target := get_combatant(str(intent.get("target", "")))
+	_take_attack_action(actor, {})
+	_use_reaction(fam, "familiar_attack", "owner_attack", {"owner": actor.id, "target": target.id})
+	_resolve_attack(fam, target, DictUtil.to_int(intent.get("attack_index", 0), 0))
+	_after_own_attack(fam)
 
 
 ## Horde Breaker (hunter 3): once per turn, after a weapon attack, another
@@ -1724,6 +1947,8 @@ func _take_attack_action(actor: Combatant, attack: Dictionary) -> void:
 	var per_action := actor.attacks_per_action
 	if attack.get("pact_weapon", false) == true and actor.sheet.invocations.has("thirsting_blade"):
 		per_action = maxi(per_action, 2)
+	if attack.get("single_attack", false) == true:
+		per_action = 1  # Flame Blade: one melee spell attack per action
 	actor.attacks_remaining = per_action - 1
 
 
@@ -1784,6 +2009,8 @@ func _attack_mode(attacker: Combatant, target: Combatant, attack: Dictionary, we
 			advantage = true
 	if target.buff_flag("attackers_disadvantage") or attacker.buff_flag("attack_disadvantage"):
 		disadvantage = true
+	if attacker.buff_list("attack_disadvantage_abilities").has(str(attack.get("ability", "STR" if not ranged else "DEX"))):
+		disadvantage = true
 	if not attacker.creature_type.is_empty() and (target.buff_list("attackers_disadvantage_types").has(attacker.creature_type) \
 			or (target.sheet.has_feature("purity_of_spirit") and attacker.creature_type in ["aberration", "celestial", "elemental", "fey", "fiend", "undead"])):
 		disadvantage = true
@@ -1824,13 +2051,73 @@ func can_see(viewer: Combatant, target: Combatant) -> bool:
 		return true
 	if viewer.team == target.team:
 		return true
+	var gaze := _gaze_partner(viewer)
+	if gaze != null:
+		return can_see(gaze, target)
 	if viewer.has_condition(Conditions.BLINDED):
+		return _blindsense(viewer, target)
+	if not eyes_reach(viewer, target.position):
 		return _blindsense(viewer, target)
 	if (target.hidden or target.is_invisible()) and not target.buff_flag("outlined"):
 		if target.is_invisible() and not target.hidden and viewer.buff_flag("see_invisible"):
 			return walk_map.has_line_of_sight(viewer.position, target.position)
 		return _blindsense(viewer, target)
 	return walk_map.has_line_of_sight(viewer.position, target.position)
+
+
+## Gaze of Two Minds: the ally whose senses c uses (null = its own).
+func _gaze_partner(c: Combatant) -> Combatant:
+	for entry in c.conditions:
+		if entry.has("gaze"):
+			var ally := get_combatant(str(entry["gaze"]))
+			if ally != null and ally != c and ally.is_conscious():
+				return ally
+	return null
+
+
+## Ends c's conditions flagged "ends_on_act" (One with Shadows) after it
+## moved, acted or reacted.
+func _end_on_act(c: Combatant) -> void:
+	for entry: Dictionary in c.conditions.duplicate():
+		if entry.get("ends_on_act", false) == true:
+			_remove_condition(c, entry)
+
+
+## Round C light: whether viewer's sight reaches `tile` through the dark.
+## Blindsight / truesight within range always do. Magical darkness (a tile
+## effect with "darkness", on the tile or around the viewer) blocks every
+## other sight but Devil's Sight (120 ft). In a "dark" fight a tile is seen
+## when lit (a "lit" tile effect: Light, Daylight, Dancing Lights) or within
+## the viewer's darkvision (ancestry, stat block, Darkvision spell, Devil's
+## Sight). Bright and dim fights: always.
+func eyes_reach(viewer: Combatant, tile: Vector2i) -> bool:
+	var dist := GridMath.distance_tiles(viewer.position, tile)
+	var keen := maxi(viewer.sheet.truesight_ft, viewer.sheet.blindsight_ft)
+	if keen > 0 and dist <= GridMath.feet_to_tiles(keen):
+		return true
+	var devils := viewer.sheet.invocations.has("devils_sight") and dist <= DEVILS_SIGHT_TILES
+	if _tile_dark_magic(tile) or _tile_dark_magic(viewer.position):
+		return devils
+	if light != LIGHT_DARK or _tile_lit(tile):
+		return true
+	var dv := viewer.darkvision_tiles()
+	return dv > 0 and dist <= dv
+
+
+## A tile inside magical darkness (the Darkness spell).
+func _tile_dark_magic(tile: Vector2i) -> bool:
+	for fx in tile_effects:
+		if fx.get("darkness", false) == true and _effect_covers(fx, tile):
+			return true
+	return false
+
+
+## A tile lit by a light effect (Light, Daylight, Continual Flame, Dancing Lights).
+func _tile_lit(tile: Vector2i) -> bool:
+	for fx in tile_effects:
+		if fx.get("lit", false) == true and _effect_covers(fx, tile):
+			return true
+	return false
 
 
 ## Blindsense (rogue 14): aware of hidden / invisible creatures within 2 tiles.
@@ -1987,6 +2274,9 @@ func _roll_attack(attacker: Combatant, target: Combatant, attack: Dictionary, bo
 		fooled.target_hp_after = target.sheet.current_hp
 		return fooled
 	var r := AttackResolver.roll(attacker, target, rolled_attack, rng, mode, auto_crit, extra_to_hit, extras, half_on_miss, crit_min)
+	if attacker.raging and target.team != attacker.team:
+		attacker.rage_kept = true
+	_luck_and_foe_slayer(attacker, target, rolled_attack, r, extras)
 	if r.hit and weapon and attacker.buff_flag("half_str_damage") and str(attack.get("ability", "STR")) == "STR":
 		r.damage_total = floori(r.damage_total / 2.0)
 	if r.hit and weapon:
@@ -2031,7 +2321,7 @@ func _roll_attack(attacker: Combatant, target: Combatant, attack: Dictionary, bo
 	if bonus and opts.has("bonus_source"):
 		ev["bonus_source"] = str(opts["bonus_source"])
 	_emit("attack", ev)
-	if r.hit or r.damage_total > 0:
+	if (r.hit or r.damage_total > 0) and attack.get("no_damage", false) != true:
 		var amount := r.damage_total
 		if r.hit and amount > 0:
 			amount = _reaction_reduction(attacker, target, weapon, ranged, amount)
@@ -2065,6 +2355,16 @@ func _roll_attack(attacker: Combatant, target: Combatant, attack: Dictionary, bo
 	if weapon and smite > 0 and r.hit:
 		attacker.sheet.use_spell_slot(smite)
 		_emit("feature_used", {"actor": attacker.id, "feature": "divine_smite", "target": target.id, "remaining": attacker.sheet.slots_left(smite), "slot_level": smite})
+	if r.hit and target.is_alive() and DictUtil.to_bool(opts.get("hurl_through_hell", false), false) \
+			and attacker.sheet.spend_class_resource("hurl_through_hell", 1):
+		_emit("feature_used", {"actor": attacker.id, "feature": "hurl_through_hell", "target": target.id, "remaining": 0})
+		_banish(target, attacker.id, "hurl_through_hell", -1, false,
+				{"source_turns": HURL_SOURCE_TURNS, "return_damage": {"dice": "10d10", "type": "psychic", "immune_types": ["fiend"], "feature": "hurl_through_hell"}})
+	if weapon and r.hit and target.is_alive() and DictUtil.to_bool(opts.get("quivering_palm", false), false) \
+			and attacker.sheet.spend_class_resource("ki", QUIVERING_PALM_KI):
+		attacker.quivering_target = target.id
+		_emit("feature_used", {"actor": attacker.id, "feature": "quivering_palm", "target": target.id, "remaining": attacker.sheet.class_resource("ki")})
+		_emit("effect_applied", {"source": attacker.id, "target": target.id, "effect": "quivering_palm"})
 	if weapon and r.hit and target.is_alive():
 		if DictUtil.to_bool(opts.get("stun", false), false):
 			_stunning_strike(attacker, target)
@@ -2072,6 +2372,35 @@ func _roll_attack(attacker: Combatant, target: Combatant, attack: Dictionary, bo
 		if not technique.is_empty() and target.is_alive():
 			_open_hand_technique(attacker, target, technique)
 	return r
+
+
+## Foe Slayer (ranger 20, once per turn; policy key foe_slayer): a miss that
+## the ranger's WIS modifier would turn into a hit hits, else a hit deals
+## WIS more damage (lite: against any creature, favored enemies are not
+## tracked). Stroke of Luck (rogue 20, once per short rest; policy key
+## stroke_of_luck, trigger own_attack_missed): a miss becomes a hit.
+## feature_used {actor, feature, target, remaining, mode ("attack" |
+## "damage")}.
+func _luck_and_foe_slayer(attacker: Combatant, target: Combatant, attack: Dictionary, r: AttackResult, extras: Array[Dictionary]) -> void:
+	var wis := attacker.sheet.ability_modifier(Ability.Type.WIS)
+	if attacker.sheet.has_feature("foe_slayer") and attacker.foe_slayer_turn != turn_counter and wis > 0 \
+			and attacker.reaction_allowed("own_attack", "foe_slayer") and not attacker.is_summon():
+		if not r.hit and not r.fumble and r.attack_total + wis >= r.target_ac:
+			attacker.foe_slayer_turn = turn_counter
+			r.attack_total += wis
+			AttackResolver.force_hit(r, target, attack, rng, extras)
+			_emit("feature_used", {"actor": attacker.id, "feature": "foe_slayer", "target": target.id, "remaining": 0, "mode": "attack"})
+		elif r.hit:
+			attacker.foe_slayer_turn = turn_counter
+			var bonus := target.adjust_damage(wis, r.damage_type, true)
+			r.damage_total += bonus
+			r.extras.append({"source": "foe_slayer", "amount": bonus, "type": r.damage_type})
+			_emit("feature_used", {"actor": attacker.id, "feature": "foe_slayer", "target": target.id, "remaining": 0, "mode": "damage"})
+	if not r.hit and attacker.sheet.has_feature("stroke_of_luck") and attacker.sheet.class_resource("stroke_of_luck") > 0 \
+			and attacker.reaction_allowed("own_attack_missed", "stroke_of_luck") and not attacker.is_summon():
+		attacker.sheet.spend_class_resource("stroke_of_luck", 1)
+		AttackResolver.force_hit(r, target, attack, rng, extras)
+		_emit("feature_used", {"actor": attacker.id, "feature": "stroke_of_luck", "target": target.id, "remaining": 0, "mode": "attack"})
 
 
 ## Size of the first die in a damage formula ("1d8+3" -> 8; 0 = none).
@@ -2171,6 +2500,9 @@ func _push(source: Combatant, target: Combatant, tiles: int) -> void:
 func _after_damage(source: Combatant, target: Combatant, amount: int, dropped: bool) -> void:
 	if amount <= 0 and not dropped:
 		return
+	if amount > 0 and target.is_conscious() and target.buff_flag("stunned_on_damage"):
+		var stun_source := source.id if source != null else ""
+		_apply_condition(target, Conditions.STUNNED, stun_source, Conditions.duration(Conditions.DURATION_TARGET_TURN_END), {"disease": "slimy_doom"})
 	for entry: Dictionary in target.conditions.duplicate():
 		if entry.get("ends_on_damage", false) == true:
 			_remove_condition(target, entry)
@@ -2353,7 +2685,11 @@ func _do_cast(actor: Combatant, intent: Dictionary) -> void:
 	_cast_intent = intent
 	var meta := _cast_meta
 	var sustain := _sustaining(actor, spell, intent)
+	_maximize = DictUtil.to_bool(intent.get("overchannel", false), false)
+	var free_cast := _mastery_free(actor, spell, intent) if not sustain else ""
 	var slot := _cast_slot(actor, spell, intent)
+	if free_cast == "signature_spell":
+		actor.sheet.spend_class_resource(CharacterSheet.SIGNATURE_PREFIX + spell.id, 1)
 	if slot > 0 and not sustain:
 		if _arcanum_cast(actor, spell) and actor.sheet.slots_left(slot) <= 0:
 			actor.sheet.spend_class_resource(CharacterSheet.ARCANUM_PREFIX + spell.id, 1)
@@ -2371,10 +2707,25 @@ func _do_cast(actor: Combatant, intent: Dictionary) -> void:
 	else:
 		actor.action_used = true
 	var targets := _cast_targets(actor, intent)
-	var single := not spell.is_area() and not spell.effect_type in [SpellDefinition.EFFECT_TELEPORT, SpellDefinition.EFFECT_SUMMON, SpellDefinition.EFFECT_HEAL_POOL]
+	if _at_will_invocation(actor, spell, intent) == "chains_of_carceri":
+		for t in targets:
+			_feature_immunity["chains_of_carceri:" + t.id] = true
+	var fx_spell := spell
+	var fx_slot := slot
+	var dup := _wish_duplicate(spell, intent)
+	if dup != null:
+		fx_spell = dup
+		fx_slot = dup.level
+	var single := not fx_spell.is_area() and not fx_spell.effect_type in [SpellDefinition.EFFECT_TELEPORT, SpellDefinition.EFFECT_SUMMON, SpellDefinition.EFFECT_HEAL_POOL]
 	var cast_ev := {"actor": actor.id, "spell": spell.id, "target": targets[0].id if single else "", "slot_level": slot}
-	if spell.is_area() or GridMath.is_vec_arr(intent.get("point", null)):
-		cast_ev["point"] = GridMath.vec_to_arr(_area_point(actor, spell, intent))
+	if dup != null:
+		cast_ev["duplicate"] = dup.id
+	if not free_cast.is_empty():
+		cast_ev["free_cast"] = free_cast
+	if _maximize:
+		cast_ev["overchannel"] = true
+	if fx_spell.is_area() or GridMath.is_vec_arr(intent.get("point", null)):
+		cast_ev["point"] = GridMath.vec_to_arr(_area_point(actor, fx_spell, intent))
 	if single and targets.size() > 1:
 		var ids: Array = []
 		for t in targets:
@@ -2385,17 +2736,48 @@ func _do_cast(actor: Combatant, intent: Dictionary) -> void:
 	if sustain:
 		cast_ev["sustain"] = true
 	_emit("cast", cast_ev)
-	_after_own_cast(actor, spell.is_harmful() or spell.is_area())
+	_after_own_cast(actor, fx_spell.is_harmful() or fx_spell.is_area())
 	if sustain and str(spell.raw_effect.get("sustain_mode", "")) == "redirect":
 		_redirect(actor, spell, intent)
 		return
 	if not sustain and not meta.has("subtle_spell") and spell.level > 0 and _counterspelled(actor, spell, slot):
 		return
+	if dup != null:
+		var dup_intent := intent.duplicate(true)
+		dup_intent["mode"] = str(intent.get("duplicate_mode", ""))
+		_cast_intent = dup_intent
+		_resolve_cast(actor, dup, fx_slot, dup_intent, targets, meta, false)
+		return
+	_resolve_cast(actor, spell, slot, intent, targets, meta, sustain)
+
+
+## The effect half of a cast (after the slot, the cast event and Counterspell):
+## concentration starts and the spell's effect resolves by type. Also used for
+## the spell a Wish duplicates (at its own level).
+func _resolve_cast(actor: Combatant, spell: SpellDefinition, slot: int, intent: Dictionary, targets: Array[Combatant], meta: Array[String], sustain: bool) -> void:
 	if spell.concentration and not sustain:
 		_start_concentration(actor, spell, slot)
 	_set_one_roll_bonus(actor, spell)
 	var empower := maxi(1, actor.sheet.ability_modifier(Ability.Type.CHA)) if meta.has("empowered_spell") else 0
 	match spell.effect_type:
+		SpellDefinition.EFFECT_NO_EFFECT:
+			_emit("no_effect", {"actor": actor.id, "spell": spell.id, "reason": spell.no_effect_reason()})
+			return
+		SpellDefinition.EFFECT_WEAPON_ATTACK:
+			_cast_weapon_attack(actor, spell, slot)
+			return
+		SpellDefinition.EFFECT_WISH:
+			_cast_wish(actor, spell, intent, targets)
+			return
+		SpellDefinition.EFFECT_TIME_STOP:
+			_cast_time_stop(actor, spell)
+			return
+		SpellDefinition.EFFECT_EXPLORATION:
+			_cast_exploration(actor, spell, slot, intent, targets)
+			return
+		SpellDefinition.EFFECT_LINGERING:
+			_cast_lingering(actor, spell, slot, intent, targets)
+			return
 		SpellDefinition.EFFECT_TELEPORT:
 			_cast_teleport(actor, spell, intent)
 			return
@@ -2535,7 +2917,7 @@ func _cast_single(actor: Combatant, target: Combatant, spell: SpellDefinition, s
 			if target.has_buff("shield") and spell.id == "magic_missile":
 				_deal_spell_damage(actor, target, 0, spell, {"darts": darts, "blocked": "shield"})
 				return
-			var formula := DiceFormula.parse(spell.damage)
+			var formula := DiceFormula.parse(DiceFormula.maximized(spell.damage) if _maximize else spell.damage)
 			var total := _take_one_roll_bonus()
 			for _i in range(darts):
 				total += target.adjust_damage(maxi(0, DictUtil.to_int(formula.roll(rng, actor.sheet.casting_modifier())["total"])), spell.damage_type, true)
@@ -2622,6 +3004,62 @@ func _save_opts(spell: SpellDefinition, target: Combatant, mode: String = "") ->
 	if spell.zone.get("plant", false) == true:
 		opts["plant"] = true
 	return opts
+
+
+## A Dictionary field of a spell's effect, replaced by the cast mode's own
+## (Contagion's diseases); {} when neither has it.
+static func _mode_value(spell: SpellDefinition, mode: String, key: String) -> Dictionary:
+	if not mode.is_empty() and spell.modes.has(mode):
+		var m: Dictionary = spell.modes[mode]
+		if typeof(m.get(key, null)) == TYPE_DICTIONARY:
+			return (m[key] as Dictionary).duplicate(true)
+	var v: Variant = spell.raw_effect.get(key, null)
+	return (v as Dictionary).duplicate(true) if typeof(v) == TYPE_DICTIONARY else {}
+
+
+## A save_track condition at the end of the target's turn (Contagion, Prismatic
+## indigo): one save against the entry's DC; three successes end it
+## (save_track_ended outcome "recovered"); three failures end the tracked
+## condition and its "track_effect" takes hold for the encounter: modifiers as
+## a buff and conditions ("ends_condition": the tracked condition ends too, else
+## it stays): save_track_ended {target, condition, outcome: "took_hold", effect,
+## label?}.
+func _save_track(c: Combatant, entry: Dictionary) -> void:
+	var duration: Dictionary = entry["duration"]
+	var source_id := str(entry.get("source", ""))
+	var condition := str(entry.get("condition", ""))
+	var ok := _saving_throw(source_id, c, Ability.from_string(str(duration.get("ability", "CON"))), DictUtil.to_int(duration.get("dc", 10), 10), {"vs_condition": condition})
+	if not c.conditions.has(entry):
+		return
+	if ok:
+		duration["successes"] = DictUtil.to_int(duration.get("successes", 0), 0) + 1
+	else:
+		duration["failures"] = DictUtil.to_int(duration.get("failures", 0), 0) + 1
+	if DictUtil.to_int(duration["successes"]) >= 3:
+		_remove_condition(c, entry)
+		_emit("save_track_ended", {"target": c.id, "condition": condition, "outcome": "recovered"})
+		return
+	if DictUtil.to_int(duration["failures"]) < 3:
+		return
+	var track_v: Variant = entry.get("track_effect", {})
+	var track: Dictionary = track_v if typeof(track_v) == TYPE_DICTIONARY else {}
+	var spell_id := str(entry.get("cast_spell", entry.get("spell", "")))
+	var effect := str(track.get("effect", spell_id))
+	var ev := {"target": c.id, "condition": condition, "outcome": "took_hold", "effect": effect}
+	if track.has("label"):
+		ev["label"] = str(track["label"])
+	if track.get("ends_condition", false) == true:
+		_remove_condition(c, entry)
+	else:
+		entry["duration"] = Conditions.duration(Conditions.DURATION_ENCOUNTER)
+	_emit("save_track_ended", ev)
+	var mods_v: Variant = track.get("modifiers", {})
+	var mods: Dictionary = mods_v if typeof(mods_v) == TYPE_DICTIONARY else {}
+	if not mods.is_empty():
+		_apply_buff(c, effect, source_id, Conditions.duration(Conditions.DURATION_ENCOUNTER), mods, spell_id)
+	for cond in DictUtil.to_string_array(track.get("conditions", [])):
+		if c.is_alive():
+			_apply_condition(c, cond, source_id, Conditions.duration(Conditions.DURATION_ENCOUNTER), {"cast_spell": spell_id})
 
 
 ## The condition a spell applies in a mode (modes may replace it).
@@ -2768,6 +3206,8 @@ func _spell_duration(actor: Combatant, spell: SpellDefinition, named: String, sa
 func _spell_attack(actor: Combatant, spell: SpellDefinition, slot: int, empower: int) -> Dictionary:
 	var tiles := maxi(1, _spell_range(spell))
 	var damage := spell.damage_formula(actor.sheet.level, slot)
+	if _maximize and not damage.is_empty():
+		damage = DiceFormula.maximized(damage)
 	if spell.id == "eldritch_blast" and actor.sheet.invocations.has("agonizing_blast"):
 		var cha := actor.sheet.ability_modifier(Ability.Type.CHA)
 		if cha != 0:
@@ -2779,10 +3219,12 @@ func _spell_attack(actor: Combatant, spell: SpellDefinition, slot: int, empower:
 		"kind": "spell",
 		"melee": spell.melee,
 		"to_hit": actor.sheet.spell_attack_bonus(),
-		"damage": damage,
+		"damage": damage if not damage.is_empty() else "0",
 		"damage_type": spell.damage_type,
 		"range_tiles": [tiles, tiles],
 	}
+	if damage.is_empty():
+		attack["no_damage"] = true  # Contagion: the hit only applies the condition
 	if empower > 0:
 		attack["empower"] = empower
 	return attack
@@ -2790,7 +3232,8 @@ func _spell_attack(actor: Combatant, spell: SpellDefinition, slot: int, empower:
 
 ## Rolls a spell's damage formula at slot (MOD = casting modifier).
 func _roll_spell_damage(actor: Combatant, spell: SpellDefinition, slot: int, empower: int) -> int:
-	var formula := DiceFormula.parse(spell.damage_formula(actor.sheet.level, slot))
+	var text := spell.damage_formula(actor.sheet.level, slot)
+	var formula := DiceFormula.parse(DiceFormula.maximized(text) if _maximize else text)
 	return maxi(0, DictUtil.to_int(formula.roll(rng, actor.sheet.casting_modifier(), false, 0, empower)["total"]))
 
 
@@ -2817,6 +3260,12 @@ func _spell_condition(actor: Combatant, target: Combatant, spell: SpellDefinitio
 		duration["rounds"] = DictUtil.to_int(duration.get("rounds", 1), 1) * 2
 	var extra := {"spell": spell.id} if spell.concentration else {}
 	extra["cast_spell"] = spell.id
+	if str(duration.get("type", "")) == Conditions.DURATION_SAVE_TRACK:
+		if not duration.has("dc"):
+			duration["dc"] = actor.sheet.spell_save_dc()
+		var track := Encounter._mode_value(spell, mode, "track_effect")
+		if not track.is_empty():
+			extra["track_effect"] = track
 	for flag: String in ["ends_on_damage", "ends_on_attack", "flee"]:
 		if spell.raw_effect.get("condition_" + flag, false) == true:
 			extra[flag] = true
@@ -2879,6 +3328,9 @@ func _cast_area(actor: Combatant, spell: SpellDefinition, slot: int, intent: Dic
 		area_ev["warded"] = warded
 	_emit("area_effect", area_ev)
 	var mode := str(intent.get("mode", ""))
+	if spell.raw_effect.get("prismatic", false) == true:
+		_prismatic_spray(actor, spell, affected, careful)
+		return
 	if spell.effect_type == SpellDefinition.EFFECT_AREA_ATTACK:
 		var attack := _spell_attack(actor, spell, slot, empower)
 		attack["range_tiles"] = [999, 999]
@@ -3313,6 +3765,11 @@ func _saving_throw(source_id: String, target: Combatant, ability: int, dc: int, 
 			advantage = true
 		if opts.get("plant", false) == true and target.sheet.has_feature("lands_stride"):
 			advantage = true
+		var vs_types := target.buff_list("adv_saves_vs_types")
+		if not vs_types.is_empty():
+			var src := get_combatant(source_id)
+			if src != null and vs_types.has(src.creature_type):
+				advantage = true
 		var disadvantage: bool = (dex and target.has_condition(Conditions.RESTRAINED)) or target.sheet.exhaustion >= 3 \
 				or opts.get("heightened", false) == true
 		var dis_saves := target.buff_list("disadv_saves")
@@ -3476,8 +3933,10 @@ func _do_feature(actor: Combatant, intent: Dictionary) -> void:
 		spend = FEATURE_SPEND[feature]
 	if spend > 0 and not resource.is_empty():
 		actor.sheet.spend_class_resource(resource, spend)
-	if feature in ["intimidating_presence", "cleansing_touch", "magic_jar"]:
+	if feature in ["intimidating_presence", "cleansing_touch", "magic_jar", "gaze_of_two_minds"]:
 		target = _cast_target(actor, intent)
+	if feature == "quivering_palm" and get_combatant(actor.quivering_target) != null:
+		target = get_combatant(actor.quivering_target)
 	var used := {"actor": actor.id, "feature": feature, "target": target.id, "remaining": actor.sheet.class_resource(resource) if not resource.is_empty() else 0}
 	if intent.has("mode"):
 		used["mode"] = str(intent["mode"])
@@ -3543,7 +4002,7 @@ func _do_feature(actor: Combatant, intent: Dictionary) -> void:
 				"cleansing_touch", "volley", "whirlwind_attack", "elemental_affinity", "dragon_wings", "wild_shape", \
 				"revert_form", "empty_body", "draconic_presence":
 			_do_feature_b(actor, feature, intent)
-		"magic_jar", "end_spell":
+		"magic_jar", "end_spell", "one_with_shadows", "gaze_of_two_minds", "quivering_palm", "holy_nimbus":
 			_do_feature_c(actor, feature, intent)
 		"pact_weapon":
 			actor.pact_weapon = true
@@ -3675,6 +4134,9 @@ func _on_turn_end(c: Combatant) -> void:
 			Conditions.DURATION_SAVE_ENDS:
 				if c.is_alive() and _saving_throw(str(entry.get("source", "")), c, Ability.from_string(str(duration.get("ability", "WIS"))), DictUtil.to_int(duration.get("dc", 10), 10), {"vs_condition": str(entry.get("condition", ""))}):
 					_remove_condition(c, entry)
+			Conditions.DURATION_SAVE_TRACK:
+				if c.is_alive():
+					_save_track(c, entry)
 	for other in tracker.order():
 		for entry: Dictionary in other.conditions.duplicate():
 			var duration: Dictionary = entry.get("duration", {})
@@ -3830,6 +4292,14 @@ func _end_current_turn() -> void:
 
 
 func _advance() -> void:
+	var cur := tracker.current()
+	if cur != null and cur.extra_turns > 0 and cur.is_conscious() and _combatants.has(cur.id) and not cur.loses_turn():
+		cur.extra_turns -= 1
+		_emit("extra_turn", {"actor": cur.id, "source": cur.extra_turn_source, "turns_left": cur.extra_turns})
+		return
+	if cur != null:
+		cur.extra_turns = 0
+		_end_time_stop(cur, "expired")
 	var previous_round := tracker.round_number
 	tracker.advance()
 	_purge_dismissed()
@@ -3858,6 +4328,9 @@ func _begin_turns() -> void:
 		c.reset_turn()
 		if c.raging and (tracker.round_number - c.rage_started_round >= RAGE_ROUNDS or not c.is_conscious()):
 			_end_rage(c)
+		elif c.raging and not c.rage_kept and not c.sheet.has_feature("persistent_rage"):
+			_end_rage(c, "inactive")
+		c.rage_kept = false
 		_start_of_turn(c)
 		if state != State.ACTIVE:
 			return
@@ -3888,13 +4361,18 @@ func _begin_turns() -> void:
 	push_error("Encounter %s: turn-start loop did not settle" % id)
 
 
-## Rage ends: effect_ended rage; a Frenzy costs one level of exhaustion
-## (exhaustion {target, level, source}).
-func _end_rage(c: Combatant) -> void:
+## Rage ends: effect_ended rage (reason "inactive" when the barbarian neither
+## attacked a hostile nor took damage since its last turn; Persistent Rage
+## keeps it); a Frenzy costs one level of exhaustion (exhaustion {target,
+## level, source}).
+func _end_rage(c: Combatant, reason: String = "") -> void:
 	var frenzy := c.frenzied
 	c.raging = false
 	c.frenzied = false
-	_emit("effect_ended", {"target": c.id, "effect": "rage"})
+	var ev := {"target": c.id, "effect": "rage"}
+	if not reason.is_empty():
+		ev["reason"] = reason
+	_emit("effect_ended", ev)
 	if frenzy:
 		_add_exhaustion(c, 1, "frenzy")
 
@@ -3961,6 +4439,7 @@ static func _mode_name(mode: D20.RollMode) -> String:
 ## trigger, ...fields}.
 func _use_reaction(c: Combatant, reaction: String, trigger: String, fields: Dictionary = {}) -> void:
 	c.reaction_used = true
+	_end_on_act(c)
 	var ev := {"actor": c.id, "reaction": reaction, "trigger": trigger}
 	ev.merge(fields)
 	_emit("reaction_used", ev)
@@ -4222,7 +4701,11 @@ func ability_check(c: Combatant, ability: int, skill: int = -1, dc: int = -1, re
 	var die := natural
 	if c.sheet.has_feature("reliable_talent") and c.sheet.is_skill_proficient(skill) and die < 10:
 		die = 10
-	var total := die + c.sheet.check_modifier(ability, skill) + bonus + _d20_dice_bonus(c, "check_dice") - c.sheet.resurrection_penalty
+	var extra := c.buff_int("stealth_bonus") if skill == Skill.Type.STEALTH else 0  # Pass without Trace
+	var modifier := c.sheet.check_modifier(ability, skill) + bonus + extra + _d20_dice_bonus(c, "check_dice") - c.sheet.resurrection_penalty
+	var total := die + modifier
+	if ability == Ability.Type.STR and c.sheet.has_feature("indomitable_might"):
+		total = maxi(total, c.sheet.abilities.get_score(Ability.Type.STR))
 	var ev := {"actor": c.id, "ability": Ability.abbreviation(ability), "skill": Skill.key_of(skill) if skill >= 0 else "", "natural": natural, "total": total, "reason": reason}
 	var success := true
 	if dc >= 0:
@@ -4234,7 +4717,29 @@ func ability_check(c: Combatant, ability: int, skill: int = -1, dc: int = -1, re
 	if not contest_with.is_empty():
 		ev["contest"] = contest_with
 	_emit("check", ev)
+	if dc >= 0 and not success:
+		total = _improve_failed_check(c, total, modifier, dc)
+		success = total >= dc
 	return {"total": total, "natural": natural, "success": success}
+
+
+## A failed ability check of c with `total` against dc (a contest: the total
+## to beat + 1): Peerless Skill (lore 14) adds a Bardic Inspiration die (one
+## use), then Stroke of Luck (rogue 20, once per short rest) treats the d20 as
+## a 20 (d20 = 20 + modifier). Each emits check_modified {actor, feature,
+## roll?, total, success}. Returns the new total.
+func _improve_failed_check(c: Combatant, total: int, modifier: int, dc: int) -> int:
+	if c.sheet.has_feature("peerless_skill") and c.sheet.class_resource("bardic_inspiration") > 0 and c.reaction_allowed("failed_check", "peerless_skill"):
+		c.sheet.spend_class_resource("bardic_inspiration", 1)
+		var roll := rng.next_int(1, c.sheet.bardic_inspiration_die())
+		total += roll
+		_emit("check_modified", {"actor": c.id, "feature": "peerless_skill", "roll": roll, "total": total, "success": total >= dc})
+	if total < dc and c.sheet.has_feature("stroke_of_luck") and c.sheet.class_resource("stroke_of_luck") > 0 and c.reaction_allowed("failed_check", "stroke_of_luck") \
+			and 20 + modifier >= dc:
+		c.sheet.spend_class_resource("stroke_of_luck", 1)
+		total = 20 + modifier
+		_emit("check_modified", {"actor": c.id, "feature": "stroke_of_luck", "total": total, "success": total >= dc})
+	return total
 
 
 ## Contest (SRD): actor's check against the best of target's options
@@ -4252,7 +4757,11 @@ func contest(actor: Combatant, a_ability: int, a_skill: int, target: Combatant, 
 				best = o
 		var t := ability_check(target, best[0], best[1], -1, reason, false, false, 0, actor.id)
 		target_total = DictUtil.to_int(t["total"])
-	var success := DictUtil.to_int(a["total"]) > target_total
+	var actor_total := DictUtil.to_int(a["total"])
+	if actor_total <= target_total:
+		actor_total = _improve_failed_check(actor, actor_total, actor_total - DictUtil.to_int(a["natural"]), target_total + 1)
+		a["total"] = actor_total
+	var success := actor_total > target_total
 	_emit("contest", {"actor": actor.id, "target": target.id, "reason": reason, "actor_total": a["total"], "target_total": target_total, "success": success})
 	return success
 
@@ -4291,7 +4800,7 @@ func _hide_error(actor: Combatant) -> String:
 		return ""
 	for h in tracker.order():
 		if h.team != actor.team and h.is_conscious() and not h.is_incapacitated() and not h.untargetable \
-				and GridMath.is_adjacent(h.position, actor.position) and not h.has_condition(Conditions.BLINDED):
+				and GridMath.is_adjacent(h.position, actor.position) and not h.has_condition(Conditions.BLINDED) and eyes_reach(h, actor.position):
 			return "%s cannot hide next to %s" % [actor.display_name, h.display_name]
 	return ""
 
@@ -4315,7 +4824,7 @@ func _hide(actor: Combatant) -> void:
 	for h in tracker.order():
 		if h.team == actor.team or not h.is_conscious() or h.untargetable or h.has_condition(Conditions.BLINDED):
 			continue
-		var obscured := _tile_obscured(actor.position) and not h.sheet.invocations.has("devils_sight")
+		var obscured := (_tile_obscured(actor.position) and not h.sheet.invocations.has("devils_sight")) or not eyes_reach(h, actor.position)
 		if not obscured and walk_map.has_line_of_sight(h.position, actor.position):
 			dc = maxi(dc, h.sheet.passive_perception())
 	var adv := actor.sheet.has_feature("supreme_sneak") and actor.tiles_moved <= floori(actor.speed_tiles() / 2.0)
@@ -4496,6 +5005,10 @@ func _remove_buff(target: Combatant, entry: Dictionary, announce: bool = true) -
 	for i in range(target.buffs.size()):
 		if is_same(target.buffs[i], entry):
 			target.buffs.remove_at(i)
+			if entry.has("weapon_attack_index"):
+				var wi := DictUtil.to_int(entry["weapon_attack_index"], -1)
+				if wi >= 0 and wi < target.attacks.size():
+					target.attacks[wi]["disabled"] = true
 			if entry.has("max_hp_bonus"):
 				var extra := DictUtil.to_int(entry["max_hp_bonus"], 0)
 				target.sheet.max_hp = maxi(1, target.sheet.max_hp - extra)
@@ -4523,6 +5036,8 @@ func _end_buffs_named(c: Combatant, effect: String) -> void:
 ## Emits death_avoided {target, feature, hp_after}. Records died_round.
 func _take_damage(target: Combatant, amount: int, critical: bool = false) -> DamageOutcome:
 	var hp_before := target.sheet.current_hp
+	if target.raging and amount > 0:
+		target.rage_kept = true
 	var outcome := target.sheet.take_damage(amount, critical)
 	if outcome.dropped_to_zero and not target.form.is_empty():
 		var excess := maxi(0, amount - outcome.absorbed_by_temp - hp_before)
@@ -5750,7 +6265,8 @@ func _prismatic_layer(source_id: String, c: Combatant, layer: String, dc: int, s
 		return
 	match layer:
 		"indigo":
-			_apply_condition(c, Conditions.RESTRAINED, source_id, Conditions.duration(Conditions.DURATION_SAVE_ENDS, {"ability": "CON", "dc": dc}), {"layer": layer})
+			_apply_condition(c, Conditions.RESTRAINED, source_id, Conditions.duration(Conditions.DURATION_SAVE_TRACK, {"ability": "CON", "dc": dc}),
+					{"layer": layer, "cast_spell": spell_id, "track_effect": {"effect": "prismatic_indigo", "ends_condition": true, "conditions": [Conditions.PETRIFIED]}})
 		"violet":
 			_apply_condition(c, Conditions.BLINDED, source_id, Conditions.duration(Conditions.DURATION_SAVE_ENDS, {"ability": "WIS", "dc": dc}), {"layer": layer})
 
@@ -6054,7 +6570,8 @@ func _blink(c: Combatant) -> void:
 # --- round C: lingering out-of-combat effects --------------------------------------------
 
 ## Effects cast before the fight (CharacterSheet.lingering) take hold when it
-## starts: buffs on their owner ("buff", "stealth"), zones centred on it
+## starts: buffs on their owner ("buff", "stealth"), light around it
+## ("light": a lit tile effect of radius_ft anchored to it), zones centred on it
 ## ("zone": the spell's zone, mode / creature_type from the entry). Features
 ## ("feature": Magic Jar) are checked when used.
 func _apply_lingering(c: Combatant) -> void:
@@ -6068,6 +6585,10 @@ func _apply_lingering(c: Combatant) -> void:
 				var cond := str(entry.get("condition", ""))
 				if not cond.is_empty():
 					_apply_condition(c, cond, c.id, Conditions.duration(Conditions.DURATION_ENCOUNTER), {})
+			"light":
+				var radius := GridMath.feet_to_tiles(DictUtil.to_int(entry.get("radius_ft", 20), 20))
+				_create_zone(c, spell_id, {"lit": true, "rounds": -1}, DictUtil.to_int(entry.get("slot_level", 0), 0),
+						AreaOfEffect.tiles("sphere", radius, c.position, c.position, walk_map), c.id, radius, false, "", "", 0, c.position)
 			"zone":
 				var spell := _spell_def(spell_id)
 				if spell == null:
@@ -6134,6 +6655,26 @@ func _check_feature_c(actor: Combatant, feature: String, intent: Dictionary) -> 
 			if _own_spell_effects(actor, sid).is_empty() and str(actor.concentration.get("spell", "")) != sid:
 				return "%s has no %s to end" % [actor.display_name, sid]
 			return ""
+		"one_with_shadows":
+			if light == LIGHT_BRIGHT and not _tile_dark_magic(actor.position) and not _tile_obscured(actor.position):
+				return "One with Shadows needs dim light or darkness"
+			return ""
+		"quivering_palm":
+			var target := get_combatant(actor.quivering_target)
+			if target == null or not target.is_alive() or not target.absent.is_empty():
+				return "%s has set no Quivering Palm vibrations in a creature here" % actor.display_name
+			return ""
+		"holy_nimbus":
+			return ""
+		"gaze_of_two_minds":
+			var target := _cast_target(actor, intent)
+			if target == null or target == actor or target.team != actor.team or not target.is_conscious():
+				return "Gaze of Two Minds needs a willing ally"
+			if target.creature_type != "humanoid" and target.is_monster():
+				return "Gaze of Two Minds needs a humanoid"
+			if not GridMath.is_adjacent(actor.position, target.position):
+				return "%s is out of reach" % target.display_name
+			return ""
 	return "-"
 
 
@@ -6151,8 +6692,39 @@ func _own_spell_effects(actor: Combatant, spell_id: String) -> Array[Dictionary]
 	return out
 
 
+## One with Shadows: invisible until it moves, acts or reacts (condition flag
+## "ends_on_act"). Gaze of Two Minds: blinded and deafened until the end of
+## its next turn, seeing through the touched ally's senses (can_see uses the
+## ally's; condition field "gaze").
+## Quivering Palm (open hand 17): the vibrating creature makes a CON save
+## (ki DC): it drops to 0 hit points on a failure (damage {.., type:
+## "necrotic", feature: "quivering_palm"}), else takes 10d10 necrotic. Holy
+## Nimbus (devotion 20): for 10 rounds a 30-ft sunlit aura (a "lit" tile
+## effect anchored to the paladin) deals 10 radiant to each hostile starting
+## its turn in it, and the paladin has advantage on saves against fiends and
+## undead (buff holy_nimbus).
 func _do_feature_c(actor: Combatant, feature: String, intent: Dictionary) -> void:
 	match feature:
+		"quivering_palm":
+			var target := get_combatant(actor.quivering_target)
+			actor.quivering_target = ""
+			if _saving_throw(actor.id, target, Ability.Type.CON, Encounter.ki_save_dc(actor.sheet)):
+				var amount := target.adjust_damage(DiceExpr.parse("10d10").roll(rng).total, "necrotic", true)
+				_deal_effect_damage(actor, target, amount, "necrotic", {"feature": "quivering_palm"})
+			else:
+				_deal_effect_damage(actor, target, target.sheet.current_hp + target.sheet.temp_hp, "necrotic", {"feature": "quivering_palm"})
+		"holy_nimbus":
+			var radius := HOLY_NIMBUS_TILES
+			var cells := AreaOfEffect.tiles("sphere", radius, actor.position, actor.position, walk_map)
+			_create_zone(actor, "holy_nimbus", {"lit": true, "rounds": HOLY_NIMBUS_ROUNDS, "triggers": ["start_turn"], "affects": "hostiles", "damage": "10", "damage_type": "radiant"},
+					0, cells, actor.id, radius, false, "10", "radiant", 0, actor.position)
+			_apply_buff(actor, "holy_nimbus", actor.id, Conditions.duration(Conditions.DURATION_ROUNDS, {"rounds": HOLY_NIMBUS_ROUNDS}), {"adv_saves_vs_types": ["fiend", "undead"]})
+		"one_with_shadows":
+			_apply_condition(actor, Conditions.INVISIBLE, actor.id, Conditions.duration(Conditions.DURATION_ENCOUNTER), {"ends_on_act": true, "feature": feature})
+		"gaze_of_two_minds":
+			var ally := _cast_target(actor, intent)
+			for cond: String in [Conditions.BLINDED, Conditions.DEAFENED]:
+				_apply_condition(actor, cond, actor.id, Conditions.duration(Conditions.DURATION_ROUNDS, {"rounds": 2}), {"gaze": ally.id, "feature": feature})
 		"magic_jar":
 			var target := _cast_target(actor, intent)
 			if _saving_throw(actor.id, target, Ability.Type.CHA, actor.sheet.spell_save_dc()):
@@ -6256,3 +6828,315 @@ func _illusion_interaction(viewer: Combatant, image: Combatant) -> void:
 		_dismiss(image, "disbelieved")
 		return
 	_emit("attack_lost", {"attacker": viewer.id, "target": image.id, "reason": "illusion"})
+
+
+# --- round C: special outcomes (Wish, Time Stop, temporary weapons, Prismatic Spray) ------------
+
+## The spell a Wish cast duplicates (its "mode" names a spell id), else null.
+func _wish_duplicate(spell: SpellDefinition, intent: Dictionary) -> SpellDefinition:
+	if spell == null or spell.effect_type != SpellDefinition.EFFECT_WISH:
+		return null
+	var mode := str(intent.get("mode", ""))
+	if mode in ["", "restore_slots", "instant_health"]:
+		return null
+	return _spell_def(mode)
+
+
+## Wish: "mode" is "restore_slots", "instant_health" (up to ten allies in
+## `targets`, default the caster, within 12 tiles) or the id of a spell of 8th
+## level or lower that the engine resolves in a fight; the duplicated spell
+## needs no preparation and ignores its casting time, and its targets / point
+## are checked as for that spell (at its own level).
+func _check_wish(actor: Combatant, spell: SpellDefinition, intent: Dictionary) -> String:
+	var mode := str(intent.get("mode", ""))
+	match mode:
+		"restore_slots":
+			return ""
+		"instant_health":
+			var targets := _cast_targets(actor, intent)
+			if targets.size() > DictUtil.to_int(spell.raw_effect.get("instant_health_targets", 10), 10):
+				return "Wish heals at most ten creatures"
+			for t in targets:
+				if t == null or t.team != actor.team or not t.is_alive():
+					return "Wish heals living allies"
+				if GridMath.distance_tiles(actor.position, t.position) > 12:
+					return "%s is too far away" % t.display_name
+			return ""
+		"":
+			return "Wish needs a mode: a spell id, \"restore_slots\" or \"instant_health\""
+	var dup := _spell_def(mode)
+	if dup == null:
+		return "unknown spell '%s'" % mode
+	if dup.level > DictUtil.to_int(spell.raw_effect.get("max_duplicate_level", 8), 8) or dup.effect_type == SpellDefinition.EFFECT_WISH:
+		return "Wish duplicates spells of 8th level or lower"
+	if not dup.is_supported() or dup.effect_type in [SpellDefinition.EFFECT_REACTION, SpellDefinition.EFFECT_LINGERING] \
+			or (dup.effect_type == SpellDefinition.EFFECT_SUMMON and dup.raw_effect.get("companion", false) == true and not dup.is_combat_castable()):
+		return "%s has no effect Wish can produce in a fight" % dup.display_name
+	match dup.effect_type:
+		SpellDefinition.EFFECT_NO_EFFECT, SpellDefinition.EFFECT_TIME_STOP:
+			return ""
+		SpellDefinition.EFFECT_WEAPON_ATTACK:
+			return _check_weapon_attack(actor, dup)
+	_dup_slot = maxi(1, dup.level)
+	var err := _check_cast_effect(actor, dup, intent)
+	_dup_slot = 0
+	return err
+
+
+## Flame Blade / Shillelagh: Shillelagh needs a carried club or quarterstaff attack.
+func _check_weapon_attack(actor: Combatant, spell: SpellDefinition) -> String:
+	var items := DictUtil.to_string_array(spell.raw_effect.get("requires_items", []))
+	if not items.is_empty() and _weapon_attack_base(actor, items) < 0:
+		return "%s needs a %s" % [spell.display_name, " or ".join(items)]
+	return ""
+
+
+## Index of actor's first usable attack with one of the weapon ids, or -1.
+func _weapon_attack_base(actor: Combatant, weapon_ids: Array[String]) -> int:
+	for i in range(actor.attacks.size()):
+		var a: Dictionary = actor.attacks[i]
+		if a.get("disabled", false) == true or str(a.get("kind", "melee")) != "melee":
+			continue
+		if weapon_ids.has(str(a.get("weapon_id", ""))) or weapon_ids.has(str(a.get("item", ""))):
+			var item := str(a.get("item", ""))
+			if item.is_empty() or actor.sheet.has_item(item):
+				return i
+	return -1
+
+
+## Temporary weapon attacks (SpellDefinition.EFFECT_WEAPON_ATTACK): an attack
+## entry appended to the caster's attacks for the spell's duration (a buff
+## "<spell>" carries it: concentration, rounds or the encounter); when the
+## buff ends the entry is disabled (attack indexes stay stable). Flame Blade:
+## a melee spell attack (spell attack bonus, 3d6 fire + 1d6 per two slot
+## levels above 2nd), one attack per action. Shillelagh: the club /
+## quarterstaff attack with the casting ability, a d8 damage die, magical.
+## Emits effect_applied {.., effect, attack_index}.
+func _cast_weapon_attack(actor: Combatant, spell: SpellDefinition, slot: int) -> void:
+	var spec_v: Variant = spell.raw_effect.get("attack", {})
+	var spec: Dictionary = spec_v if typeof(spec_v) == TYPE_DICTIONARY else {}
+	var entry := {}
+	var items := DictUtil.to_string_array(spell.raw_effect.get("requires_items", []))
+	if not items.is_empty():
+		var base := _weapon_attack_base(actor, items)
+		if base < 0:
+			return
+		entry = (actor.attacks[base] as Dictionary).duplicate(true)
+		var mod := actor.sheet.casting_modifier()
+		entry["name"] = "%s (%s)" % [str(entry.get("name", "Weapon")), spell.display_name]
+		entry["to_hit"] = mod + actor.sheet.proficiency_bonus()
+		entry["damage"] = "1d%d" % DictUtil.to_int(spec.get("damage_die", 8), 8) + CharacterBuilder.signed(mod)
+		entry["ability"] = Ability.abbreviation(actor.sheet.casting_ability) if actor.sheet.casting_ability >= 0 else "WIS"
+		entry["magical"] = true
+	else:
+		var dice := str(spec.get("damage", "1d6"))
+		var per := str(spec.get("per_two_slots", ""))
+		var steps := floori((slot - spell.level) / 2.0)
+		if not per.is_empty() and steps > 0:
+			var base_dice := DiceExpr.parse(dice)
+			var per_dice := DiceExpr.parse(per)
+			if base_dice.valid and per_dice.valid and base_dice.sides == per_dice.sides and base_dice.modifier == 0 and per_dice.modifier == 0 and base_dice.keep_highest == 0:
+				dice = "%dd%d" % [base_dice.count + per_dice.count * steps, base_dice.sides]
+			else:
+				dice = DiceFormula.plus(dice, per, steps)
+		entry = {"name": str(spec.get("name", spell.display_name)), "kind": str(spec.get("kind", "melee")), "to_hit": actor.sheet.spell_attack_bonus(),
+				"damage": dice, "damage_type": str(spec.get("damage_type", "fire")), "range_tiles": [1, 1], "magical": true, "single_attack": true,
+				"ability": Ability.abbreviation(actor.sheet.casting_ability) if actor.sheet.casting_ability >= 0 else "CHA"}
+	entry["temp_spell"] = spell.id
+	entry.erase("off_hand")
+	for i in range(actor.attacks.size()):
+		var old: Dictionary = actor.attacks[i]
+		if str(old.get("temp_spell", "")) == spell.id and old.get("disabled", false) != true:
+			old["disabled"] = true
+	actor.attacks.append(entry)
+	var index := actor.attacks.size() - 1
+	var duration := Conditions.duration(Conditions.DURATION_ENCOUNTER)
+	if spell.rounds > 0 and not spell.concentration:
+		duration = Conditions.duration(Conditions.DURATION_ROUNDS, {"rounds": spell.rounds})
+	var b := _apply_buff(actor, spell.id, actor.id, duration, {"weapon_attack_index": index}, spell.id)
+	_emit("effect_applied", {"source": actor.id, "target": actor.id, "effect": spell.id, "attack_index": index})
+	if b.is_empty():
+		entry["disabled"] = true
+
+
+## Wish (see _check_wish): "restore_slots" regains every expended slot of
+## 8th level or lower; "instant_health" restores the targets to full hit
+## points and ends their conditions. Either strains the caster: one level of
+## exhaustion (exhaustion {.., source: "wish"}). A duplicated spell is
+## resolved by _do_cast.
+func _cast_wish(actor: Combatant, spell: SpellDefinition, intent: Dictionary, targets: Array[Combatant]) -> void:
+	match str(intent.get("mode", "")):
+		"restore_slots":
+			var restored: Array = []
+			for i in range(mini(8, actor.sheet.spell_slots_max.size())):
+				var missing := actor.sheet.spell_slots_max[i] - actor.sheet.spell_slots[i]
+				if missing > 0:
+					actor.sheet.spell_slots[i] = actor.sheet.spell_slots_max[i]
+					restored.append(i + 1)
+			_emit("slots_restored", {"actor": actor.id, "source": spell.id, "levels": restored})
+		"instant_health":
+			for t in targets:
+				if t == null or not t.is_alive():
+					continue
+				_heal(actor.id, t, t.sheet.max_hp)
+				for entry: Dictionary in t.conditions.duplicate():
+					var src := get_combatant(str(entry.get("source", "")))
+					if src == null or src.team != t.team:
+						_remove_condition(t, entry)
+	_add_exhaustion(actor, 1, "wish")
+
+
+## Time Stop: the caster takes 1d4 + 1 turns in a row after this one
+## (time_stop {actor, turns}; each extra turn: extra_turn {actor, source,
+## turns_left}); meanwhile no one else can react. It ends early when the
+## caster's action affects another creature (time_stop_ended {actor, reason:
+## "affected_other"}), else after the last turn (reason "expired").
+func _cast_time_stop(actor: Combatant, spell: SpellDefinition) -> void:
+	var turns := maxi(1, DictUtil.to_int(DiceFormula.parse(str(spell.raw_effect.get("dice", "1d4+1"))).roll(rng)["total"], 2))
+	actor.extra_turns = turns
+	actor.extra_turn_source = "time_stop"
+	actor.time_stopped = true
+	_time_stop_reactions.clear()
+	for c in tracker.order():
+		if c != actor:
+			_time_stop_reactions[c.id] = c.reaction_used
+			c.reaction_used = true
+	_emit("time_stop", {"actor": actor.id, "turns": turns})
+
+
+func _end_time_stop(c: Combatant, reason: String) -> void:
+	if not c.time_stopped:
+		return
+	c.time_stopped = false
+	if c.extra_turn_source == "time_stop":
+		c.extra_turns = 0
+		c.extra_turn_source = ""
+	for other in tracker.order():
+		if _time_stop_reactions.has(other.id):
+			other.reaction_used = _time_stop_reactions[other.id] == true
+	_time_stop_reactions.clear()
+	_emit("time_stop_ended", {"actor": c.id, "reason": reason})
+
+
+## Whether an intent of a time-stopped actor affects another creature.
+func _affects_others(actor: Combatant, intent: Dictionary) -> bool:
+	match str(intent.get("type", "")):
+		ATTACK, SHOVE, GRAPPLE, HELP, CONTROL:
+			return true
+		CAST:
+			var spell := _spell_def(str(intent.get("spell", "")))
+			if spell == null:
+				return false
+			var fx_spell := _wish_duplicate(spell, intent)
+			if fx_spell == null:
+				fx_spell = spell
+			if fx_spell.is_area() or fx_spell.effect_type == SpellDefinition.EFFECT_ZONE:
+				return true
+			for t in _cast_targets(actor, intent):
+				if t != null and t != actor:
+					return true
+		USE_FEATURE:
+			var tid := str(intent.get("target", actor.id))
+			return not tid.is_empty() and tid != actor.id
+	return false
+
+
+## Prismatic Spray: each creature in the cone saves (DEX) once, then a d8
+## picks its ray (prismatic_ray {caster, target, roll, layer}): 1-5 damage
+## (10d6, half on a save), 6 indigo, 7 violet (see _prismatic_layer), 8 two
+## rays (rolled again, ignoring 8).
+func _prismatic_spray(actor: Combatant, spell: SpellDefinition, affected: Array[Combatant], careful: Array[String]) -> void:
+	var layers: Array[String] = ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
+	var dc := actor.sheet.spell_save_dc()
+	for t in affected:
+		if not t.is_alive():
+			continue
+		var success := careful.has(t.id)
+		if success:
+			_emit("save", {"actor": actor.id, "target": t.id, "ability": "DEX", "dc": dc, "natural": 0, "total": 0, "success": true, "careful": true})
+		else:
+			success = _saving_throw(actor.id, t, Ability.Type.DEX, dc, _save_opts(spell, t))
+		var rolls: Array[int] = []
+		var roll := rng.next_int(1, 8)
+		if roll == 8:
+			rolls.append(rng.next_int(1, 7))
+			rolls.append(rng.next_int(1, 7))
+		else:
+			rolls.append(roll)
+		for r in rolls:
+			if not t.is_alive():
+				break
+			_emit("prismatic_ray", {"caster": actor.id, "target": t.id, "roll": roll, "layer": layers[r - 1]})
+			_prismatic_layer(actor.id, t, layers[r - 1], dc, spell.id, 1 if success else 0)
+
+
+# --- round C: exploration utilities in a fight ------------------------------------------------------
+
+## A lingering spell cast in a fight (Gentle Repose): each target's sheet
+## gets the lingering entry (see OutOfCombat.lingering_entry) and buff kinds
+## take hold at once: lingering_added {source, target, spell, lingering_kind,
+## encounters}.
+func _cast_lingering(actor: Combatant, spell: SpellDefinition, slot: int, intent: Dictionary, targets: Array[Combatant]) -> void:
+	for t in targets:
+		if t == null:
+			continue
+		var entry := OutOfCombat.lingering_entry(spell, slot, intent)
+		OutOfCombat.add_lingering(t.sheet, entry)
+		_emit("lingering_added", {"source": actor.id, "target": t.id, "spell": spell.id, "lingering_kind": entry["kind"], "encounters": entry["encounters_left"]})
+		if str(entry["kind"]) in ["buff", "stealth"] and t.is_alive():
+			var mods_v: Variant = entry.get("modifiers", {})
+			_apply_buff(t, str(entry.get("effect", spell.id)), actor.id, Conditions.duration(Conditions.DURATION_ENCOUNTER), mods_v if typeof(mods_v) == TYPE_DICTIONARY else {}, spell.id)
+
+## Exploration spells cast in a fight (SpellDefinition.EFFECT_EXPLORATION):
+## exploration_effect {actor, spell, effect, ...} for the server, plus the
+## fight hooks some of them have.
+## Fight hooks: "light" lights the tiles around the target (a "lit" tile
+## effect anchored to it, radius_ft; a hostile target makes the spell's save
+## to avoid it; concentration spells end with concentration) and Daylight
+## ends magical darkness of a spell of "dispel_darkness" level or lower that
+## overlaps it (tile_effect_ended reason "dispelled"); "fight_reveal"
+## (Detect Thoughts, Detect Evil and Good) reveals hidden hostiles within
+## its radius (creature_types / min_int): revealed {.., reason: "detected", by}.
+func _cast_exploration(actor: Combatant, spell: SpellDefinition, slot: int, intent: Dictionary, targets: Array[Combatant]) -> void:
+	var ev := OutOfCombat.exploration_fields(spell, intent)
+	ev["actor"] = actor.id
+	var e := spell.raw_effect
+	var t: Combatant = targets[0] if not targets.is_empty() and targets[0] != null else actor
+	if str(ev["effect"]) in ["light", "recall"]:
+		var ids: Array = []
+		for c in targets:
+			if c != null:
+				ids.append(c.id)
+		ev["targets"] = ids
+	_emit("exploration_effect", ev)
+	match str(ev["effect"]):
+		"light":
+			var save := Ability.from_string(str(e.get("save", "")))
+			if t.team != actor.team and save >= 0 and _saving_throw(actor.id, t, save, actor.sheet.spell_save_dc(), _save_opts(spell, t)):
+				return
+			var radius := GridMath.feet_to_tiles(DictUtil.to_int(e.get("radius_ft", 20), 20))
+			var cells := AreaOfEffect.tiles("sphere", radius, t.position, t.position, walk_map)
+			var fx := _create_zone(actor, spell.id, {"lit": true, "rounds": -1}, slot, cells, t.id, radius, spell.concentration, "", "", spell.level, t.position)
+			var max_level := DictUtil.to_int(e.get("dispel_darkness", -1), -1)
+			if max_level >= 0:
+				for other in tile_effects.duplicate():
+					if other.get("darkness", false) != true or DictUtil.to_int(other.get("spell_level", 0), 0) > max_level:
+						continue
+					for cell in _effect_cells(other):
+						if _effect_covers(fx, cell):
+							_end_tile_effect(other, "dispelled")
+							break
+	var reveal_v: Variant = e.get("fight_reveal", null)
+	if typeof(reveal_v) == TYPE_DICTIONARY:
+		var fr: Dictionary = reveal_v
+		var radius := GridMath.feet_to_tiles(DictUtil.to_int(fr.get("radius_ft", 30), 30))
+		var types := DictUtil.to_string_array(fr.get("creature_types", []))
+		var min_int := DictUtil.to_int(fr.get("min_int", 0), 0)
+		for h in tracker.order():
+			if h.team == actor.team or not h.hidden or not h.is_alive() or GridMath.distance_tiles(actor.position, h.position) > radius:
+				continue
+			if not types.is_empty() and not types.has(h.creature_type):
+				continue
+			if h.sheet.abilities.get_score(Ability.Type.INT) < min_int:
+				continue
+			_reveal(h, "detected", actor.id)

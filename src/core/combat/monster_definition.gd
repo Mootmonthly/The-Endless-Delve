@@ -35,6 +35,10 @@ var skills: Dictionary[int, int] = {}  # Skill.Type -> total bonus ("skills": {"
 var saving_throws: Dictionary[int, int] = {}  # Ability.Type -> total bonus ("saving_throws": {"DEX": 5})
 var proficiency_bonus: int = 0  # 0 = derived from the challenge rating
 var fly_speed: int = 0  # feet ("speeds": {"fly": 60})
+## Senses in feet parsed from "senses" ("darkvision 60 ft., blindsight 10 ft., ...").
+var darkvision_ft: int = 0
+var blindsight_ft: int = 0
+var truesight_ft: int = 0
 var icon: String = ""  # optional icon id ("" = none)
 
 
@@ -126,7 +130,28 @@ static func from_dict(d: Dictionary) -> MonsterDefinition:
 	if typeof(speeds_v) == TYPE_DICTIONARY:
 		var speeds_d: Dictionary = speeds_v
 		m.fly_speed = DictUtil.to_int(speeds_d.get("fly", 0), 0)
+	var senses := "" if d.get("senses") == null else str(d.get("senses", "")).to_lower()
+	m.darkvision_ft = MonsterDefinition.sense_ft(senses, "darkvision")
+	m.blindsight_ft = MonsterDefinition.sense_ft(senses, "blindsight")
+	m.truesight_ft = MonsterDefinition.sense_ft(senses, "truesight")
 	return m
+
+
+## The range in feet of a sense named in a stat block's senses text ("darkvision
+## 60 ft., passive Perception 9" -> 60 for "darkvision"; 0 when absent).
+static func sense_ft(senses: String, sense: String) -> int:
+	var at := senses.find(sense)
+	if at < 0:
+		return 0
+	var digits := ""
+	for ch in senses.substr(at + sense.length()):
+		if ch >= "0" and ch <= "9":
+			digits += ch
+		elif ch == " " and digits.is_empty():
+			continue
+		else:
+			break
+	return digits.to_int()
 
 
 ## Index of the attack with this name (case-insensitive), or -1.
@@ -168,4 +193,7 @@ func to_sheet(rng: Rng = null, roll_hp: bool = false) -> CharacterSheet:
 	sheet.save_bonuses = saving_throws.duplicate()
 	sheet.proficiency_override = proficiency_bonus
 	sheet.fly_speed = fly_speed
+	sheet.darkvision_ft = darkvision_ft
+	sheet.blindsight_ft = blindsight_ft
+	sheet.truesight_ft = truesight_ft
 	return sheet

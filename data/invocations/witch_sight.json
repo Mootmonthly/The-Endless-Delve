@@ -4,6 +4,6 @@
 	"display_name": "Witch Sight",
 	"description": "You can see the true form of any shapechanger or creature concealed by illusion or transmutation magic while the creature is within 30 feet of you and within line of sight.",
 	"prerequisites": { "level": 15 },
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

@@ -250,7 +250,8 @@ func test_level_up_screen_choice_sections_and_cards() -> void:
 			if (child as CheckBox).text.ends_with("not yet modelled"):
 				greyed += 1
 	assert_true(boxes >= 3, "invocation options")
-	assert_true(greyed > 0, "unmodelled invocations are marked")
+	# Every SRD invocation is modelled since round C; the badge path is covered by test_level_up_draft.
+	assert_eq(greyed, 0, "no invocation is left unmodelled")
 	assert_true(screen._confirm.disabled, "two invocations to choose")
 	var auto := LevelUpDraft.first_valid(screen.draft.offer, s)
 	for entry in auto.choice_entries():

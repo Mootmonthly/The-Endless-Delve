@@ -339,7 +339,7 @@ static func from_dict(d: Dictionary) -> SpellDefinition:
 						s.beams[DictUtil.to_int(key, 1)] = maxi(1, DictUtil.to_int(beams_d[key], 1))
 			var damage_optional := s.damage.is_empty() and (not s.condition.is_empty() or not s.modifiers.is_empty() or not s.dot.is_empty() \
 					or s.push_tiles > 0 or e.has("curse_mark") or e.has("prismatic")) \
-					and s.effect_type in [EFFECT_SAVE, EFFECT_AREA_SAVE]
+					and (s.effect_type in [EFFECT_SAVE, EFFECT_AREA_SAVE] or (s.effect_type == EFFECT_SPELL_ATTACK and not s.condition.is_empty()))
 			if not damage_optional and not DiceFormula.parse(s.damage).valid:
 				push_error("%s: invalid damage '%s'" % [ctx, s.damage])
 				return null
@@ -545,8 +545,8 @@ func is_cantrip() -> bool:
 func is_harmful() -> bool:
 	if target == TARGET_ANY:
 		return false
-	return effect_type in [EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_MARK, EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK, EFFECT_THRESHOLD, EFFECT_SLEEP, EFFECT_BANISH] \
-			or (effect_type == EFFECT_BUFF and rider == RIDER_GUIDING) or (effect_type == EFFECT_TRANSFORM and not target in [TARGET_ALLY, TARGET_SELF])
+	return effect_type in [EFFECT_SPELL_ATTACK, EFFECT_AUTO_HIT, EFFECT_SAVE, EFFECT_MARK, EFFECT_AREA_SAVE, EFFECT_AREA_ATTACK, EFFECT_THRESHOLD, EFFECT_SLEEP] \
+			or (effect_type == EFFECT_BUFF and rider == RIDER_GUIDING) or (effect_type in [EFFECT_TRANSFORM, EFFECT_BANISH] and not target in [TARGET_ALLY, TARGET_SELF])
 
 
 ## Area spells pick a point (or a direction) instead of a target.

@@ -5,6 +5,6 @@
 	"class": "barbarian",
 	"level": 15,
 	"description": "Beginning at 15th level, your rage is so fierce that it ends early only if you fall unconscious or if you choose to end it.",
-	"mechanic": "unsupported",
+	"mechanic": "implemented",
 	"source": "SRD 5.1"
 }

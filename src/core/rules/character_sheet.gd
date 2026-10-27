@@ -30,13 +30,14 @@ const RESOURCE_OWNERS: Dictionary[String, String] = {
 	"indomitable": "indomitable", "wholeness_of_body": "wholeness_of_body",
 	"divine_intervention": "divine_intervention", "dark_ones_own_luck": "dark_ones_own_luck",
 	"cleansing_touch": "cleansing_touch", "stroke_of_luck": "stroke_of_luck", "wild_shape": "wild_shape",
+	"holy_nimbus": "holy_nimbus", "hurl_through_hell": "hurl_through_hell", "eldritch_master": "eldritch_master",
 }
 ## Resource ids (keys of class_resources).
 const RESOURCE_FEATURES: Array[String] = [
 	"second_wind", "action_surge", "rage", "lay_on_hands", "bardic_inspiration", "ki",
 	"channel_divinity", "sorcery_points", "arcane_recovery", "natural_recovery",
 	"indomitable", "wholeness_of_body", "divine_intervention", "dark_ones_own_luck",
-	"cleansing_touch", "stroke_of_luck", "wild_shape",
+	"cleansing_touch", "stroke_of_luck", "wild_shape", "holy_nimbus", "hurl_through_hell", "eldritch_master",
 ]
 ## Resources that also come back on a short rest (the rest need a long rest).
 ## Bardic Inspiration joins them with Font of Inspiration.
@@ -46,6 +47,9 @@ const SHORT_REST_RESOURCES: Array[String] = ["second_wind", "action_surge", "ki"
 ## cast a spell once with a warlock slot).
 const ARCANUM_PREFIX := "arcanum:"
 const INVOCATION_PREFIX := "invocation:"
+## Signature Spells (wizard 20): "signature:<spell>", one free 3rd-level cast
+## per short rest each.
+const SIGNATURE_PREFIX := "signature:"
 ## Invocations that let a warlock cast a spell once per long rest with a slot.
 const INVOCATION_SPELLS: Dictionary[String, String] = {
 	"bewitching_whispers": "compulsion", "dreadful_word": "confusion", "mire_the_mind": "slow",
@@ -57,11 +61,24 @@ const AT_WILL_SELF_INVOCATIONS: Dictionary[String, String] = {
 	"armor_of_shadows": "mage_armor", "fiendish_vigor": "false_life", "ascendant_step": "levitate",
 	"otherworldly_leap": "jump",
 }
+## Invocations that cast a spell at will without a slot or preparation, on
+## any target the spell allows (Chains of Carceri: hold monster on a
+## celestial, fiend or elemental, once per creature per long rest).
+const AT_WILL_INVOCATIONS: Dictionary[String, String] = {
+	"beast_speech": "speak_with_animals", "eldritch_sight": "detect_magic", "mask_of_many_faces": "disguise_self",
+	"master_of_myriad_forms": "alter_self", "misty_visions": "silent_image", "visions_of_distant_realms": "arcane_eye",
+	"whispers_of_the_grave": "speak_with_dead", "chains_of_carceri": "hold_monster",
+}
+## Pact of the Chain: the special familiar forms (SRD).
+const CHAIN_FAMILIARS: Array[String] = ["imp", "pseudodragon", "quasit", "sprite"]
 const FIGHTING_STYLES: Array[String] = ["archery", "defense", "dueling", "great_weapon_fighting", "protection", "two_weapon_fighting"]
 ## Fighting styles the rules engine models.
 const SUPPORTED_FIGHTING_STYLES: Array[String] = ["archery", "defense", "dueling", "great_weapon_fighting", "protection", "two_weapon_fighting"]
 const SIZES: Array[String] = ["tiny", "small", "medium", "large", "huge", "gargantuan"]
 const MAX_EXHAUSTION := 6
+## Primal Champion (barbarian 20): STR and CON +4, up to 24.
+const PRIMAL_CHAMPION_BONUS := 4
+const PRIMAL_CHAMPION_MAX := 24
 ## Damage types (Fiendish Resilience options, Protection from Energy).
 const DAMAGE_TYPES: Array[String] = [
 	"fire", "cold", "lightning", "poison", "necrotic", "acid", "thunder", "psychic", "radiant", "force",
@@ -150,6 +167,12 @@ var skill_bonuses: Dictionary[int, int] = {}
 var save_bonuses: Dictionary[int, int] = {}
 var proficiency_override: int = 0  # monsters: the stat block's proficiency bonus (0 = by level)
 var fly_speed: int = 0  # feet (monsters with a fly speed)
+## Round C senses in feet (0 = none): darkvision (ancestry trait or stat
+## block) sees in natural darkness; blindsight and truesight (stat blocks)
+## also see through magical darkness within their range.
+var darkvision_ft: int = 0
+var blindsight_ft: int = 0
+var truesight_ft: int = 0
 ## Lasting companions that join each encounter at the owner's side (Find
 ## Familiar, Animate Dead): [{"monster": id, "spell": id, "hp": int}].
 var companions: Array[Dictionary] = []
@@ -171,6 +194,19 @@ var companion_serial: int = 0
 ## Encounter applies them when a fight starts and counts them down when it
 ## ends; a long rest clears them.
 var lingering: Array[Dictionary] = []
+## Pact of the Tome: the three cantrips from any class's list (also known
+## and prepared). Book of Ancient Secrets: the ritual spells in the Book of
+## Shadows (cast only as rituals unless known otherwise).
+var tome_cantrips: Array[String] = []
+var ritual_book: Array[String] = []
+## Spell Mastery (wizard 18): a 1st- and a 2nd-level spell cast at their own
+## level without a slot. Signature Spells (wizard 20): two 3rd-level spells,
+## always prepared, each cast once per short rest at 3rd level without a slot.
+var spell_mastery: Array[String] = []
+var signature_spells: Array[String] = []
+## Overchannel (wizard 14): uses since the last long rest (the second and
+## later cost necrotic damage).
+var overchannel_uses: int = 0
 
 
 func proficiency_bonus() -> int:
@@ -630,6 +666,8 @@ func resource_max(resource: String) -> int:
 		return 1 if mystic_arcanum.has(resource.trim_prefix(ARCANUM_PREFIX)) else 0
 	if resource.begins_with(INVOCATION_PREFIX):
 		return 1 if invocations.has(resource.trim_prefix(INVOCATION_PREFIX)) else 0
+	if resource.begins_with(SIGNATURE_PREFIX):
+		return 1 if signature_spells.has(resource.trim_prefix(SIGNATURE_PREFIX)) else 0
 	var owner: String = RESOURCE_OWNERS.get(resource, "")
 	if owner.is_empty() or not features.has(owner):
 		return 0
@@ -652,7 +690,7 @@ func resource_max(resource: String) -> int:
 			return table_int("sorcery_points", level)
 		"indomitable":
 			return table_int("indomitable_uses", 3 if level >= 17 else (2 if level >= 13 else 1))
-		"wholeness_of_body", "divine_intervention", "dark_ones_own_luck", "stroke_of_luck":
+		"wholeness_of_body", "divine_intervention", "dark_ones_own_luck", "stroke_of_luck", "holy_nimbus", "hurl_through_hell", "eldritch_master":
 			return 1
 		"cleansing_touch":
 			return maxi(1, abilities.get_modifier(Ability.Type.CHA))
@@ -670,7 +708,27 @@ func once_per_rest_spell_keys() -> Array[String]:
 	for inv in invocations:
 		if INVOCATION_SPELLS.has(inv):
 			out.append(INVOCATION_PREFIX + inv)
+	for sp in signature_spells:
+		out.append(SIGNATURE_PREFIX + sp)
 	return out
+
+
+## The at-will invocation (AT_WILL_INVOCATIONS) this sheet has that casts
+## spell_id, or "".
+func at_will_invocation(spell_id: String) -> String:
+	for inv: String in AT_WILL_INVOCATIONS.keys():
+		if AT_WILL_INVOCATIONS[inv] == spell_id and invocations.has(inv):
+			return inv
+	return ""
+
+
+## The once-per-long-rest invocation (INVOCATION_SPELLS) with its use left
+## that casts spell_id with a slot, or "".
+func invocation_spell_use(spell_id: String) -> String:
+	for inv: String in INVOCATION_SPELLS.keys():
+		if INVOCATION_SPELLS[inv] == spell_id and invocations.has(inv) and class_resource(INVOCATION_PREFIX + inv) > 0:
+			return inv
+	return ""
 
 
 func class_resource(feature: String) -> int:
@@ -695,8 +753,8 @@ func restore_class_resources(short_rest_only: bool = false) -> void:
 		if short_rest_only and not resource_short_rest(resource):
 			continue
 		class_resources[resource] = resource_max(resource)
-	if not short_rest_only:
-		for key in once_per_rest_spell_keys():
+	for key in once_per_rest_spell_keys():
+		if not short_rest_only or key.begins_with(SIGNATURE_PREFIX):
 			class_resources[key] = 1
 
 
@@ -713,6 +771,15 @@ func gain_feature(feature: String) -> void:
 		max_hp += level
 		if is_conscious():
 			current_hp += level
+	if feature == "primal_champion":
+		var old_con := abilities.get_modifier(Ability.Type.CON)
+		for ability: int in [Ability.Type.STR, Ability.Type.CON]:
+			abilities.set_score(ability, mini(PRIMAL_CHAMPION_MAX, abilities.get_score(ability) + PRIMAL_CHAMPION_BONUS))
+		var delta := abilities.get_modifier(Ability.Type.CON) - old_con
+		if delta != 0:
+			max_hp = maxi(1, max_hp + delta * level)
+			if is_conscious():
+				current_hp = clampi(current_hp + delta * level, 1, max_hp)
 	if feature == "slippery_mind" and not proficient_saves.has(Ability.Type.WIS):
 		proficient_saves.append(Ability.Type.WIS)
 	if feature in ["purity_of_body", "natures_ward"]:
@@ -1148,6 +1215,9 @@ func to_dict() -> Dictionary:
 		"save_bonuses": CharacterSheet._keyed(save_bonuses, false),
 		"proficiency_override": proficiency_override,
 		"fly_speed": fly_speed,
+		"darkvision_ft": darkvision_ft,
+		"blindsight_ft": blindsight_ft,
+		"truesight_ft": truesight_ft,
 		"companions": companions.duplicate(true),
 		"mystic_arcanum": mystic_arcanum.duplicate(),
 		"chosen_resistance": chosen_resistance,
@@ -1155,6 +1225,11 @@ func to_dict() -> Dictionary:
 		"resurrection_penalty": resurrection_penalty,
 		"companion_serial": companion_serial,
 		"lingering": lingering.duplicate(true),
+		"tome_cantrips": tome_cantrips.duplicate(),
+		"ritual_book": ritual_book.duplicate(),
+		"spell_mastery": spell_mastery.duplicate(),
+		"signature_spells": signature_spells.duplicate(),
+		"overchannel_uses": overchannel_uses,
 	}
 
 
@@ -1267,6 +1342,9 @@ static func from_dict(d: Dictionary) -> CharacterSheet:
 				s.save_bonuses[ability] = DictUtil.to_int(sv_d[key], 0)
 	s.proficiency_override = DictUtil.to_int(d.get("proficiency_override", 0), 0)
 	s.fly_speed = DictUtil.to_int(d.get("fly_speed", 0), 0)
+	s.darkvision_ft = DictUtil.to_int(d.get("darkvision_ft", 0), 0)
+	s.blindsight_ft = DictUtil.to_int(d.get("blindsight_ft", 0), 0)
+	s.truesight_ft = DictUtil.to_int(d.get("truesight_ft", 0), 0)
 	s.companions = DictUtil.to_dict_array(d.get("companions", []))
 	s.mystic_arcanum = DictUtil.to_string_array(d.get("mystic_arcanum", []))
 	s.chosen_resistance = str(d.get("chosen_resistance", ""))
@@ -1274,6 +1352,11 @@ static func from_dict(d: Dictionary) -> CharacterSheet:
 	s.resurrection_penalty = DictUtil.to_int(d.get("resurrection_penalty", 0), 0)
 	s.companion_serial = DictUtil.to_int(d.get("companion_serial", 0), 0)
 	s.lingering = DictUtil.to_dict_array(d.get("lingering", []))
+	s.tome_cantrips = DictUtil.to_string_array(d.get("tome_cantrips", []))
+	s.ritual_book = DictUtil.to_string_array(d.get("ritual_book", []))
+	s.spell_mastery = DictUtil.to_string_array(d.get("spell_mastery", []))
+	s.signature_spells = DictUtil.to_string_array(d.get("signature_spells", []))
+	s.overchannel_uses = DictUtil.to_int(d.get("overchannel_uses", 0), 0)
 	return s
 
 
