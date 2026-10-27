@@ -1,0 +1,463 @@
+{
+	"schema_version": 1,
+	"texture": "res://assets/tiles/dungeon_tiles.png",
+	"tileset": "res://assets/tiles/dungeon_tiles.tres",
+	"atlas_source_id": 0,
+	"tile_size": 32,
+	"columns": 16,
+	"rows": 6,
+	"tiles": {
+		"floor": [
+			0,
+			0
+		],
+		"wall": [
+			1,
+			0
+		],
+		"stairs": [
+			2,
+			0
+		],
+		"arrival": [
+			3,
+			0
+		],
+		"zone_floor": [
+			4,
+			0
+		],
+		"player": [
+			5,
+			0
+		],
+		"monster": [
+			6,
+			0
+		],
+		"unconscious": [
+			7,
+			0
+		],
+		"selection": [
+			8,
+			0
+		],
+		"floor_cracked": [
+			9,
+			0
+		],
+		"floor_mossy": [
+			10,
+			0
+		],
+		"floor_rubble": [
+			11,
+			0
+		],
+		"floor_puddle": [
+			12,
+			0
+		],
+		"zone_tint": [
+			13,
+			0
+		],
+		"water": [
+			14,
+			0
+		],
+		"pit": [
+			15,
+			0
+		],
+		"wall_0": [
+			0,
+			1
+		],
+		"wall_1": [
+			1,
+			1
+		],
+		"wall_4": [
+			2,
+			1
+		],
+		"wall_5": [
+			3,
+			1
+		],
+		"wall_7": [
+			4,
+			1
+		],
+		"wall_16": [
+			5,
+			1
+		],
+		"wall_17": [
+			6,
+			1
+		],
+		"wall_20": [
+			7,
+			1
+		],
+		"wall_21": [
+			8,
+			1
+		],
+		"wall_23": [
+			9,
+			1
+		],
+		"wall_28": [
+			10,
+			1
+		],
+		"wall_29": [
+			11,
+			1
+		],
+		"wall_31": [
+			12,
+			1
+		],
+		"wall_64": [
+			13,
+			1
+		],
+		"wall_65": [
+			14,
+			1
+		],
+		"wall_68": [
+			15,
+			1
+		],
+		"wall_69": [
+			0,
+			2
+		],
+		"wall_71": [
+			1,
+			2
+		],
+		"wall_80": [
+			2,
+			2
+		],
+		"wall_81": [
+			3,
+			2
+		],
+		"wall_84": [
+			4,
+			2
+		],
+		"wall_85": [
+			5,
+			2
+		],
+		"wall_87": [
+			6,
+			2
+		],
+		"wall_92": [
+			7,
+			2
+		],
+		"wall_93": [
+			8,
+			2
+		],
+		"wall_95": [
+			9,
+			2
+		],
+		"wall_112": [
+			10,
+			2
+		],
+		"wall_113": [
+			11,
+			2
+		],
+		"wall_116": [
+			12,
+			2
+		],
+		"wall_117": [
+			13,
+			2
+		],
+		"wall_119": [
+			14,
+			2
+		],
+		"wall_124": [
+			15,
+			2
+		],
+		"wall_125": [
+			0,
+			3
+		],
+		"wall_127": [
+			1,
+			3
+		],
+		"wall_193": [
+			2,
+			3
+		],
+		"wall_197": [
+			3,
+			3
+		],
+		"wall_199": [
+			4,
+			3
+		],
+		"wall_209": [
+			5,
+			3
+		],
+		"wall_213": [
+			6,
+			3
+		],
+		"wall_215": [
+			7,
+			3
+		],
+		"wall_221": [
+			8,
+			3
+		],
+		"wall_223": [
+			9,
+			3
+		],
+		"wall_241": [
+			10,
+			3
+		],
+		"wall_245": [
+			11,
+			3
+		],
+		"wall_247": [
+			12,
+			3
+		],
+		"wall_253": [
+			13,
+			3
+		],
+		"wall_255": [
+			14,
+			3
+		],
+		"door_closed_h": [
+			0,
+			4
+		],
+		"door_open_h": [
+			1,
+			4
+		],
+		"door_locked_h": [
+			2,
+			4
+		],
+		"door_closed_v": [
+			3,
+			4
+		],
+		"door_open_v": [
+			4,
+			4
+		],
+		"door_locked_v": [
+			5,
+			4
+		],
+		"barrel": [
+			6,
+			4
+		],
+		"barrel_damaged": [
+			7,
+			4
+		],
+		"crate": [
+			8,
+			4
+		],
+		"crate_damaged": [
+			9,
+			4
+		],
+		"brazier": [
+			10,
+			4
+		],
+		"brazier_frame_1": [
+			11,
+			4
+		],
+		"brazier_damaged": [
+			12,
+			4
+		],
+		"bones": [
+			13,
+			4
+		],
+		"bones_damaged": [
+			14,
+			4
+		],
+		"rubble": [
+			15,
+			4
+		],
+		"rubble_damaged": [
+			0,
+			5
+		],
+		"landing": [
+			1,
+			5
+		],
+		"landing_frame_1": [
+			2,
+			5
+		],
+		"torch": [
+			3,
+			5
+		],
+		"torch_frame_1": [
+			4,
+			5
+		],
+		"decal_crack": [
+			5,
+			5
+		],
+		"decal_moss": [
+			6,
+			5
+		],
+		"decal_pebbles": [
+			7,
+			5
+		],
+		"decal_holes": [
+			8,
+			5
+		],
+		"decal_cobweb": [
+			9,
+			5
+		],
+		"gravestone_a": [
+			10,
+			5
+		],
+		"gravestone_b": [
+			11,
+			5
+		],
+		"chest_closed": [
+			12,
+			5
+		],
+		"chest_open": [
+			13,
+			5
+		]
+	},
+	"animated": {
+		"brazier": 2,
+		"landing": 2,
+		"torch": 2
+	},
+	"blob_masks": [
+		0,
+		1,
+		4,
+		5,
+		7,
+		16,
+		17,
+		20,
+		21,
+		23,
+		28,
+		29,
+		31,
+		64,
+		65,
+		68,
+		69,
+		71,
+		80,
+		81,
+		84,
+		85,
+		87,
+		92,
+		93,
+		95,
+		112,
+		113,
+		116,
+		117,
+		119,
+		124,
+		125,
+		127,
+		193,
+		197,
+		199,
+		209,
+		213,
+		215,
+		221,
+		223,
+		241,
+		245,
+		247,
+		253,
+		255
+	],
+	"blob_bits": {
+		"N": 1,
+		"NE": 2,
+		"E": 4,
+		"SE": 8,
+		"S": 16,
+		"SW": 32,
+		"W": 64,
+		"NW": 128
+	},
+	"terrain_set": 0,
+	"terrain": 0,
+	"sources": {
+		"procedural": "tools/build_tiles.py",
+		"kenney_tiny_dungeon": [
+			"barrel",
+			"barrel_damaged",
+			"rubble",
+			"rubble_damaged",
+			"decal_holes",
+			"gravestone_a",
+			"gravestone_b",
+			"chest_closed",
+			"chest_open"
+		]
+	}
+}

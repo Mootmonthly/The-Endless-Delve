@@ -143,7 +143,43 @@ dozens of players may be on a floor at once. Every floor from Round D on follows
 
 **Proposal (needs owner sign-off):** floor templates by population band (solo/offline: 64x48 with 2
 landings; instance: 128x96 with 4-6 landings), authored in the same JSON format with a generator
-for the first pass and hand-editing after.
+for the first pass and hand-editing after. Round D ships the instance band (floors 1-2 112x80 with 4
+landings, floors 3-5 128x96 with 6); the solo/offline band is not built yet.
+
+### 5.2.2 Floor file format v2 (Round D)
+
+Floors stay JSON under `floors/` (`FloorFile` reads them into the core `FloorData`; schema 1 files still
+load, as one landing called `arrival`). A version 2 file adds:
+
+| Key | Shape | Meaning |
+|---|---|---|
+| `schema_version` | `2` | |
+| `landings` | `[{"id", "position": [x, y], "facing": "north"\|"east"\|"south"\|"west"}]` | Arrival landings, at least one. `arrival` may be omitted; when present it must equal `landings[0]`, which servers still use as the default arrival. Each landing is walkable, outside every zone and on the outer third of the map. |
+| `doors` | `[{"id", "position", "state": "open"\|"closed"\|"locked", "dc": int, "key_item": item id}]` | A door tile is floor in the rows; it is walkable only while open, and a closed or locked door blocks line of sight. A locked door opens with `key_item`, a thieves' tools check against `dc`, or Knock (a locked door needs a `dc` or a `key_item`). Doors sit in 1-wide corridor cells (walls on two opposite sides, floor on the other two). |
+| `props` | `[{"id", "kind": "barrel"\|"crate"\|"brazier"\|"bones"\|"rubble", "position", "hp": int, "blocks": bool, "loot_table": id}]` | Breakable objects: attacking one to 0 hit points, or an `interact` out of combat, destroys it and rolls its loot table. A blocking prop is an obstacle (it does not block sight) until destroyed. |
+| `respawn` | `{"pack_seconds": 600, "boss_seconds": 1800}` | Respawn timers (defaults shown). |
+| zone keys | `"name"`, `"guards_stairs"`, `"respawns"` (default true), `"optional"` | The zone that holds the stairs is marked `guards_stairs`. |
+| `theme_style` | `{"darkness": "#rrggbb", "torch_color", "torch_density", "decor_density", "floor_variant_weights": {"plain", "cracked", "mossy", "rubble", "puddle"}, ...}` | Presentation only (FloorView; the rules never read it). Missing keys fall back to the theme's defaults, then FloorView's. |
+| `generated_by` | string | The generator command line that produced the first pass (`tools/gen_floor.py --preset floor_001 --seed 101`). Hand-edited files add `"hand_edited": true`. |
+
+Row legend v2: `#` wall, `.` floor, `A` landings[0], `S` stairs, `L` another landing, `D` a door
+(markers are optional; each one must sit on its object). Validation (`FloorData.validate`, mirrored by
+`tools/gen_floor.py --check`): every landing reaches the stairs without passing a locked door or a
+blocking prop; the stairs stand inside a `guards_stairs` zone that also holds a chest; doors and props
+stand on walkable tiles; no two objects (stairs, landings, chests, doors, props) share a tile; spawn
+points avoid doors and blocking props. Servers build their movement and sight blockers from
+`FloorData.static_blockers()` (closed or locked doors and blocking props), `sight_blockers()` (doors),
+`blocked_walk_map()` (doors walled off) and `prop_blockers()` (an `occupied`-style set).
+
+**The generator.** `tools/gen_floor.py` (standard library, deterministic per preset and seed) makes the
+first pass: concentric corridor loops (two or three), the landings in the outer band each in its own
+room that opens only into its landing pack's room, gate rooms on 2-wide spokes between loops (every
+route inward crosses one gate pack per band), the stairs hall in the centre (stairs guard, chest by the
+stairs, braziers), the optional deadly side area west of the hall (a dead end with the hidden cache),
+a locked vault and a shrine east of it, and filler rooms behind open, closed or locked doors with
+barrels, crates, bones and rubble. Landing and spoke placements are searched so the routes from every
+landing to the stairs are within 20% of each other. `--check` validates files, `--stats` prints
+walkable share, routes per landing, zones, doors, props and zone XP.
 
 ### 5.3 Difficulty curve
 
@@ -173,36 +209,48 @@ giant spider), goblinoids and their kobold labour (kobold, goblin, hobgoblin, bu
 
 #### Floors
 
-Files: `floors/set_01.json` (the manifest) and `floors/floor_001.json` to `floor_005.json`. Each floor
-declares `floor_number`, `theme` and a `budget` (below); zones declare `kind` (`pack`, `ambush`, `boss`),
-floor 5's boss zone `"boss": true`, and each floor's side area `"optional": true`. Difficulty is per zone,
-for **one** character of the assumed level, using adjusted XP (see the budget rules below); the numbers in
-brackets are adjusted XP and side areas are in italics.
+Files: `floors/set_01.json` (the manifest) and `floors/floor_001.json` to `floor_005.json`, floor file v2
+(5.2.2) generated by `tools/gen_floor.py --preset floor_00N` (Round D). Each floor declares
+`floor_number`, `theme` and a `budget` (below); zones declare `kind` (`pack`, `ambush`, `boss`), the
+stairs zone `"guards_stairs": true`, floor 5's boss zone `"boss": true`, and each floor's side area
+`"optional": true`. Every floor is concentric: landings on the edge, each with its own **landing pack**,
+**gate packs** on every spoke inward (one band of gates on floors 1-2, two on floors 3-5), the
+**stairs guard** in the central hall, and one optional side area beside the hall. Difficulty is per
+zone, for **one** character of the assumed level, using adjusted XP (see the budget rules below); the
+numbers in brackets are adjusted XP and the side area is in italics.
 
-| Floor | Name | Size (tiles) | Zones (of which optional) | Assumed solo level | Band (solo) | Roster by zone | Notable feature |
-|---|---|---|---|---|---|---|---|
-| 1 | The Threshold | 48x32 | 2 (1) | 1 | easy-hard | rat hall: 2 giant rats, hard (75); *crypt*: 2 skeletons + zombie, deadly (300) | One required fight; the crypt is a side room off the rat hall. |
-| 2 | The Spoil Tunnels | 56x36 | 3 (1) | 2 | easy-medium | kobold den: 2 kobolds, easy (75); centipede gallery (ambush): giant centipede, easy (50); *goblin cache*: 2 goblins, hard (150) | Two ways off the landing (through the den or down the west tunnel); both meet in the gallery. |
-| 3 | The Ossuary | 64x40 | 4 (1) | 2 | medium-hard | bone-pickers' hall: 3 kobolds, hard (150); narrow ossuary (ambush): 2 giant centipedes, hard (150); guard post: hobgoblin + kobold, hard (187.5); *charnel chamber*: ghoul, deadly (200) | After the hall the route forks: low road through the ossuary, or high road through the guard post. |
-| 4 | The Webbed Crypts | 72x44 | 4 (1) | 3 | hard | war-band camp: hobgoblin + goblin, hard (225); webbed gallery (ambush): giant spider + giant centipede, hard (375); sealed crypt: ghoul + zombie, hard (375); *chieftain's tomb*: bugbear + hobgoblin, deadly (450) | Landing in the middle of the floor; a north road (camp, then gallery) and a south road (crypt) to the stairs. |
-| 5 | The Gravebreaker's Hall | 80x48 | 5 (1) | 3 | hard, boss deadly | muster room: bugbear + goblin, hard (375); sniper gallery (ambush): 3 goblins, hard (300); bone pit: ghoul + skeleton, hard (375); *charnel pit*: 2 ghouls, deadly (600); **boss** great hall: ogre, deadly (450) | The stairs stand inside the great hall: the boss zone is on every route. West road (sniper gallery) or east road (bone pit). |
+| Floor | Name | Size | Landings | Zones (optional) | Doors (locked) | Props | Chests | Assumed solo level | Band (solo) | Roster by role |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | The Threshold | 112x80 | 4 | 12 (1) | 21 (3) | 133 | 5 | 1 | easy-hard | landing: giant rat, easy (25); gates: 2 giant rats or 2 kobolds, hard (75); stairs: 2 kobolds, hard (75); *crypt*: 2 skeletons + zombie, deadly (300) |
+| 2 | The Spoil Tunnels | 112x80 | 4 | 12 (1) | 29 (3) | 179 | 5 | 2 | easy-medium | landing: 2 kobolds, easy (75); gates: giant centipede (ambush) or goblin, easy (50); stairs: goblin + kobold, medium (112.5); *goblin cache*: 2 goblins, hard (150) |
+| 3 | The Ossuary | 128x96 | 6 | 20 (1) | 38 (7) | 236 | 7 | 2 | medium-hard | landing: 3 kobolds, hard (150); outer gates (ambush): 2 giant centipedes, hard (150); inner gates: hobgoblin + kobold, hard (187.5); stairs: hobgoblin + kobold, hard (187.5); *charnel chamber*: ghoul, deadly (200) |
+| 4 | The Webbed Crypts | 128x96 | 6 | 20 (1) | 47 (4) | 309 | 7 | 3 | hard | landing: hobgoblin + goblin, hard (225); outer gates: hobgoblin + goblin (225) or 3 goblins (300), hard; inner gates: giant spider + giant centipede (ambush) or ghoul + zombie, hard (375); stairs: hobgoblin + goblin, hard (225); *chieftain's tomb*: bugbear + hobgoblin, deadly (450) |
+| 5 | The Gravebreaker's Hall | 128x96 | 6 | 20 (1) | 44 (7) | 344 | 8 | 3 | hard, boss deadly | landing: bugbear + goblin, hard (375); outer gates (ambush): 3 goblins, hard (300); inner gates: ghoul + skeleton, hard (375); **boss** great hall: ogre, deadly (450); *charnel pit*: 2 ghouls, deadly (600) |
 
-Layout rules every floor of the set meets (checked by `tests/content/test_set_01.gd`): each floor is wider
-and taller than the one before; zone counts never drop; every route from arrival to the stairs crosses at
-least one non-optional zone (the shortest route crosses a zone too); the optional zone is a dead end that
-never blocks the stairs; and on floor 5 the stairs lie inside the boss zone.
+Route lengths from each landing to the stairs (tiles): floors 1-2 72-74, floor 3 89-90, floors 4-5 83-88.
 
-Every floor also has two treasure chests (`"chests"` in the floor file, checked by
-`tests/content/test_chests.gd`): a visible `starter_gear` chest within 3 tiles of the stairs and a hidden
-`hidden_cache` chest in the optional side area (8.5).
+Layout rules every floor of the set meets (checked by `tests/content/test_set_01.gd` and
+`test_floor_generator.gd`): floors never get smaller (floors 1-2 share one size, 3-5 another) and zone
+counts never drop; every landing reaches the stairs on a route within 20% of the others' length, and the
+first zone on it belongs to that landing alone; every route from a landing to the stairs crosses a
+required zone; the optional zone is a dead end that never blocks the stairs; the stairs stand inside the
+`guards_stairs` zone with a chest; each floor has every prop kind, closed and locked doors and respawn
+timers; on floor 5 the stairs lie inside the boss zone; and the committed files are the generator's
+output until a file is marked `"hand_edited": true`.
 
-| Floor | Stair chest (`starter_gear`) | Hidden chest (`hidden_cache`, side area) |
-|---|---|---|
-| 1 | f1_stairs (44, 25), stairs (42, 26) | f1_hidden (28, 29), crypt |
-| 2 | f2_stairs (50, 28), stairs (48, 29) | f2_hidden (50, 3), goblin cache |
-| 3 | f3_stairs (56, 30), stairs (54, 31) | f3_hidden (37, 14), charnel chamber |
-| 4 | f4_stairs (64, 34), stairs (62, 35) | f4_hidden (47, 38), chieftain's tomb |
-| 5 | f5_stairs (66, 8), stairs (64, 9), inside the boss hall | f5_hidden (66, 29), charnel pit |
+Chests (`"chests"` in the floor file, checked by `tests/content/test_chests.gd`): a visible
+`starter_gear` chest two tiles east of the stairs, a hidden `hidden_cache` chest in the optional side
+area (8.5), one `monster_medium` chest in each locked vault (the inner vault east of the stairs hall,
+plus more vaults behind locked doors on floors 3-5), and two or three `monster_small` caches in filler
+rooms. Barrels, crates and some bones carry the `monster_small` loot table.
+
+| Floor | Stairs | Stair chest (`starter_gear`) | Hidden chest (`hidden_cache`, side area) |
+|---|---|---|---|
+| 1 | (56, 40) | f1_stairs (58, 40) | f1_hidden (30, 49), crypt |
+| 2 | (56, 40) | f2_stairs (58, 40) | f2_hidden (30, 49), goblin cache |
+| 3 | (64, 48) | f3_stairs (66, 48) | f3_hidden (41, 54), charnel chamber |
+| 4 | (64, 48) | f4_stairs (66, 48) | f4_hidden (41, 54), chieftain's tomb |
+| 5 | (64, 48) | f5_stairs (66, 48), inside the boss hall | f5_hidden (41, 54), charnel pit |
 
 **Proposal (needs owner sign-off):** in this set only floor 5 has a boss. Floors 1-4 gate their stairs with
 required pack zones instead of the one-to-three bosses of 5.2, so the set's single boss is a clear finale;
@@ -223,9 +271,9 @@ later sets may add mid-set bosses once boss mechanics (lair behaviour, respawn, 
 
 #### The boss: the Gravebreaker (floor 5)
 
-An ogre (SRD 5.1, CR 2, 450 XP: AC 11, 59 hit points, greatclub +6 for 2d8+4) alone in a 32x13 hall with
-pillars, standing by the stairs. Adjusted XP 450: **deadly** for one level-3 character, **hard** for three
-level-2 characters, medium for three level-3 characters (a full-clear party of three now arrives at level 3
+An ogre (SRD 5.1, CR 2, 450 XP: AC 11, 59 hit points, greatclub +6 for 2d8+4) alone in the 20x14 central hall
+with pillars and braziers, standing by the stairs. Adjusted XP 450: **deadly** for one level-3 character, **hard** for three
+level-2 characters, medium for three level-3 characters (a party of three on full journeys now arrives at level 3
 thanks to the floor-clear bonus) and for four level-2 characters.
 
 - **Why a solo loses head-on.** A level-3 solo has about 28 hit points (a Fighter with Constitution 14).
@@ -249,34 +297,39 @@ thanks to the floor-clear bonus) and for four level-2 characters.
 - **Floor-clear bonus (owner decision, playtest round 1):** every living player who takes the stairs of a
   floor, any floor, earns `FLOOR_CLEAR_XP = 100` XP, not split. It answers "still level 1 entering
   floor 2": a solo who clears floor 1 (200 XP) arrives on floor 2 with 300 XP, which is level 2.
-- **XP per floor (sum of monster XP):**
+- **XP per floor.** An instance floor holds far more packs than one player meets, so levelling is
+  measured on the **journey**: the zones on the shortest route from a landing to the stairs (landing
+  pack, one gate per band, the stairs guard) plus the optional side area. Every landing's journey is
+  worth the same XP (`test_journey_level_matches_each_floor_budget` checks the poorest and the richest).
 
-| Floor | Required zones (both roads) | Optional zone | Full clear | Solo total after full clears | Solo total, side rooms skipped |
-|---|---|---|---|---|---|
-| 1 | 50 | 150 | 200 | 200 | 50 |
-| 2 | 100 | 100 | 200 | 400 | 150 |
-| 3 | 300 | 200 | 500 | 900 | 450 |
-| 4 | 650 | 300 | 950 | 1,850 | 1,100 |
-| 5 | 1,100 | 400 | 1,500 | 3,350 | 2,200 |
+| Floor | Route zones (any landing) | Optional zone | Journey | Every zone on the floor | Solo total after full journeys | Solo total, side rooms skipped |
+|---|---|---|---|---|---|---|
+| 1 | 125 | 150 | 275 | 600 | 275 | 125 |
+| 2 | 175 | 100 | 275 | 675 | 550 | 300 |
+| 3 | 425 | 200 | 625 | 2,125 | 1,175 | 725 |
+| 4 | 700 | 300 | 1,000 | 3,750 | 2,175 | 1,425 |
+| 5 | 1,100 | 400 | 1,500 | 4,750 | 3,675 | 2,525 |
 
 - **Expected level on arrival**, monster XP plus 100 per floor already left by the stairs (SRD
-  thresholds: level 2 at 300 XP, 3 at 900, 4 at 2,700). Each floor's `budget.level` is the full-clear solo
-  column: 1, 2, 2, 3, 3.
+  thresholds: level 2 at 300 XP, 3 at 900, 4 at 2,700). Each floor's `budget.level` is the full-journey
+  solo column: 1, 2, 2, 3, 3. Parties split monster XP (rounded down per encounter), so the party columns
+  are approximate.
 
-| Arriving on | Solo, full clears (XP) | Solo, side rooms skipped (XP) | Party of 3, full clears (XP each) | Party of 5, full clears (XP each) |
+| Arriving on | Solo, full journeys (XP) | Solo, side rooms skipped (XP) | Party of 3, full journeys (XP each) | Party of 5, full journeys (XP each) |
 |---|---|---|---|---|
 | Floor 1 | 1 (0) | 1 (0) | 1 (0) | 1 (0) |
-| Floor 2 | 2 (300) | 1 (150) | 1 (166) | 1 (140) |
-| Floor 3 | 2 (600) | 2 (350) | 2 (333) | 1 (280) |
-| Floor 4 | 3 (1,200) | 2 (750) | 2 (600) | 2 (480) |
-| Floor 5 | 3 (2,250) | 3 (1,500) | 3 (1,016) | 2 (770) |
-| Safe zone 1 | 4 (3,850) | 4 (2,700) | 3 (1,616) | 3 (1,170) |
+| Floor 2 | 2 (375) | 1 (225) | 1 (191) | 1 (155) |
+| Floor 3 | 2 (750) | 2 (500) | 2 (383) | 2 (310) |
+| Floor 4 | 3 (1,475) | 3 (1,025) | 2 (691) | 2 (535) |
+| Floor 5 | 3 (2,575) | 3 (1,825) | 3 (1,125) | 2 (835) |
+| Safe zone 1 | 4 (4,175) | 4 (3,025) | 3 (1,725) | 3 (1,235) |
 
-  With the bonus, floor 2 drops to easy-medium for its full-clear level-2 solo (its required zones are
-  easy at level 2; the goblin cache is hard). A solo who skips side rooms runs a level behind the budget
-  on floors 2 and 4 and catches up on floor 5. Side rooms (now with a hidden chest each) remain the solo's
-  way to stay on the curve, at a risk. `test_full_clear_level_matches_each_floor_budget` pins the
-  full-clear column to each floor's budget level.
+  With the bonus, floor 2 is easy-medium for its full-journey level-2 solo (its landing and gate packs
+  are easy at level 2, the stairs guard medium; the goblin cache is hard). A solo who skips side rooms
+  runs a level behind the budget on floor 2 only. Packs respawn (5.2.1), so a player who sweeps more of
+  a floor out-levels the curve; the budget is written for the journey. Side rooms (with a hidden chest
+  each) remain the solo's way to stay on the curve, at a risk. `test_journey_level_matches_each_floor_budget`
+  pins the full-journey column to each floor's budget level.
 
 #### Measurement (moved from Open question 19)
 

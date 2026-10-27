@@ -119,7 +119,10 @@ func _play(sheet: CharacterSheet, instance_seed: int) -> ClientState:
 	server.run_tick()
 	assert_eq(st.mode, ClientState.Mode.EXPLORING)
 	assert_eq(st.player_position(), floor_data.arrival)
-	assert_eq(st.entities.size(), 6, "the player and five monsters")
+	var expected_entities := 1
+	for z in floor_data.encounter_zones:
+		expected_entities += z.monster_ids.size()
+	assert_eq(st.entities.size(), expected_entities, "the player and every monster on the floor")
 	assert_eq(st.display_name("z1_giant_rat_0"), "Giant Rat", "names come from EXPLORE_STATE")
 	assert_true(st.chests.has(STAIRS_CHEST), "the stairs chest is known from FLOOR_LOADED")
 	assert_false(st.chests.has("f1_hidden"), "the hidden chest is not sent before it is found")

@@ -541,7 +541,10 @@ func test_floor_001_playthrough_to_the_stairs() -> void:
 	sheet.current_hp = 500
 	server.configure(transport, floor_data, SEED)
 	assert_eq(server.add_player(LocalTransport.PEER_ID, sheet), "p1")
-	assert_eq(server.entity_ids().size(), 6, "5 monsters + the player")
+	var expected_entities := 1
+	for z in server.get_floor().encounter_zones:
+		expected_entities += z.monster_ids.size()
+	assert_eq(server.entity_ids().size(), expected_entities, "every monster + the player")
 	for _attempt in range(6):
 		_walk_to(floor_data.stairs, 1000)
 		if server.get_entity("p1").in_combat():

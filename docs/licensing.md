@@ -93,5 +93,19 @@ that keyword before creating the store page (suggested: "Tabletop RPG", "Turn-Ba
 assets are proprietary, all rights reserved, for now. Decide before any public release whether to
 keep it proprietary or open some of it (for example the rules core) under a permissive licence. Until
 then, do not add a LICENSE file that grants rights. Third-party assets and plugins may only be added if
-their licence allows commercial use and is recorded in a `THIRD_PARTY.md` (to be created when the first
-one is added).
+their licence allows commercial use and is recorded in "Asset provenance" below, with a `PROVENANCE.md`
+next to the files (pack, author, URL, licence, date, checksums).
+
+## Asset provenance
+
+Only CC0 (public domain) or CC-BY art whose licence was verified on the pack's own page and in its own
+licence file may be added. CC-BY art also needs its credit line in the game's credits. Downloaded
+packs are unpacked outside the repository; only the image files we use are copied into `assets/`.
+
+| Asset | Source | Licence | Where | Credit |
+|---|---|---|---|---|
+| Dungeon tiles: walls (47-tile blob set), floors, stairs, landing rune, doors, crate, brazier, bones, torch, decals, zone tint, light texture | Drawn by `tools/build_tiles.py` (procedural pixel art, deterministic) | The project's own | `assets/tiles/dungeon_tiles.png`, `light_soft.png` | — |
+| Player / monster / unconscious / selection markers, entity icons | Drawn by `tools/gen_tileset.py` | The project's own | `assets/tiles/` (row 0, columns 5-8), `assets/icons/` | — |
+| Barrel, rubble, holes decal, gravestones, chests (16 px, scaled x2) | Kenney, "Tiny Dungeon" 1.0, https://kenney.nl/assets/tiny-dungeon, retrieved 2026-10-27 | CC0 1.0 (verified on the pack page and in its `License.txt`) | `assets/third_party/kenney_tiny_dungeon/tilemap_packed.png` (unmodified), composed into `assets/tiles/dungeon_tiles.png` | Not required by CC0; we credit anyway: "Tiny Dungeon by Kenney (www.kenney.nl), CC0" |
+
+Details and checksums: `assets/third_party/kenney_tiny_dungeon/PROVENANCE.md`.

@@ -1,7 +1,14 @@
 extends TestCase
 ## Content checks for the first five-floor set (floors/set_01.json): every
 ## floor loads and validates, monsters exist, zones sit inside the floor's
-## declared SRD encounter budget, floors grow, and the zones gate the stairs.
+## declared SRD encounter budget, floors never shrink, and the zones gate the
+## stairs. Since Round D the floors are concentric instance floors (floor file
+## v2): several landings around the edge, one landing pack per landing, gate
+## packs on every spoke inward, a guarded stairs hall in the centre.
+##
+## Levelling is measured on the "journey": the zones a solo crosses on the
+## shortest route from one landing to the stairs, plus the floor's optional
+## side area(s). Every landing's journey must give the same expected level.
 ##
 ## Budget maths (SRD encounter building): adjusted XP = sum of monster XP x a
 ## multiplier for the number of monsters (1: x1, 2: x1.5, 3-6: x2, 7-10: x2.5,
@@ -119,12 +126,41 @@ func _rect_tiles(rect: Rect2i) -> Dictionary:
 	return tiles
 
 
-## Full-clear XP of one floor (every zone, optional ones included).
-func _floor_xp(f: FloorData) -> int:
-	var total := 0
+## Movement blockers at load: blocking props, plus locked doors (closed doors open).
+func _route_blockers(f: FloorData) -> Dictionary:
+	var blocked := f.prop_blockers()
+	for d in f.doors:
+		if d.is_locked():
+			blocked[d.position] = true
+	blocked.erase(f.stairs)
+	return blocked
+
+
+## The shortest route from a landing to the stairs.
+func _route(f: FloorData, landing: Vector2i) -> Array[Vector2i]:
+	return f.walk_map.path_to(landing, f.stairs, _route_blockers(f))
+
+
+## Journey XP from each landing: the zones crossed on the shortest route to the
+## stairs plus every optional zone (a solo who takes the side areas).
+func _journey_xps(f: FloorData) -> Array[int]:
+	var out: Array[int] = []
+	var optional_xp := 0
 	for zone in f.encounter_zones:
-		total += _raw_xp(zone.monster_ids)
-	return total
+		if zone.optional:
+			optional_xp += _raw_xp(zone.monster_ids)
+	for landing in f.landing_positions():
+		var crossed := {}
+		for p in _route(f, landing):
+			var zone := f.zone_at(p)
+			if zone != null and not zone.optional:
+				crossed[zone.id] = zone
+		var xp := optional_xp
+		for zid: String in crossed.keys():
+			var zone: EncounterZoneData = crossed[zid]
+			xp += _raw_xp(zone.monster_ids)
+		out.append(xp)
+	return out
 
 
 func test_manifest_lists_five_themed_floors() -> void:
@@ -227,24 +263,128 @@ func test_each_floor_has_one_optional_side_area() -> void:
 		assert_eq(optional, 1, "%s optional zones" % floor_id)
 
 
-func test_floors_grow_and_zone_counts_never_drop() -> void:
-	var prev_area := 0
-	var prev_zones := 0
+func test_floors_never_shrink_and_zone_counts_never_drop() -> void:
+	# Instance floors come in size bands (floors 1-2 112x80, 3-5 128x96): a
+	# deeper floor is never smaller nor has fewer zones, and the set grows.
 	var prev_w := 0
 	var prev_h := 0
+	var prev_zones := 0
+	var first_area := 0
+	var last_area := 0
 	for floor_id in _floor_ids():
 		var f := FloorFile.load(FloorFile.floor_path(floor_id))
 		if f == null:
 			fail("%s did not load" % floor_id)
 			continue
 		var area := f.walk_map.width * f.walk_map.height
-		assert_true(area > prev_area, "%s area %d grows past %d" % [floor_id, area, prev_area])
-		assert_true(f.walk_map.width > prev_w and f.walk_map.height > prev_h, "%s is wider and taller" % floor_id)
+		if first_area == 0:
+			first_area = area
+		last_area = area
+		assert_true(f.walk_map.width >= prev_w and f.walk_map.height >= prev_h, "%s is no smaller" % floor_id)
 		assert_true(f.encounter_zones.size() >= prev_zones, "%s zone count %d >= %d" % [floor_id, f.encounter_zones.size(), prev_zones])
-		prev_area = area
 		prev_w = f.walk_map.width
 		prev_h = f.walk_map.height
 		prev_zones = f.encounter_zones.size()
+	assert_true(last_area > first_area, "the last floor is larger than the first")
+
+
+func test_instance_scale_and_landings() -> void:
+	# GDD 5.2.1 / Round D: floors 1-2 are 112x80 with 4 landings, 3-5 128x96 with 6.
+	var expected := [[112, 80, 4], [112, 80, 4], [128, 96, 6], [128, 96, 6], [128, 96, 6]]
+	var ids := _floor_ids()
+	for i in range(mini(ids.size(), expected.size())):
+		var f := FloorFile.load(FloorFile.floor_path(ids[i]))
+		if f == null:
+			fail("%s did not load" % ids[i])
+			continue
+		var e: Array = expected[i]
+		assert_eq(f.schema_version, 2, "%s is a version 2 floor" % ids[i])
+		assert_eq(Vector2i(f.walk_map.width, f.walk_map.height), Vector2i(e[0], e[1]), "%s size" % ids[i])
+		assert_eq(f.landings.size(), e[2], "%s landings" % ids[i])
+		assert_eq(f.arrival, f.landings[0].position, "%s arrival is the first landing" % ids[i])
+
+
+func test_every_landing_reaches_the_stairs_on_a_balanced_route() -> void:
+	for floor_id in _floor_ids():
+		var f := FloorFile.load(FloorFile.floor_path(floor_id))
+		if f == null:
+			fail("%s did not load" % floor_id)
+			continue
+		var shortest := 1 << 30
+		var longest := 0
+		for l in f.landings:
+			var route := _route(f, l.position)
+			assert_false(route.is_empty(), "%s: landing %s reaches the stairs" % [floor_id, l.id])
+			assert_true(f.is_on_outer_third(l.position), "%s: landing %s is on the edge" % [floor_id, l.id])
+			assert_null(f.zone_at(l.position), "%s: landing %s is outside every zone" % [floor_id, l.id])
+			if not route.is_empty():
+				shortest = mini(shortest, route.size())
+				longest = maxi(longest, route.size())
+		assert_true(float(longest) <= float(shortest) * 1.2,
+				"%s: landing routes %d..%d are within 20%% of each other" % [floor_id, shortest, longest])
+
+
+func test_each_landing_has_its_own_pack_on_the_way() -> void:
+	# Arrival protection: a landing is outside every zone, and the first zone on
+	# its route belongs to that landing alone.
+	for floor_id in _floor_ids():
+		var f := FloorFile.load(FloorFile.floor_path(floor_id))
+		if f == null:
+			fail("%s did not load" % floor_id)
+			continue
+		var firsts := {}
+		for l in f.landings:
+			for p in _route(f, l.position):
+				var zone := f.zone_at(p)
+				if zone != null:
+					assert_false(firsts.has(zone.id), "%s: landing %s shares its first pack %s" % [floor_id, l.id, zone.id])
+					firsts[zone.id] = true
+					break
+		assert_eq(firsts.size(), f.landings.size(), "%s: one first pack per landing" % floor_id)
+
+
+func test_stairs_guard_and_chest() -> void:
+	for floor_id in _floor_ids():
+		var f := FloorFile.load(FloorFile.floor_path(floor_id))
+		if f == null:
+			fail("%s did not load" % floor_id)
+			continue
+		var guard := f.stairs_zone()
+		assert_not_null(guard, "%s: the stairs stand in a zone" % floor_id)
+		if guard == null:
+			continue
+		assert_true(guard.guards_stairs, "%s: zone %s guards the stairs" % [floor_id, guard.id])
+		assert_false(guard.optional, "%s: the stairs guard is not optional" % floor_id)
+		var guards := 0
+		for zone in f.encounter_zones:
+			if zone.guards_stairs:
+				guards += 1
+		assert_eq(guards, 1, "%s: one stairs guard" % floor_id)
+		var chest := false
+		for c in f.chests:
+			if guard.rect.has_point(c.position):
+				chest = true
+		assert_true(chest, "%s: a chest stands in the stairs hall" % floor_id)
+
+
+func test_environment_objects_present() -> void:
+	for floor_id in _floor_ids():
+		var f := FloorFile.load(FloorFile.floor_path(floor_id))
+		if f == null:
+			fail("%s did not load" % floor_id)
+			continue
+		var kinds := {}
+		for p in f.props:
+			kinds[p.kind] = true
+		for kind in PropData.KINDS:
+			assert_true(kinds.has(kind), "%s has a %s" % [floor_id, kind])
+		var states := {}
+		for d in f.doors:
+			states[d.state] = true
+		assert_true(states.has(DoorData.STATE_CLOSED), "%s has a closed door" % floor_id)
+		assert_true(states.has(DoorData.STATE_LOCKED), "%s has a locked door" % floor_id)
+		assert_true(f.respawn_pack_seconds > 0 and f.respawn_boss_seconds >= f.respawn_pack_seconds,
+				"%s respawn timers" % floor_id)
 
 
 func test_shortest_route_crosses_a_zone() -> void:
@@ -287,8 +427,9 @@ func test_every_route_crosses_a_required_zone() -> void:
 			if zone != null:
 				blocked.merge(_rect_tiles(zone.rect))
 		blocked.erase(f.stairs)  # a blocked goal would change path_to's meaning
-		assert_true(f.walk_map.path_to(f.arrival, f.stairs, blocked).is_empty(),
-				"%s: no route to the stairs avoids every required zone" % floor_id)
+		for landing in f.landing_positions():
+			assert_true(f.walk_map.path_to(landing, f.stairs, blocked).is_empty(),
+					"%s: no route from %s to the stairs avoids every required zone" % [floor_id, str(landing)])
 
 
 func test_optional_zones_are_off_the_route() -> void:
@@ -305,8 +446,9 @@ func test_optional_zones_are_off_the_route() -> void:
 				fail("%s: zone %s missing" % [floor_id, str(z.get("id"))])
 				continue
 			assert_false(zone.rect.has_point(f.stairs), "%s %s: stairs are not in a side area" % [floor_id, zone.id])
-			assert_false(f.walk_map.path_to(f.arrival, f.stairs, _rect_tiles(zone.rect)).is_empty(),
-					"%s %s: the stairs stay reachable without entering the side area" % [floor_id, zone.id])
+			for landing in f.landing_positions():
+				assert_false(f.walk_map.path_to(landing, f.stairs, _rect_tiles(zone.rect)).is_empty(),
+						"%s %s: the stairs stay reachable from %s without entering the side area" % [floor_id, zone.id, str(landing)])
 
 
 func test_boss_guards_the_stairs_on_the_last_floor() -> void:
@@ -332,10 +474,13 @@ func test_boss_guards_the_stairs_on_the_last_floor() -> void:
 			assert_true(boss.rect.has_point(n), "tile %s next to the stairs is inside the boss zone" % str(n))
 
 
-func test_full_clear_level_matches_each_floor_budget() -> void:
-	# A solo who clears every zone (and takes the stairs, earning the floor-clear
-	# bonus) arrives on each floor at its budget level: F1 1, F2 2, F3 2, F4 3, F5 3.
-	var cumulative := 0
+func test_journey_level_matches_each_floor_budget() -> void:
+	# A solo who takes the shortest route from any landing, fights what is on
+	# it, clears the side areas and takes the stairs (earning the floor-clear
+	# bonus) arrives on each floor at its budget level: F1 1, F2 2, F3 2, F4 3,
+	# F5 3. Checked for the poorest and the richest landing.
+	var low := 0
+	var high := 0
 	for floor_id in _floor_ids():
 		var f := FloorFile.load(FloorFile.floor_path(floor_id))
 		if f == null:
@@ -344,9 +489,16 @@ func test_full_clear_level_matches_each_floor_budget() -> void:
 		var budget_v: Variant = _raw(floor_id).get("budget", {})
 		var budget: Dictionary = budget_v if typeof(budget_v) == TYPE_DICTIONARY else {}
 		var level := DictUtil.to_int(budget.get("level", 0), 0)
-		assert_eq(Experience.level_for_xp(cumulative), level,
-				"%s: a full-clear solo arrives with %d XP" % [floor_id, cumulative])
-		cumulative += _floor_xp(f) + FLOOR_CLEAR_XP
+		assert_eq(Experience.level_for_xp(low), level, "%s: the poorest journey arrives with %d XP" % [floor_id, low])
+		assert_eq(Experience.level_for_xp(high), level, "%s: the richest journey arrives with %d XP" % [floor_id, high])
+		var xps := _journey_xps(f)
+		var lo := xps[0]
+		var hi := xps[0]
+		for xp in xps:
+			lo = mini(lo, xp)
+			hi = maxi(hi, xp)
+		low += lo + FLOOR_CLEAR_XP
+		high += hi + FLOOR_CLEAR_XP
 
 
 func test_budget_levels_follow_the_floor_clear_curve() -> void:
@@ -371,7 +523,11 @@ func test_a_party_of_three_can_face_the_boss() -> void:
 			fail("%s did not load" % ids[i])
 			return
 		if i < ids.size() - 1:
-			cumulative += _floor_xp(f)
+			var xps := _journey_xps(f)
+			var best := 0
+			for xp in xps:
+				best = maxi(best, xp)
+			cumulative += best
 			continue
 		var party_level := Experience.level_for_xp(cumulative / 3 + FLOOR_CLEAR_XP * i)
 		for zone in f.encounter_zones:

@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
-"""Generate the placeholder art atlases.
+"""Generate the art atlases.
 
-1. assets/tiles/dungeon_tiles.png - the dungeon tileset described below.
+1. assets/tiles/dungeon_tiles.png (+ .tres, .json, light_soft.png) - the
+   dungeon tileset, built by tools/build_tiles.py (Round D art refresh). The
+   functions below for columns 5-8 (player, monster, unconscious, selection)
+   are still used by it; the old one-row placeholder (columns 0-4) is kept
+   only as `generate()` for reference.
 2. assets/icons/entity_icons.png (+ entity_icons.json, entity_icons.tres) -
    one row of 32x32 icons for classes, monsters and item kinds; see ICONS.
    The json maps an icon id (class id, monster id, item kind, chest_closed /
@@ -23,7 +27,7 @@ TileSet source 0 in assets/tiles/dungeon_tiles.tres and by FloorView):
 Deterministic (fixed seed), so re-running produces identical files.
 Requires Pillow. Usage (from the repo root):
     python3 tools/gen_tileset.py              # both atlases (+ icon json/tres)
-    python3 tools/gen_tileset.py output.png   # only the dungeon tileset, to output.png
+    python3 tools/gen_tileset.py OUT_DIR      # only the dungeon tileset files, into OUT_DIR
 """
 
 import json
@@ -617,15 +621,13 @@ def write_icons(root):
 
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import build_tiles  # the dungeon atlas (needs this module's figures)
     if len(sys.argv) > 1:
-        out = sys.argv[1]
-    else:
-        out = os.path.join(root, "assets", "tiles", "dungeon_tiles.png")
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    generate().save(out, optimize=True)
-    print("wrote %s (%dx%d)" % (out, TILE * TILE_COUNT, TILE))
-    if len(sys.argv) == 1:
-        write_icons(root)
+        build_tiles.write_all(sys.argv[1])
+        return
+    build_tiles.write_all(os.path.join(root, "assets", "tiles"))
+    write_icons(root)
 
 
 if __name__ == "__main__":
